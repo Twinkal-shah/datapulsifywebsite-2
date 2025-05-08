@@ -1,37 +1,13 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/card';
 import { Activity, User } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
 const AccountDashboard = () => {
-  const { user, loading, logout } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login');
-    }
-  }, [loading, user, navigate]);
-
-  if (loading) {
-    return (
-      <div className="gradient-bg min-h-screen flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="gradient-bg min-h-screen">
       <div className="container-section">
         <h1 className="section-title">Account Dashboard</h1>
-        <p className="section-subtitle">Welcome back, {user.name}</p>
+        <p className="section-subtitle">Welcome back, User</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* User Profile Card */}
@@ -42,9 +18,9 @@ const AccountDashboard = () => {
                   <User className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold">{user.name}</h3>
-                  <p className="text-gray-400">{user.email}</p>
-                  <p className="text-sm text-gray-500">Member since {new Date(user.member_since).toLocaleDateString()}</p>
+                  <h3 className="text-xl font-semibold">User Name</h3>
+                  <p className="text-gray-400">user@example.com</p>
+                  <p className="text-sm text-gray-500">Member since 01/01/2023</p>
                 </div>
               </div>
             </div>
@@ -63,7 +39,7 @@ const AccountDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="p-4 bg-gray-800/50 rounded-xl">
               <p className="text-gray-400 mb-2">Current Plan</p>
-              <p className="text-2xl font-bold">{user.current_plan}</p>
+              <p className="text-2xl font-bold">Free Plan</p>
             </div>
             
             <div className="p-4 bg-gray-800/50 rounded-xl">
@@ -76,12 +52,7 @@ const AccountDashboard = () => {
           </div>
         </Card>
 
-        <Button 
-          onClick={logout} 
-          className="btn-secondary"
-        >
-          Logout
-        </Button>
+        <Button className="btn-secondary">Logout</Button>
       </div>
     </div>
   );
