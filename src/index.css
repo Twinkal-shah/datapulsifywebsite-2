@@ -1,0 +1,102 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@100;200;300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-black text-white font-sora antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-white text-black py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all hover:bg-gray-200 inline-block text-center;
+  }
+  
+  .btn-secondary {
+    @apply border border-white text-white py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all hover:bg-white/10 inline-block text-center;
+  }
+  
+  .container-section {
+    @apply container mx-auto px-4 md:px-8 max-w-6xl py-8 md:py-12;
+  }
+  
+  .section-title {
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold mb-3 md:mb-4 text-center;
+  }
+  
+  .section-subtitle {
+    @apply text-base md:text-lg text-gray-300 mb-8 md:mb-12 text-center max-w-3xl mx-auto;
+  }
+  
+  .card-effect {
+    @apply transition-all duration-300 hover:translate-y-[-5px] hover:shadow-2xl;
+  }
+  
+  .feature-card {
+    @apply bg-gray-900 p-5 md:p-6 rounded-2xl card-effect h-full border border-gray-800;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-br from-gray-900 to-black;
+  }
+  
+  .animate-delay-75 {
+    animation-delay: 75ms;
+  }
+  
+  .animate-delay-150 {
+    animation-delay: 150ms;
+  }
+  
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+  
+  .animate-delay-500 {
+    animation-delay: 500ms;
+  }
+}
