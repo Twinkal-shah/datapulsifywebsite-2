@@ -1,29 +1,40 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// Define the shape of the AuthContext
-const AuthContext = createContext(null);
+interface User {
+  name: string;
+  email: string;
+  member_since: string;
+  current_plan: string;
+}
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  login: (userData: User) => void;
+  logout: () => void;
+}
 
-  useEffect(() => {
-    // Simulate fetching user data (replace with real API call)
-    const fetchUser = async () => {
-      setLoading(true);
-      // Simulate a delay
-      setTimeout(() => {
-        const storedUser = JSON.parse(localStorage.getItem('user'));
-        setUser(storedUser);
-        setLoading(false);
-      }, 1000);
-    };
+// Mock user data for development
+const mockUser: User = {
+  name: "Demo User",
+  email: "demo@example.com",
+  member_since: "2024-01-01",
+  current_plan: "Professional"
+};
 
-    fetchUser();
-  }, []);
+const AuthContext = createContext<AuthContextType>({
+  user: mockUser,
+  loading: false,
+  login: () => {},
+  logout: () => {},
+});
 
-  const login = (userData) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(mockUser); // Initialize with mock data
+  const [loading, setLoading] = useState(false);
+
+  const login = (userData: User) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
   };
@@ -40,6 +51,7 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => {
-  return useContext(AuthContext);
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  return context;
 };
