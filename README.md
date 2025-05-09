@@ -71,3 +71,48 @@ Yes it is!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+# Datapulsify Website
+
+## Environment Configuration
+
+To set up the authentication system correctly, you need to configure the following environment variables:
+
+```env
+# Supabase Configuration
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Environment
+VITE_APP_ENV=development # or production
+```
+
+### Supabase Configuration
+
+1. Go to your Supabase project settings
+2. Under "Authentication" > "URL Configuration":
+   - Add your production URL (e.g., https://datapulsify.com)
+   - Add your development URL (http://localhost:3000)
+3. Copy your project URL and anon key from the project settings
+4. Create a `.env` file in the root directory
+5. Add the environment variables as shown above
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+## Production
+
+```bash
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
