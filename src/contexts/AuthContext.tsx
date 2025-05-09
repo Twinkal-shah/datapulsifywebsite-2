@@ -7,6 +7,7 @@ interface User {
   member_since: string;
   current_plan: string;
   isAddonUser?: boolean;
+  gscProperty?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +16,8 @@ interface AuthContextType {
   login: (userData: User) => void;
   logout: () => void;
   isAddonAuthenticated: () => boolean;
+  getGSCToken: () => string | null;
+  getGSCProperty: () => string | null;
 }
 
 // Mock user data for development
@@ -31,6 +34,8 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   logout: () => {},
   isAddonAuthenticated: () => false,
+  getGSCToken: () => null,
+  getGSCProperty: () => null,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -41,19 +46,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check for existing session on mount
     const checkSession = () => {
       const savedUser = localStorage.getItem('user');
-      const addonToken = localStorage.getItem('addon_token');
+      const gscToken = localStorage.getItem('gsc_token');
       
       if (savedUser) {
         const userData = JSON.parse(savedUser);
         setUser(userData);
-      } else if (addonToken) {
-        // If we have an addon token but no user, create a temporary user
+      } else if (gscToken) {
+        // If we have a GSC token but no user, create a temporary user
         setUser({
-          name: "Add-on User",
-          email: "addon@example.com",
+          name: "GSC User",
+          email: "gsc@example.com",
           member_since: new Date().toISOString(),
-          current_plan: "Add-on Plan",
-          isAddonUser: true
+          current_plan: "GSC Plan",
+          isAddonUser: true,
+          gscProperty: localStorage.getItem('gsc_property') || undefined
         });
       }
       setLoading(false);
@@ -65,7 +71,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = (userData: User) => {
     const enhancedUserData = {
       ...userData,
-      isAddonUser: !!localStorage.getItem('addon_token')
+      isAddonUser: !!localStorage.getItem('gsc_token'),
+      gscProperty: localStorage.getItem('gsc_property') || userData.gscProperty
     };
     setUser(enhancedUserData);
     localStorage.setItem('user', JSON.stringify(enhancedUserData));
@@ -74,12 +81,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
-    localStorage.removeItem('addon_token');
-    localStorage.removeItem('addon_state');
+    localStorage.removeItem('gsc_token');
+    localStorage.removeItem('gsc_property');
   };
 
   const isAddonAuthenticated = () => {
-    return !!localStorage.getItem('addon_token');
+    return !!localStorage.getItem('gsc_token');
+  };
+
+  const getGSCToken = () => {
+    return localStorage.getItem('gsc_token');
+  };
+
+  const getGSCProperty = () => {
+    return localStorage.getItem('gsc_property');
   };
 
   return (
@@ -88,7 +103,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading, 
       login, 
       logout,
-      isAddonAuthenticated
+      isAddonAuthenticated,
+      getGSCToken,
+      getGSCProperty
     }}>
       {children}
     </AuthContext.Provider>

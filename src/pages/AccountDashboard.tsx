@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/card';
-import { Activity, User, Key, Zap, Crown } from 'lucide-react';
+import { Activity, User, Key, Zap, Crown, Globe } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 
@@ -36,13 +36,13 @@ const AccountDashboard = () => {
             <h1 className="text-4xl font-bold text-white mb-2">Account Dashboard</h1>
             <p className="text-gray-400 text-lg">
               Welcome back, {auth.user?.name || 'User'}
-              {auth.user?.isAddonUser && ' (Google Sheets Add-on User)'}
+              {auth.user?.isAddonUser && ' (Google Search Console User)'}
             </p>
           </div>
 
           {/* Main Grid Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* User Profile Card - Spans 1 column */}
+            {/* User Profile Card */}
             <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
               <div className="flex items-start gap-6">
                 <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl">
@@ -54,14 +54,27 @@ const AccountDashboard = () => {
                   <p className="text-sm text-gray-500">
                     Member since {auth.user?.member_since ? new Date(auth.user.member_since).toLocaleDateString() : 'Jan 1, 2024'}
                   </p>
-                  {auth.isAddonAuthenticated() && (
-                    <p className="text-sm text-emerald-500">✓ Add-on Connected</p>
-                  )}
                 </div>
               </div>
             </Card>
 
-            {/* Current Plan Card - Spans 2 columns */}
+            {/* GSC Property Card */}
+            {auth.user?.isAddonUser && (
+              <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+                <div className="flex items-start gap-6">
+                  <div className="p-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl">
+                    <Globe className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold text-white">GSC Property</h3>
+                    <p className="text-gray-400">{auth.user.gscProperty}</p>
+                    <p className="text-sm text-emerald-500">✓ Connected</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Current Plan Card */}
             <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl lg:col-span-2">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
@@ -106,23 +119,10 @@ const AccountDashboard = () => {
                     ></div>
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Storage Used</span>
-                    <span className="text-white">0 GB / 10 GB</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full" 
-                      style={{ width: '0%' }}
-                    ></div>
-                  </div>
-                </div>
               </div>
             </Card>
 
-            {/* License Key Section - Spans 2 columns */}
+            {/* License Key Section */}
             <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl lg:col-span-2">
               <div className="flex items-center gap-4 mb-6">
                 <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl">
