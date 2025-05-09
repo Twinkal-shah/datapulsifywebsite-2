@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/card';
-import { Activity, User, Crown, AlertCircle, Settings } from 'lucide-react';
+import { Activity, User, Crown, AlertCircle, Settings, FileText, Calendar, Key } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 
 // Interface for user installation data
 interface UserInstallation {
@@ -19,7 +20,11 @@ interface UserInstallation {
   subscription_type: string;
   usage_count: number;
   last_active_date: string;
+  subscription_start_date: string | null;
   subscription_end_date: string | null;
+  document_info: string | null;
+  lifetime_deal_status: string;
+  license_key: string | null;
   full_name: string;
 }
 
@@ -31,6 +36,7 @@ const AccountDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [licenseKey, setLicenseKey] = useState('');
   const [formData, setFormData] = useState({
     business_type: '',
     business_size: ''
@@ -120,16 +126,33 @@ const AccountDashboard = () => {
 
   const handleSaveSettings = async () => {
     try {
-      const { error } = await supabase
+      if (!auth.user?.email) {
+        throw new Error('User email not found');
+      }
+
+      // Validate input
+      if (!formData.business_type || !formData.business_size) {
+        toast({
+          title: "Validation Error",
+          description: "Please select both business type and size",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update the database
+      const { error: updateError } = await supabase
         .from('user_installations')
         .update({
           business_type: formData.business_type,
-          business_size: formData.business_size
+          business_size: formData.business_size,
+          updated_at: new Date().toISOString()
         })
-        .eq('email', auth.user?.email);
+        .eq('email', auth.user.email);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
+      // Update local state
       setInstallationData(prev => prev ? {
         ...prev,
         business_type: formData.business_type,
@@ -142,9 +165,10 @@ const AccountDashboard = () => {
         description: "Your account settings have been updated successfully.",
       });
     } catch (error) {
+      console.error('Error updating settings:', error);
       toast({
         title: "Update Failed",
-        description: "Failed to update settings. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update settings. Please try again.",
         variant: "destructive",
       });
     }
@@ -157,6 +181,77 @@ const AccountDashboard = () => {
     const diffTime = end.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
+  };
+
+  const calculateTrialDaysLeft = () => {
+    if (!installationData?.subscription_start_date || !installationData?.subscription_end_date) {
+      return null;
+    }
+
+    const end = new Date(installationData.subscription_end_date);
+    const now = new Date();
+    const diffTime = end.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
+  const handleActivateLicense = async () => {
+    try {
+      if (!licenseKey.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter a license key",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if license key is already used
+      const { data: existingLicense, error: licenseError } = await supabase
+        .from('user_installations')
+        .select('id')
+        .eq('license_key', licenseKey)
+        .single();
+
+      if (existingLicense) {
+        toast({
+          title: "Error",
+          description: "This license key has already been used",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Activate the license
+      const { error: updateError } = await supabase
+        .from('user_installations')
+        .update({
+          lifetime_deal_status: 'active',
+          license_key: licenseKey
+        })
+        .eq('email', auth.user?.email);
+
+      if (updateError) throw updateError;
+
+      setInstallationData(prev => prev ? {
+        ...prev,
+        lifetime_deal_status: 'active',
+        license_key: licenseKey
+      } : null);
+
+      setLicenseKey('');
+      toast({
+        title: "Success",
+        description: "License key activated successfully!",
+      });
+    } catch (error) {
+      console.error('Error activating license:', error);
+      toast({
+        title: "Error",
+        description: "Failed to activate license key. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (auth.loading || loading) {
@@ -300,7 +395,105 @@ const AccountDashboard = () => {
                 </div>
               </Card>
             )}
+
+            {/* Document Info Card */}
+            <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+              <div className="flex items-start gap-6">
+                <div className="p-4 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl">
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-white">Working Sheet</h3>
+                  <p className="text-gray-400">{installationData?.document_info || 'No document connected'}</p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Last Active Card */}
+            <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+              <div className="flex items-start gap-6">
+                <div className="p-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl">
+                  <Calendar className="w-8 h-8 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-white">Last Active</h3>
+                  <p className="text-gray-400">
+                    {installationData?.last_active_date
+                      ? new Date(installationData.last_active_date).toLocaleDateString()
+                      : 'Never'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Subscription Info Card */}
+            <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+              <div className="flex items-start gap-6">
+                <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl">
+                  <Crown className="w-8 h-8 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-white">Subscription Details</h3>
+                  {installationData?.subscription_start_date && (
+                    <p className="text-gray-400">
+                      Started: {new Date(installationData.subscription_start_date).toLocaleDateString()}
+                    </p>
+                  )}
+                  {calculateTrialDaysLeft() !== null && (
+                    <p className="text-yellow-400">
+                      Free trial ends in {calculateTrialDaysLeft()} days
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
           </div>
+
+          {/* Lifetime Deal Card */}
+          <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+            <div className="flex items-start gap-6">
+              <div className="p-4 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl">
+                <Key className="w-8 h-8 text-white" />
+              </div>
+              <div className="flex-1 space-y-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Lifetime Deal</h3>
+                  <p className="text-gray-400">
+                    {installationData?.lifetime_deal_status === 'active' 
+                      ? 'Activated' 
+                      : 'Not Activated'}
+                  </p>
+                </div>
+
+                {installationData?.lifetime_deal_status !== 'active' && (
+                  <div className="space-y-4">
+                    <div className="flex gap-4">
+                      <Input
+                        type="text"
+                        placeholder="Enter license key"
+                        value={licenseKey}
+                        onChange={(e) => setLicenseKey(e.target.value)}
+                        className="flex-1 bg-gray-800 border-gray-700 text-white"
+                      />
+                      <Button
+                        onClick={handleActivateLicense}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600"
+                      >
+                        Activate
+                      </Button>
+                    </div>
+                    <Button
+                      onClick={() => window.location.href = '/lifetimedeal'}
+                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-600"
+                    >
+                      Get Lifetime Deal
+                    </Button>
+                    <p className="text-yellow-400 text-sm">Ends in 3 days</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
 
           {/* Settings Section */}
           <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
