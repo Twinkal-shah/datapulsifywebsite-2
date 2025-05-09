@@ -12,6 +12,13 @@ const AccountDashboard = () => {
   const [licenseKey, setLicenseKey] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    // Redirect if not authenticated
+    if (!auth.user && !auth.loading) {
+      navigate('/');
+    }
+  }, [auth.user, auth.loading, navigate]);
+
   if (auth.loading) {
     return (
       <div className="gradient-bg min-h-screen flex items-center justify-center">
@@ -27,7 +34,10 @@ const AccountDashboard = () => {
           {/* Header Section */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-white mb-2">Account Dashboard</h1>
-            <p className="text-gray-400 text-lg">Welcome back, {auth.user?.name || 'User'}</p>
+            <p className="text-gray-400 text-lg">
+              Welcome back, {auth.user?.name || 'User'}
+              {auth.user?.isAddonUser && ' (Google Sheets Add-on User)'}
+            </p>
           </div>
 
           {/* Main Grid Layout */}
@@ -44,6 +54,9 @@ const AccountDashboard = () => {
                   <p className="text-sm text-gray-500">
                     Member since {auth.user?.member_since ? new Date(auth.user.member_since).toLocaleDateString() : 'Jan 1, 2024'}
                   </p>
+                  {auth.isAddonAuthenticated() && (
+                    <p className="text-sm text-emerald-500">✓ Add-on Connected</p>
+                  )}
                 </div>
               </div>
             </Card>

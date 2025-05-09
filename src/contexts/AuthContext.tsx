@@ -6,6 +6,7 @@ interface User {
   email: string;
   member_since: string;
   current_plan: string;
+  isAddonUser?: boolean;
 }
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
   loading: boolean;
   login: (userData: User) => void;
   logout: () => void;
+  isAddonAuthenticated: () => boolean;
 }
 
 // Mock user data for development
@@ -24,28 +26,70 @@ const mockUser: User = {
 };
 
 const AuthContext = createContext<AuthContextType>({
-  user: mockUser,
+  user: null,
   loading: false,
   login: () => {},
   logout: () => {},
+  isAddonAuthenticated: () => false,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(mockUser); // Initialize with mock data
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for existing session on mount
+    const checkSession = () => {
+      const savedUser = localStorage.getItem('user');
+      const addonToken = localStorage.getItem('addon_token');
+      
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+      } else if (addonToken) {
+        // If we have an addon token but no user, create a temporary user
+        setUser({
+          name: "Add-on User",
+          email: "addon@example.com",
+          member_since: new Date().toISOString(),
+          current_plan: "Add-on Plan",
+          isAddonUser: true
+        });
+      }
+      setLoading(false);
+    };
+    
+    checkSession();
+  }, []);
 
   const login = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+    const enhancedUserData = {
+      ...userData,
+      isAddonUser: !!localStorage.getItem('addon_token')
+    };
+    setUser(enhancedUserData);
+    localStorage.setItem('user', JSON.stringify(enhancedUserData));
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('addon_token');
+    localStorage.removeItem('addon_state');
+  };
+
+  const isAddonAuthenticated = () => {
+    return !!localStorage.getItem('addon_token');
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      login, 
+      logout,
+      isAddonAuthenticated
+    }}>
       {children}
     </AuthContext.Provider>
   );
