@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getRedirectUrl } from './utils';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -12,6 +13,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
   throw new Error('Supabase configuration is incomplete. Check your environment variables.');
 }
+
+const redirectUrl = `${getRedirectUrl()}/dashboard`;
+console.log('Auth redirect URL:', redirectUrl);
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
