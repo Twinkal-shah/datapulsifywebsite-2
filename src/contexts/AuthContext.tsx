@@ -20,14 +20,6 @@ interface AuthContextType {
   getGSCProperty: () => string | null;
 }
 
-// Mock user data for development
-const mockUser: User = {
-  name: "Demo User",
-  email: "demo@example.com",
-  member_since: "2024-01-01",
-  current_plan: "Professional"
-};
-
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: false,
