@@ -1,12 +1,26 @@
-
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
+import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const navigate = useNavigate();
+  const auth = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +34,49 @@ const Navbar = () => {
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleLogin = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      // The redirect will happen automatically
+    } catch (error) {
+      console.error('Error during login:', error);
+      toast({
+        title: "Login Error",
+        description: error instanceof Error ? error.message : "Failed to login",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await auth.logout();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out",
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      toast({
+        title: "Logout Error",
+        description: error instanceof Error ? error.message : "Failed to logout",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -41,21 +98,47 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex space-x-10">
+          <div className="hidden md:flex items-center space-x-8">
             <a href="/#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
             <a href="/#how-it-works" className="text-gray-300 hover:text-white transition-colors">How It Works</a>
             <a href="/#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
-            {/* <Link to="/lifetime-deal" className="text-gray-300 hover:text-white transition-colors">Lifetime Deal</Link> */}
-            <a href="/#community" className="text-gray-300 hover:text-white transition-colors">Community</a>
-            <a href="/#faq" className="text-gray-300 hover:text-white transition-colors">FAQ</a>
-          </div>
-
-          <div className="hidden md:flex items-center gap-4">
-            <a href="#" className="text-gray-300 hover:text-white transition-colors">
-              Login
-            </a>
-            <Link to="/LifetimeDeal" className="btn-primary">
-            Claim Lifetime Deal
+            
+            {auth.user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="focus:outline-none">
+                  <Avatar className="h-8 w-8 hover:ring-2 hover:ring-white/20 transition-all">
+                    <AvatarImage src={auth.user.avatar_url || `https://avatar.vercel.sh/${auth.user.email}`} />
+                    <AvatarFallback>{auth.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                    <User className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={handleLogout}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                  >
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
+                onClick={handleLogin}
+                className="bg-white text-black px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Login with Google
+              </button>
+            )}
+            <Link 
+              to="/LifetimeDeal" 
+              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors"
+            >
+              Claim Lifetime Deal
             </Link>
           </div>
 
@@ -83,23 +166,56 @@ const Navbar = () => {
           <a href="/#pricing" className="text-gray-300 hover:text-white py-2 transition-colors" onClick={toggleMenu}>
             Pricing
           </a>
-          {/* <Link to="/LifetimeDeal" className="text-gray-300 hover:text-white py-2 transition-colors" onClick={toggleMenu}>
-          Claim Lifetime Deal
-          </Link> */}
-          <a href="/#community" className="text-gray-300 hover:text-white py-2 transition-colors" onClick={toggleMenu}>
-            Community
-          </a>
-          <a href="/#faq" className="text-gray-300 hover:text-white py-2 transition-colors" onClick={toggleMenu}>
-            FAQ
-          </a>
-          <div className="pt-4 border-t border-gray-800 flex flex-col gap-4">
-            <a href="#" className="text-gray-300 hover:text-white transition-colors">
-              Login
-            </a>
-            <Link to="/LifetimeDeal" className="btn-primary text-center" onClick={toggleMenu}>
+          
+          {auth.user ? (
+            <>
+              <div className="flex items-center space-x-3 py-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={auth.user.avatar_url || `https://avatar.vercel.sh/${auth.user.email}`} />
+                  <AvatarFallback>{auth.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="text-white font-medium">{auth.user.name}</span>
+                  <span className="text-gray-400 text-sm">{auth.user.email}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  navigate('/dashboard');
+                  toggleMenu();
+                }}
+                className="text-gray-300 hover:text-white py-2 transition-colors text-left"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  toggleMenu();
+                }}
+                className="text-red-400 hover:text-red-300 py-2 transition-colors text-left"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                handleLogin();
+                toggleMenu();
+              }}
+              className="bg-white text-black px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors w-full"
+            >
+              Login with Google
+            </button>
+          )}
+          <Link 
+            to="/LifetimeDeal" 
+            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors text-center"
+            onClick={toggleMenu}
+          >
             Claim Lifetime Deal
-            </Link>
-          </div>
+          </Link>
         </div>
       </div>
     </nav>
