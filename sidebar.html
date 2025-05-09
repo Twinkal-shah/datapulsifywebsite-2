@@ -1,0 +1,3898 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      /* Color Variables */
+      --primary-color: #1A1A1A;
+      --primary-hover: #0E0E0E;
+      --secondary-color: #4B5563;
+      --accent-color: #3B82F6;
+      --error-color: #EF4444;
+      --background-color: #F9FAFB;
+      --card-bg: #FFFFFF;
+      --text-color: #1A1A1A;
+      --text-secondary: #4B5563;
+      --border-color: #E5E7EB;
+      --hover-color: #F3F4F6;
+      --shadow-color: rgba(0, 0, 0, 0.08);
+      --success-color: #10B981;
+      --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+
+      /* Spacing Variables - 8pt grid system */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-10: 40px;
+      --space-12: 48px;
+
+      /* Border Radius */
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-full: 9999px;
+
+      /* Transitions */
+      --transition-fast: 0.2s ease-in-out;
+      --transition-normal: 0.3s ease-in-out;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      color: var(--text-color);
+      margin: 0;
+      padding: var(--space-4);
+      padding-bottom: 112px !important;
+      background-color: var(--background-color);
+      line-height: 1.5;
+      font-size: 14px;
+      max-width: 320px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      font-weight: 600;
+      line-height: 1.2;
+      margin-bottom: var(--space-4);
+      color: var(--text-color);
+    }
+
+    h1,
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    p {
+      margin-bottom: var(--space-4);
+    }
+
+    /* Card styling */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--card-shadow);
+      padding: var(--space-4);
+      margin-bottom: var(--space-6);
+      border: 1px solid var(--border-color);
+      transition: box-shadow var(--transition-normal);
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Progress indicator */
+    .progress-indicator {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: var(--space-8);
+      position: relative;
+    }
+
+    .progress-indicator::before {
+      content: '';
+      position: absolute;
+      top: 16px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--border-color);
+      z-index: 1;
+    }
+
+    .progress-step {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 60px;
+    }
+
+    .step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
+      background-color: var(--card-bg);
+      border: 2px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-2);
+      transition: all var(--transition-normal);
+      font-weight: 600;
+    }
+
+    .step-circle.active {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      color: white;
+    }
+
+    .step-circle.completed {
+      background-color: var(--success-color);
+      border-color: var(--success-color);
+      color: white;
+    }
+
+    .step-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .step-label.active {
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+
+    /* Tab navigation */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: var(--space-6);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab {
+      padding: var(--space-3) var(--space-4);
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-secondary);
+      position: relative;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      transition: color var(--transition-fast);
+    }
+
+    .tab:hover {
+      color: var(--primary-color);
+    }
+
+    .tab.active {
+      color: var(--primary-color);
+    }
+
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background-color: var(--primary-color);
+      border-radius: 3px 3px 0 0;
+    }
+
+    .tab-icon {
+      font-size: 18px;
+    }
+
+    /* Enhanced form elements */
+    .form-group {
+      margin-bottom: var(--space-6);
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: var(--space-3);
+      color: var(--text-color);
+      font-weight: 500;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+    }
+
+    .info-icon {
+      margin-left: var(--space-2);
+      color: var(--text-secondary);
+      cursor: help;
+      position: relative;
+      font-size: 16px;
+      opacity: 0.7;
+      transition: opacity var(--transition-fast);
+    }
+
+    .info-icon:hover {
+      opacity: 1;
+    }
+
+    .tooltip {
+      visibility: hidden;
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: var(--text-color);
+      color: white;
+      padding: var(--space-3);
+      border-radius: var(--radius-sm);
+      width: 220px;
+      font-size: 12px;
+      font-weight: normal;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+      pointer-events: none;
+      text-align: center;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    }
+
+    .tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: var(--text-color) transparent transparent transparent;
+    }
+
+    .info-icon:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      font-family: 'Bricolage Grotesque', sans-serif;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 14px;
+      color: var(--text-color);
+      background-color: white;
+      transition: all var(--transition-fast);
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: none;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: var(--space-3);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-size: 14px;
+      resize: vertical;
+      transition: all var(--transition-normal);
+    }
+
+    .textarea-counter {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: var(--space-1);
+    }
+
+    /* Toggle switch */
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--space-4);
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      margin-right: var(--space-3);
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--border-color);
+      border-radius: 24px;
+      transition: var(--transition-normal);
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: var(--transition-normal);
+    }
+
+    input:checked+.toggle-slider {
+      background-color: var(--primary-color);
+    }
+
+    input:focus+.toggle-slider {
+      box-shadow: 0 0 1px var(--primary-color);
+    }
+
+    input:checked+.toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+
+    /* Enhanced buttons */
+    button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      font-family: 'Bricolage Grotesque', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.1), 0 1px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    button.full-width {
+      width: 100%;
+      margin-top: 16px;
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--primary-color);
+      border: 1px solid var(--primary-color);
+    }
+
+    button.secondary:hover:not(:disabled) {
+      background: rgba(26, 26, 26, 0.05);
+    }
+
+    button.success {
+      background: var(--success-color);
+    }
+
+    button.success:hover:not(:disabled) {
+      background: #0da271;
+    }
+
+    button:disabled {
+      background: var(--border-color);
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none;
+    }
+
+    /* Enhanced checkbox styling */
+    .checkbox-group {
+      margin: var(--space-3) 0;
+      display: flex;
+      align-items: center;
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      transition: background-color var(--transition-fast);
+      cursor: pointer;
+      min-height: 44px;
+      border: 1px solid transparent;
+    }
+
+    .checkbox-group:hover {
+      background-color: var(--hover-color);
+      border-color: var(--border-color);
+    }
+
+    .checkbox-group.checked {
+      background-color: rgba(26, 26, 26, 0.05);
+      border-color: var(--primary-color);
+    }
+
+    .custom-checkbox {
+      position: relative;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      margin-right: var(--space-3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-normal);
+      flex-shrink: 0;
+    }
+
+    .custom-checkbox.checked {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .custom-checkbox.checked::after {
+      content: '';
+      width: 6px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+      position: absolute;
+      top: 2px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      font-weight: normal;
+      cursor: pointer;
+      user-select: none;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      min-height: 20px;
+      line-height: 1.2;
+    }
+
+    /* Section title styling */
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--primary-color);
+      margin: var(--space-6) 0 var(--space-4);
+      padding-bottom: var(--space-2);
+      border-bottom: 2px solid var(--primary-color);
+      display: flex;
+      align-items: center;
+    }
+
+    .section-title .icon {
+      margin-right: var(--space-3);
+      font-size: 18px;
+    }
+
+    /* File drop area */
+    .file-drop-area {
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      padding: var(--space-6);
+      text-align: center;
+      margin-bottom: var(--space-4);
+      transition: all var(--transition-normal);
+      cursor: pointer;
+    }
+
+    .file-drop-area:hover {
+      border-color: var(--primary-color);
+      background-color: rgba(26, 26, 26, 0.02);
+    }
+
+    .file-drop-area.drag-over {
+      border-color: var(--primary-color);
+      background-color: rgba(26, 26, 26, 0.05);
+    }
+
+    .file-drop-message {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-3);
+    }
+
+    .file-drop-icon {
+      font-size: 24px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-3);
+    }
+
+    /* Sticky bar styling */
+    .sticky-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: space-around;
+      padding: 16px;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+      z-index: 1000;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .sticky-bar button {
+      min-width: 130px;
+      margin: 0 8px;
+      flex: 1;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 14px;
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+      .sticky-bar button {
+        min-width: 100px;
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+    }
+
+    /* Breadcrumb styling */
+    .breadcrumbs {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--space-5);
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .breadcrumb-item {
+      display: flex;
+      align-items: center;
+    }
+
+    .breadcrumb-item:not(:last-child)::after {
+      content: '›';
+      margin: 0 var(--space-2);
+      color: var(--text-secondary);
+    }
+
+    .breadcrumb-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      cursor: pointer;
+      transition: color var(--transition-fast);
+    }
+
+    .breadcrumb-link:hover {
+      color: var(--primary-color);
+      text-decoration: underline;
+    }
+
+    .breadcrumb-current {
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    /* Success animation */
+    @keyframes successCheck {
+      0% {
+        transform: scale(0);
+      }
+
+      50% {
+        transform: scale(1.2);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .success-check {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--success-color);
+      color: white;
+      animation: successCheck 0.5s ease;
+      border-radius: var(--radius-md);
+    }
+
+    .success-check.show {
+      display: flex;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 88px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      color: white;
+      font-size: 14px;
+      z-index: 1000;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+      min-width: 200px;
+      max-width: 90%;
+      opacity: 0;
+      transform: translate(-50%, 20px);
+      pointer-events: none;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .toast-success {
+      background: var(--success-color);
+    }
+
+    .toast-error {
+      background: var(--error-color);
+    }
+
+    .toast-icon {
+      margin-right: var(--space-3);
+    }
+
+    /* Live preview */
+    .preview-section {
+      background-color: var(--hover-color);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-top: var(--space-4);
+    }
+
+    .preview-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: var(--space-3);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .preview-title .icon {
+      margin-right: var(--space-2);
+    }
+
+    .preview-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .preview-content.open {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .preview-table th,
+    .preview-table td {
+      padding: var(--space-2);
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .preview-table th {
+      background-color: var(--card-bg);
+      font-weight: 600;
+    }
+
+    /* Branded header */
+    .app-header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      margin: -16px -16px 16px -16px;
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      font-size: 18px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .app-logo {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+
+    .app-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: white;
+    }
+
+    /* Tab panel content */
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Dimensions and metrics icon styling */
+    .icon-dimension,
+    .icon-metric {
+      margin-right: var(--space-2);
+      color: var(--primary-color);
+      font-size: 16px;
+    }
+
+    /* Loading animation */
+    @keyframes spinner {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading {
+      text-align: center;
+      margin: var(--space-5) 0;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(26, 26, 26, 0.1);
+      border-radius: 50%;
+      border-top-color: var(--primary-color);
+      animation: spinner 1s linear infinite;
+      margin-bottom: var(--space-3);
+    }
+
+    .loading-text {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Error message styling */
+    .error {
+      color: var(--error-color);
+      background-color: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      margin-top: var(--space-3);
+      font-size: 14px;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .error-icon {
+      margin-right: var(--space-3);
+      flex-shrink: 0;
+    }
+
+    /* WhatsApp bar styling */
+    .whatsapp-bar {
+      position: fixed;
+      bottom: 48px;
+      left: 0;
+      right: 0;
+      background: white;
+      display: flex;
+      padding: 10px 16px;
+      z-index: 999;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .whatsapp-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #25D366;
+      color: white;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      font-weight: 600;
+      transition: all var(--transition-fast);
+      box-shadow: 0 2px 5px rgba(37, 211, 102, 0.3);
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .whatsapp-button:hover {
+      background: #1da851;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(37, 211, 102, 0.4);
+      color: white;
+    }
+
+    .whatsapp-icon {
+      margin-right: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .contact-link {
+      color: var(--primary-color);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color var(--transition-fast);
+    }
+
+    .contact-link:hover {
+      text-decoration: underline;
+      color: var(--primary-hover);
+    }
+
+    .preview-table td.positive {
+      color: var(--success-color);
+      font-weight: 500;
+    }
+
+    .preview-table td.negative {
+      color: var(--error-color);
+      font-weight: 500;
+    }
+
+    /* Filter section styling */
+    .filters-section {
+      background: var(--hover-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin: 12px 0;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+      overflow: hidden;
+      display: none;
+    }
+
+    .filters-section.visible {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Improved filter controls */
+    .filter-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 2fr auto;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .filter-section-title {
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 12px;
+      color: var(--primary-color);
+      display: flex;
+      align-items: center;
+    }
+
+    .filter-section-title .icon {
+      margin-right: 8px;
+    }
+
+    .active-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .filter-tag {
+      background: rgba(26, 26, 26, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 6px 12px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      color: var(--primary-color);
+    }
+
+    .remove-filter {
+      background: none;
+      border: none;
+      color: var(--primary-color);
+      font-size: 16px;
+      cursor: pointer;
+      margin-left: 8px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .filter-btn {
+      height: 40px;
+      padding: 0 16px;
+    }
+
+    /* Improved dropdown styling */
+    select {
+      height: auto;
+      min-height: 40px;
+      line-height: 1.5;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      cursor: pointer;
+      padding: 12px 36px 12px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background-color: white;
+      transition: border-color var(--transition-fast);
+      font-size: 14px;
+      color: var(--text-color);
+      width: 100%;
+      box-sizing: border-box;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    select:hover {
+      border-color: var(--primary-color);
+    }
+
+    select:focus {
+      border-color: var(--primary-color);
+      outline: none;
+    }
+
+    /* Auth section styling */
+    #auth-section {
+      position: relative;
+      z-index: 1000;
+      background: white;
+      margin-bottom: 16px;
+    }
+
+    .auth-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+      display: none;
+    }
+
+    #auth-section.show+.auth-overlay {
+      display: block;
+    }
+
+    #auth-section h3 {
+      color: var(--primary-color);
+      margin-bottom: var(--space-4);
+      font-size: 18px;
+    }
+
+    #auth-section p {
+      margin-bottom: var(--space-4);
+      line-height: 1.6;
+    }
+
+    .alert {
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin: var(--space-4) 0;
+    }
+
+    .alert-error {
+      background-color: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: var(--error-color);
+    }
+
+    #setup-code-block {
+      background-color: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: var(--space-3);
+      font-size: 12px;
+      overflow-x: auto;
+      margin-top: var(--space-3);
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+
+    #auth-button-container {
+      margin-top: var(--space-4);
+    }
+
+    /* Add these styles to ensure proper table output formatting */
+    .google-visualization-table-table,
+    .waffle {
+      margin: 0 auto !important;
+      /* Center tables horizontally */
+      text-align: center !important;
+      /* Center text */
+      font-family: 'Bricolage Grotesque', sans-serif !important;
+      /* Use the right font */
+    }
+
+    .google-visualization-table-td,
+    .google-visualization-table-th,
+    .waffle td,
+    .waffle th {
+      text-align: center !important;
+      /* Center all cells */
+      vertical-align: middle !important;
+      /* Center vertically */
+      font-family: 'Bricolage Grotesque', sans-serif !important;
+    }
+
+    /* Ensure font is applied to all spreadsheet content */
+    .grid-container,
+    .grid-table,
+    #sheet-container * {
+      font-family: 'Bricolage Grotesque', sans-serif !important;
+    }
+
+    /* Style for toggle switch in time range selector */
+    #insightsTimeRangeContainer .switch input:checked+.slider {
+      background-color: #1a73e8;
+    }
+
+    #insightsTimeRangeContainer .switch input:checked+.slider:before {
+      transform: translateX(20px);
+    }
+
+    #insightsTimeRangeContainer .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    #insightsTimeRangeContainer .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    #insightsTimeRangeContainer .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+      margin-right: 10px;
+    }
+
+    #insightsTimeRangeContainer .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    #insightsTimeRangeContainer {
+      padding: 10px;
+      margin-bottom: 16px;
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #insightsTimeRangeContainer select,
+    #insightsTimeRangeContainer input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    #insightsTimeRangeContainer .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+      margin-right: 10px;
+    }
+
+    #insightsTimeRangeContainer .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    #insightsTimeRangeContainer .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    #insightsTimeRangeContainer .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    #insightsTimeRangeContainer input:checked+.slider {
+      background-color: #1a73e8;
+    }
+
+    #insightsTimeRangeContainer input:checked+.slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Loading spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s linear infinite;
+      margin-right: var(--space-2);
+      display: none;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading .spinner {
+      display: inline-block;
+    }
+
+    /* Add these styles for the spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Add styles for the button */
+    #manageAccountBtn {
+      transition: background-color 0.3s ease;
+    }
+
+    #manageAccountBtn:hover {
+      background-color: #1557b0;
+    }
+
+    #manageAccountBtn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- App Header with Branding -->
+  <div class="app-header">
+    <div class="logo">
+      <span class="app-logo">📊</span>
+      <span class="app-title">GSC Explorer</span>
+    </div>
+  </div>
+
+  <!-- Loading indicator -->
+  <div id="loading" class="loading" style="display: none;">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Loading data...</div>
+  </div>
+
+  <!-- Auth Section -->
+  <div id="auth-section" class="card" style="display: none;">
+    <h3>Authentication Required</h3>
+    <p id="auth-message">You need to authenticate with Google Search Console to access your data.</p>
+    <div id="oauth-setup-error" style="display: none;">
+      <div class="alert alert-error">
+        <p>OAuth credentials are not set up. Please set them up first.</p>
+        <pre id="setup-code-block"></pre>
+      </div>
+    </div>
+    <div id="auth-button-container" style="margin-top: 16px;">
+      <button id="auth-button" class="primary full-width">Authorize</button>
+    </div>
+  </div>
+  <div class="auth-overlay"></div>
+
+  <!-- Toast notification container -->
+  <div id="toast" class="toast">
+    <span class="toast-icon"></span>
+    <span class="toast-message"></span>
+  </div>
+
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs">
+    <div class="breadcrumb-item">
+      <span class="breadcrumb-link" onclick="showScreen('screen1')">Home</span>
+    </div>
+    <div class="breadcrumb-item">
+      <span class="breadcrumb-current">Google Search Console</span>
+    </div>
+  </div>
+
+  <!-- Progress Indicator -->
+  <div class="progress-indicator">
+    <div class="progress-step">
+      <div class="step-circle active">1</div>
+      <div class="step-label active">Connect</div>
+    </div>
+    <div class="progress-step">
+      <div class="step-circle">2</div>
+      <div class="step-label">Configure</div>
+    </div>
+    <div class="progress-step">
+      <div class="step-circle">3</div>
+      <div class="step-label">Track</div>
+    </div>
+    <div class="progress-step">
+      <div class="step-circle">4</div>
+      <div class="step-label">Analyze</div>
+    </div>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('setupTab')">
+      <span class="tab-icon">⚙️</span>Setup
+    </div>
+    <div class="tab" onclick="showTab('dashboardTab')">
+      <span class="tab-icon">📊</span>Dashboard
+    </div>
+    <div class="tab" onclick="showTab('rankTrackerTab')">
+      <span class="tab-icon">📈</span>Rank Tracker
+    </div>
+    <div class="tab" onclick="showTab('brandKeywordsTab')">
+      <span class="tab-icon">🏷️</span>Brand Keywords
+    </div>
+    <div class="tab" onclick="showTab('dataExportTab')">
+      <span class="tab-icon">📊</span>Data Export
+    </div>
+  </div>
+
+  <!-- Setup Tab -->
+  <div id="setupTab" class="tab-panel active">
+    <div class="card">
+      <h3 class="section-title"><span class="icon">🔗</span>Connect to GSC</h3>
+
+      <div class="form-group">
+        <label for="property">
+            Select Website Property
+            <span class="info-icon">ⓘ
+              <span class="tooltip">Choose the website you want to track from your Google Search Console properties</span>
+            </span>
+          </label>
+        <select id="property" class="action">
+            <option value="">Select a website</option>
+          </select>
+      </div>
+
+      <div class="form-group">
+        <label for="dateRange">
+            Date Range
+            <span class="info-icon">ⓘ
+              <span class="tooltip">Select a time period for your data</span>
+            </span>
+          </label>
+        <select id="dateRange">
+            <option value="LAST_7_DAYS">Last 7 days</option>
+            <option value="LAST_28_DAYS" selected>Last 28 days</option>
+            <option value="LAST_3_MONTHS">Last 3 months</option>
+            <option value="LAST_6_MONTHS">Last 6 months</option>
+            <option value="YEAR_TO_DATE">Year to date</option>
+            <option value="LAST_365_DAYS">Last 365 days</option>
+            <option value="CUSTOM">Custom Range</option>
+          </select>
+      </div>
+
+      <div id="customDateRange" style="display: none;">
+        <div class="form-group">
+          <label for="startDate">Start Date</label>
+          <input type="date" id="startDate">
+        </div>
+        <div class="form-group">
+          <label for="endDate">End Date</label>
+          <input type="date" id="endDate">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Tab -->
+  <div id="dashboardTab" class="tab-panel">
+    <iframe src="<?= getScriptUrl() ?>?page=dashboard"
+      style="width: 100%; height: calc(100vh - 200px); border: none;"></iframe>
+  </div>
+
+  <!-- Rank Tracker Tab -->
+  <div id="rankTrackerTab" class="tab-panel">
+    <div class="card">
+      <h3 class="section-title"><span class="icon">📈</span>Track Keywords</h3>
+
+      <div class="form-group">
+        <label for="trackingKeywords">
+            Enter keywords to track (one per line)
+            <span class="info-icon">ⓘ
+              <span class="tooltip">Enter each keyword on a new line. Leave empty to track all GSC queries.</span>
+            </span>
+          </label>
+        <div id="keywordDropArea" class="file-drop-area">
+          <p>Drag keywords file here or click to upload</p>
+          <input type="file" id="keywordFileInput" accept=".txt,.csv" style="display: none;">
+        </div>
+        <textarea id="trackingKeywords" rows="6" placeholder="Enter keywords here, one per line"></textarea>
+        <div id="keywordCounter" class="counter">0 keywords</div>
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox-group" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox"></div>
+          <input type="checkbox" id="trackAllQueries">
+          <label for="trackAllQueries">Track all GSC queries</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="trackingFrequency">Tracking Frequency</label>
+        <select id="trackingFrequency">
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+      </div>
+
+      <div class="preview-toggle" onclick="togglePreview()">
+        <span class="preview-icon">👁️</span>
+        <span class="preview-text">Preview tracking</span>
+        <span class="preview-arrow">▼</span>
+      </div>
+
+      <div id="previewContent" class="preview-content">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>Keyword</th>
+              <th>Last Week</th>
+              <th>Current</th>
+              <th>Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>[Example keyword]</td>
+              <td>5.2</td>
+              <td>3.8</td>
+              <td class="positive">+1.4</td>
+            </tr>
+            <tr>
+              <td>[Your keyword]</td>
+              <td>12.6</td>
+              <td>8.9</td>
+              <td class="positive">+3.7</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <button id="startTrackingBtn" onclick="setupRankTracking()" class="primary full-width">
+          Start Tracking
+          <span class="success-check" id="trackingSuccessCheck">✓</span>
+        </button>
+
+      <!-- Add this right after the Start Tracking button in the rankTrackerTab -->
+      <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 16px;">
+        <h3 style="font-size: 14px; color: #555;">Debugging</h3>
+        <button id="checkPropertyBtn" onclick="debugCheckProperty()" class="secondary" style="width: 100%;">
+          Check Selected Property
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Brand Keywords Tab -->
+  <div id="brandKeywordsTab" class="tab-panel">
+    <div class="card">
+      <h3 class="section-title"><span class="icon">🏷️</span>Brand Keywords</h3>
+
+      <div class="form-group">
+        <label for="brandVariations">
+            Enter brand name variations (one per line)
+            <span class="info-icon">ⓘ
+              <span class="tooltip">Add your brand name and common variations to classify keywords as branded or non-branded</span>
+            </span>
+          </label>
+        <textarea
+            id="brandVariations"
+            placeholder="Enter your brand name and variations..."
+          ></textarea>
+        <span class="textarea-counter" id="brandCounter">0 variations</span>
+      </div>
+
+      <button onclick="saveBrandVariations()" class="primary">
+          Save Brand Variations
+          <span class="success-check" id="brandSuccessCheck">✓</span>
+        </button>
+    </div>
+  </div>
+
+  <!-- Data Export Tab -->
+
+
+
+  <div id="dataExportTab" class="tab-panel">
+    <div class="card">
+      <h3 class="section-title"><span class="icon">📊</span>Dimensions & Metrics</h3>
+
+      <div class="form-group">
+        <label>Select Dimensions</label>
+
+        <div class="checkbox-group" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox"></div>
+          <input type="checkbox" id="dateDim" value="date" checked>
+          <label for="dateDim"><span class="icon-dimension">📅</span>Date</label>
+        </div>
+
+        <div class="checkbox-group" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox"></div>
+          <input type="checkbox" id="pageDim" value="page" checked>
+          <label for="pageDim"><span class="icon-dimension">📄</span>Page</label>
+        </div>
+
+        <div class="checkbox-group" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox"></div>
+          <input type="checkbox" id="queryDim" value="query" checked>
+          <label for="queryDim"><span class="icon-dimension">🔍</span>Query</label>
+        </div>
+
+        <div class="checkbox-group" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox"></div>
+          <input type="checkbox" id="countryDim" value="country">
+          <label for="countryDim"><span class="icon-dimension">🌎</span>Country</label>
+        </div>
+
+        <div class="checkbox-group" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox"></div>
+          <input type="checkbox" id="deviceDim" value="device">
+          <label for="deviceDim"><span class="icon-dimension">📱</span>Device</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Select Metrics</label>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="clicksMetric" value="clicks" checked>
+          <label for="clicksMetric"><span class="icon-metric">👆</span>Clicks</label>
+        </div>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="impressionsMetric" value="impressions" checked>
+          <label for="impressionsMetric"><span class="icon-metric">👁️</span>Impressions</label>
+        </div>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="ctrMetric" value="ctr" checked>
+          <label for="ctrMetric"><span class="icon-metric">%</span>CTR</label>
+        </div>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="positionMetric" value="position" checked>
+          <label for="positionMetric"><span class="icon-metric">#</span>Position</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="rowLimit">
+            Row Limit
+            <span class="info-icon">ⓘ
+              <span class="tooltip">Maximum number of rows to fetch (1-5000)</span>
+            </span>
+          </label>
+        <input type="number" id="rowLimit" min="1" max="5000" value="1000">
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox-group" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox"></div>
+          <input type="checkbox" id="addFilters" value="filters">
+          <label for="addFilters"><span class="icon-metric">🔍</span>Add Filters</label>
+        </div>
+      </div>
+
+      <div id="filtersSection" class="filters-section" style="display: none;">
+        <div class="filter-group">
+          <label for="queryFilter">Query Filter</label>
+          <input type="text" id="queryFilter" placeholder="Enter keywords...">
+        </div>
+
+        <div class="filter-group">
+          <label for="pageFilter">Page Filter</label>
+          <input type="text" id="pageFilter" placeholder="Enter page URL...">
+        </div>
+
+        <div class="filter-group">
+          <label for="positionMin">Position Range</label>
+          <div class="range-inputs">
+            <input type="number" id="positionMin" placeholder="Min" min="1" max="100">
+            <span class="range-separator">-</span>
+            <input type="number" id="positionMax" placeholder="Max" min="1" max="100">
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label for="clicksMin">Clicks Range</label>
+          <div class="range-inputs">
+            <input type="number" id="clicksMin" placeholder="Min" min="0">
+            <span class="range-separator">-</span>
+            <input type="number" id="clicksMax" placeholder="Max" min="0">
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label for="impressionsMin">Impressions Range</label>
+          <div class="range-inputs">
+            <input type="number" id="impressionsMin" placeholder="Min" min="0">
+            <span class="range-separator">-</span>
+            <input type="number" id="impressionsMax" placeholder="Max" min="0">
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label for="ctrMin">CTR Range (%)</label>
+          <div class="range-inputs">
+            <input type="number" id="ctrMin" placeholder="Min" min="0" max="100" step="0.1">
+            <span class="range-separator">-</span>
+            <input type="number" id="ctrMax" placeholder="Max" min="0" max="100" step="0.1">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Output Options</label>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="includeKeywordType" value="keywordType" checked>
+          <label for="includeKeywordType"><span class="icon-metric">🏷️</span>Include Keyword Type Classification</label>
+        </div>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="includeIntentClassification" value="intentClassification" checked>
+          <label for="includeIntentClassification"><span class="icon-metric">🎯</span>Include Intent Classification</label>
+        </div>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="generateInsights" value="insights" checked>
+          <label for="generateInsights"><span class="icon-metric">💡</span>Generate SEO Insights</label>
+        </div>
+
+        <!-- Time Range Selector Button - Add after the Generate SEO Insights checkbox -->
+        <div class="button-container" style="margin-bottom: 16px; width: 100%;">
+          <button onclick="showInsightsTimeRangeSelector()" class="secondary-button" style="width: 100%; padding: 6px 12px; font-size: 12px; display: flex; align-items: center; justify-content: center; background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 4px; color: #4b5563;">
+            <span style="margin-right: 6px;">⏱️</span> Select time range for insights
+          </button>
+        </div>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="includeRankTracker" value="rankTracker" checked>
+          <label for="includeRankTracker"><span class="icon-metric">📈</span>Setup Rank Tracker</label>
+        </div>
+
+        <div class="checkbox-group checked" onclick="toggleCheckbox(this)">
+          <div class="custom-checkbox checked"></div>
+          <input type="checkbox" id="includeGapAnalysis" value="gapAnalysis" checked>
+          <label for="includeGapAnalysis"><span class="icon-metric">📉</span>Add Gap Analysis</label>
+        </div>
+      </div>
+
+      <button onclick="exportData()" class="primary">
+          Export Data
+          <span class="success-check" id="exportSuccessCheck">✓</span>
+        </button>
+    </div>
+  </div>
+
+  <!-- Connected to Google Search -->
+  <div class="card" style="border: 1px solid #dadce0; border-radius: 8px; padding: 16px; max-width: 400px;">
+    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+
+      <h3 class="section-title" style="font-size: 16px"><span class="icon">✔</span>Connected to Google Search Console
+      </h3>
+    </div>
+    <p style="margin: 4px 0 12px 0; color: #000;">Connected as <strong><?= userEmail ?></strong></p>
+    <button style="background-color: #1a73e8; color: white; border: none; border-radius: 4px; padding: 10px 16px; cursor: pointer;">
+    Connect another account
+  </button>
+    <br><br>
+
+    <script>
+      function showAccount() {
+    google.script.run.showYourAccountPage();
+  }
+    </script>
+
+  </div>
+
+  <!-- Support Section -->
+  <div class="card">
+    <h3 class="section-title"><span class="icon">📞</span>Support</h3>
+    <p>Need help? Contact us at <a href="mailto:support@example.com" class="contact-link">support@example.com</a></p>
+    <p>Join our community for updates, tips, and support!</p>
+    <button id="manageAccountBtn" onclick="redirectToDashboard()" class="primary-button">
+      <span class="spinner" style="display: none;"></span>
+      <span class="button-text">Manage account</span>
+    </button>
+  </div>
+
+  <!-- Error Message -->
+  <div id="error" class="error" style="display: none;">
+    <span class="error-icon">⚠️</span>
+    <span id="errorText"></span>
+  </div>
+
+  <!-- Sticky Bottom Bar -->
+  <div class="sticky-bar">
+    <button id="homeBtn" onclick="showTab('setupTab')">Home</button>
+    <button id="nextBtn" onclick="handleNextButton()" class="primary">Next</button>
+  </div>
+
+  <!-- WhatsApp Community Button Sticky Bar -->
+  <div class="whatsapp-bar">
+    <a href="https://chat.whatsapp.com/Jw6j4yiBrIvK12gUIOl5Q0" target="_blank" class="whatsapp-button full-width">
+      <span class="whatsapp-icon">
+          <svg width="20" height="20" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M127.988 0C57.231 0 0 57.231 0 127.992C0 151.237 5.746 173.098 15.949 192.007L2.557 252.379C2.064 254.465 2.681 256.686 4.201 258.205C5.721 259.726 7.941 260.341 10.027 259.85L70.398 246.458C89.308 256.66 111.166 262.406 134.415 262.406C205.173 262.406 262.406 205.173 262.406 134.415C262.406 63.657 205.173 0 127.988 0Z" fill="white"/>
+            <path d="M212.242 184.561C208.334 197.579 196.399 213.191 184.723 217.73C160.715 227.186 108.564 220.124 69.6602 138.319C63.8721 124.926 62.8984 110.281 71.6056 97.262C75.5141 91.099 83.0926 88.252 88.4988 85.405C92.0348 83.688 96.3178 85.03 98.4095 88.627L117.368 120.643C119.46 124.241 118.493 128.907 115.277 131.414L106.47 138.318C106.47 138.318 111.876 166.64 138.322 172.803L145.226 163.792C147.716 160.604 152.505 159.638 156.09 161.747L188.119 180.572C191.704 182.681 193.054 186.944 191.33 190.507C190.518 192.252 187.639 196.641 184.723 198.905" fill="#25D366"/>
+          </svg>
+        </span>
+      Join WhatsApp Community
+    </a>
+  </div>
+
+  <script>
+    let authAttempts = 0;
+      const MAX_AUTH_ATTEMPTS = 3;
+      let activeFilters = [];
+
+      // Initialize the app when loaded
+      window.onload = function() {
+        // Call initPage for general initialization
+        initPage();
+        
+        // Show the setup tab by default
+        showTab('setupTab');
+      };
+
+      function checkAuthStatus() {
+        google.script.run
+          .withSuccessHandler(function(response) {
+            if (response.success) {
+              // Already authenticated, load properties
+              showScreen('screen1');
+              loadProperties();
+            } else if (response.needsAuth) {
+              // Show auth section and handle reauthorization
+              document.getElementById('auth-section').style.display = 'block';
+              document.getElementById('auth-message').textContent = response.message || 'Please authorize access to Google Search Console';
+              document.getElementById('auth-button').onclick = function() {
+                startAuth();
+              };
+            } else {
+              showError(response.message || 'Failed to verify authentication status');
+            }
+          })
+          .withFailureHandler(function(error) {
+            showError('Failed to verify authentication status: ' + error);
+          })
+          .verifyGSCAccess();
+      }
+
+      function startAuth() {
+        showLoading('Starting authentication...');
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            hideLoading();
+            if (response.success) {
+              // Already authenticated
+              showToast('Successfully connected!', 'success');
+              showScreen('screen1');
+              loadProperties();
+            } else if (response.needsAuth && response.authUrl) {
+              // Open auth window and start polling
+              const authWindow = window.open(response.authUrl, '_blank', 'width=600,height=600');
+              pollAuthStatus();
+            } else {
+              showError(response.message || 'Failed to start authentication');
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            showError('Failed to start authentication: ' + error);
+          })
+          .initiateAuthorization();
+      }
+
+      function pollAuthStatus(attempts = 0) {
+        const MAX_ATTEMPTS = 60; // 5 minutes maximum (5s intervals)
+        const POLL_INTERVAL = 5000; // 5 seconds
+        
+        if (attempts >= MAX_ATTEMPTS) {
+          showError('Authentication timed out. Please try again.');
+          return;
+        }
+        
+        showLoading('Waiting for authentication...');
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            if (response.success) {
+              hideLoading();
+              showToast('Successfully authenticated!', 'success');
+              showScreen('screen1');
+              loadProperties();
+            } else if (response.needsAuth) {
+              // Continue polling
+              setTimeout(function() {
+                pollAuthStatus(attempts + 1);
+              }, POLL_INTERVAL);
+            } else {
+              hideLoading();
+              showError(response.message || 'Authentication failed');
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            showError('Authentication failed: ' + error);
+          })
+          .verifyGSCAccess();
+      }
+
+      function updateAuthStatus(message) {
+        const statusElement = document.getElementById('authStatus');
+        if (statusElement) {
+          statusElement.textContent = message;
+        }
+      }
+
+      function showScreen(screenId) {
+        // Hide all screens
+        document.querySelectorAll('.screen').forEach(screen => {
+          screen.classList.remove('active');
+          screen.style.display = 'none';
+        });
+
+        // Show the requested screen
+        const screen = document.getElementById(screenId);
+        if (screen) {
+          screen.classList.add('active');
+          screen.style.display = 'block';
+        }
+
+        // Show/hide rank tracker section based on screen
+        const rankTracker = document.getElementById('rankTrackerSection');
+        if (rankTracker) {
+          rankTracker.style.display = screenId === 'screen1' ? 'block' : 'none';
+        }
+
+        // Show/hide support section based on screen
+        const supportSection = document.querySelector('.support-section');
+        if (supportSection) {
+          supportSection.style.display = screenId === 'screen1' ? 'block' : 'none';
+        }
+
+        // Update Next button text based on current screen
+        const nextButton = document.querySelector('.sticky-bar .next-button');
+        if (nextButton) {
+          nextButton.textContent = screenId === 'screen1' ? 'Next' : 'Fetch Data';
+        }
+
+        // Show/hide Back button based on current screen
+        const backButton = document.querySelector('.sticky-bar .back-button');
+        if (backButton) {
+          backButton.textContent = screenId === 'screen1' ? 'Home' : 'Back';
+          backButton.onclick = screenId === 'screen1' 
+            ? function() { showScreen('screen1'); }
+            : function() { showScreen('screen1'); };
+        }
+
+        // Scroll to top when changing screens
+        window.scrollTo(0, 0);
+      }
+
+      function loadProperties() {
+        showLoading('Loading your Search Console properties...');
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            hideLoading();
+            if (response.success && response.properties && response.properties.length > 0) {
+              const select = document.getElementById('property');
+              select.innerHTML = '<option value="">Select a website</option>';
+              
+              response.properties.forEach(property => {
+                const option = document.createElement('option');
+                option.value = property.siteUrl;
+                option.textContent = property.siteUrl;
+                select.appendChild(option);
+              });
+              
+              // Check for previously selected property
+              google.script.run
+                .withSuccessHandler(function(propResponse) {
+                  if (propResponse.success && propResponse.selectedProperty) {
+                    select.value = propResponse.selectedProperty;
+                  }
+                })
+                .checkSelectedProperty();
+              
+              showToast('Properties loaded successfully', 'success');
+            } else if (response.needsAuth) {
+              // Token expired or invalid, show auth section
+              document.getElementById('auth-section').style.display = 'block';
+              document.getElementById('auth-message').textContent = 'Please reauthorize access to Google Search Console';
+              document.getElementById('auth-button').onclick = function() {
+                startAuth();
+              };
+            } else {
+              showError(response.message || 'Failed to load properties');
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            showError('Failed to load properties: ' + error);
+          })
+          .getGSCProperties();
+      }
+
+      // Update the date range section to include custom range
+      document.getElementById('dateRange').innerHTML = `
+        <option value="LAST_28_DAYS">Last 28 days</option>
+        <option value="LAST_7_DAYS">Last 7 days</option>
+        <option value="LAST_3_MONTHS">Last 3 months</option>
+        <option value="LAST_6_MONTHS">Last 6 months</option>
+        <option value="LAST_12_MONTHS">Last 12 months</option>
+        <option value="CUSTOM">Custom date range</option>
+      `;
+
+      // Add custom date range inputs
+      const dateRangeSelect = document.getElementById('dateRange');
+      dateRangeSelect.addEventListener('change', function() {
+        const customDateContainer = document.getElementById('customDateRange') || document.createElement('div');
+        customDateContainer.id = 'customDateRange';
+        
+        if (this.value === 'CUSTOM') {
+          customDateContainer.innerHTML = `
+            <div class="form-group" style="margin-top: 16px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div>
+                  <label for="startDate">Start Date</label>
+                  <input type="date" id="startDate" class="date-range-select" max="${new Date().toISOString().split('T')[0]}" required>
+                </div>
+                <div>
+                  <label for="endDate">End Date</label>
+                  <input type="date" id="endDate" class="date-range-select" max="${new Date().toISOString().split('T')[0]}" required>
+                </div>
+              </div>
+            </div>
+          `;
+          this.parentNode.appendChild(customDateContainer);
+        } else {
+          customDateContainer.remove();
+        }
+      });
+
+      // Update filter functionality
+      function addFilter() {
+        const dimension = document.getElementById('filterDimension').value;
+        const operator = document.getElementById('filterOperator').value;
+        const value = document.getElementById('filterValue').value.trim();
+        
+        if (!dimension || !operator || !value) {
+          showError('Please fill in all filter fields');
+          return;
+        }
+        
+        // Create a new filter object
+        const filter = {
+          dimension: dimension,
+          operator: operator,
+          value: value
+        };
+        
+        // Add to active filters array
+        if (!window.activeFilters) window.activeFilters = [];
+        window.activeFilters.push(filter);
+        
+        // Update UI
+        updateActiveFilters();
+        
+        // Clear input fields
+        document.getElementById('filterValue').value = '';
+      }
+      
+      // Update active filters display
+      function updateActiveFilters() {
+        const container = document.getElementById('activeFilters');
+        if (!container) return;
+        
+        // Clear container
+        container.innerHTML = '';
+        
+        // Exit if no filters
+        if (!window.activeFilters || window.activeFilters.length === 0) return;
+        
+        // Add filter tags
+        window.activeFilters.forEach((filter, index) => {
+          const tag = document.createElement('div');
+          tag.className = 'filter-tag';
+          
+          // Create display text
+          const dimensionDisplay = filter.dimension.charAt(0).toUpperCase() + filter.dimension.slice(1);
+          let operatorDisplay = '';
+          
+          switch(filter.operator) {
+            case 'contains':
+              operatorDisplay = 'contains';
+              break;
+            case 'equals':
+              operatorDisplay = 'equals';
+              break;
+            case 'notContains':
+              operatorDisplay = 'doesn\'t contain';
+              break;
+            case 'notEquals':
+              operatorDisplay = 'doesn\'t equal';
+              break;
+          }
+          
+          tag.innerHTML = `
+            ${dimensionDisplay} ${operatorDisplay} "${filter.value}"
+            <button class="remove-filter" onclick="removeFilter(${index})">×</button>
+          `;
+          container.appendChild(tag);
+        });
+      }
+      
+      // Remove filter by index
+      function removeFilter(index) {
+        if (!window.activeFilters) return;
+        
+        window.activeFilters.splice(index, 1);
+        updateActiveFilters();
+      }
+      
+      // Setup event listeners after DOM content loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        // Initialize filter button if it exists
+        const addFilterBtn = document.getElementById('addFilterBtn');
+        if (addFilterBtn) {
+          addFilterBtn.addEventListener('click', addFilter);
+        }
+      });
+
+      function getSelectedDimensions() {
+        const dimensions = [];
+        ['dimDate', 'dimPage', 'dimQuery', 'dimCountry', 'dimDevice'].forEach(id => {
+          if (document.getElementById(id).checked) {
+            dimensions.push(document.getElementById(id).value);
+          }
+        });
+        return dimensions;
+      }
+
+      function getSelectedMetrics() {
+        const metrics = [];
+        ['metricImpressions', 'metricClicks', 'metricCTR', 'metricPosition'].forEach(id => {
+          if (document.getElementById(id).checked) {
+            metrics.push(document.getElementById(id).value);
+          }
+        });
+        return metrics;
+      }
+
+      function getFilters() {
+        const filters = [];
+        document.querySelectorAll('.filter-group').forEach(group => {
+          filters.push({
+            dimension: group.querySelector('.filter-dimension').value,
+            operator: group.querySelector('.filter-operator').value,
+            expression: group.querySelector('.filter-value').value
+          });
+        });
+        return filters;
+      }
+
+      function validateAndProceed() {
+        const siteUrl = document.getElementById('property').value;
+        if (!siteUrl) {
+          showError('Please select a website property first');
+          return;
+        }
+
+        // Validate date range
+        const dateRangeType = document.getElementById('dateRange').value;
+        if (dateRangeType === 'CUSTOM') {
+          const startDate = document.getElementById('startDate')?.value;
+          const endDate = document.getElementById('endDate')?.value;
+          if (!startDate || !endDate) {
+            showError('Please select both start and end dates for custom range');
+            return;
+          }
+        }
+
+        // Validate dimensions
+        const dimensions = getSelectedDimensions();
+        if (dimensions.length === 0) {
+          showError('Please select at least one dimension');
+          return;
+        }
+
+        // Save brand variations if entered
+        const brandVariations = document.getElementById('brandVariations').value;
+        if (brandVariations.trim()) {
+          saveBrandVariations();
+        }
+
+        // Clear any existing error messages
+        const errorDiv = document.getElementById('error');
+        if (errorDiv) {
+          errorDiv.style.display = 'none';
+        }
+
+        // If all validations pass, show second screen
+        showScreen('screen2');
+      }
+
+      // Enhanced fetchData function for the Data Export tab
+      function fetchData() {
+        // Get website property
+        const siteUrl = document.getElementById('property').value;
+        if (!siteUrl) {
+          showError('Please select a website property first');
+          return;
+        }
+
+        // Get date range
+        const dateRangeType = document.getElementById('dateRange').value;
+        let startDate = null;
+        let endDate = null;
+        
+        if (dateRangeType === 'CUSTOM') {
+          startDate = document.getElementById('startDate')?.value;
+          endDate = document.getElementById('endDate')?.value;
+          
+          if (!startDate || !endDate) {
+            showError('Please select both start and end dates for custom range');
+            return;
+          }
+        }
+
+        // Get dimensions (only valid dimensions, not metrics)
+        const dimensions = [];
+        const dimensionInputs = ['dateDim', 'pageDim', 'queryDim', 'countryDim', 'deviceDim'];
+        
+        dimensionInputs.forEach(id => {
+          const checkbox = document.getElementById(id);
+          if (checkbox && checkbox.checked) {
+            dimensions.push(checkbox.value);
+          }
+        });
+        
+        if (dimensions.length === 0) {
+          showError('Please select at least one dimension');
+          return;
+        }
+
+        // Get filters if enabled
+        let filters = [];
+        const addFilters = document.getElementById('addFilters')?.checked ?? false;
+        
+        if (addFilters) {
+          // Query filter
+          const queryFilter = document.getElementById('queryFilter')?.value?.trim();
+          if (queryFilter) {
+            filters.push({
+              dimension: 'query',
+              operator: 'contains',
+              expression: queryFilter
+            });
+          }
+          
+          // Page filter
+          const pageFilter = document.getElementById('pageFilter')?.value?.trim();
+          if (pageFilter) {
+            filters.push({
+              dimension: 'page',
+              operator: 'contains',
+              expression: pageFilter
+            });
+          }
+          
+          // Position range filter
+          const positionMin = document.getElementById('positionMin')?.value;
+          const positionMax = document.getElementById('positionMax')?.value;
+          if (positionMin || positionMax) {
+            const posFilter = {
+              dimension: 'position',
+              operator: 'betweenInclusive',
+              expression: {
+                min: positionMin || 1,
+                max: positionMax || 100
+              }
+            };
+            filters.push(posFilter);
+          }
+          
+          // Clicks range filter
+          const clicksMin = document.getElementById('clicksMin')?.value;
+          const clicksMax = document.getElementById('clicksMax')?.value;
+          if (clicksMin || clicksMax) {
+            const clicksFilter = {
+              dimension: 'clicks',
+              operator: 'betweenInclusive',
+              expression: {
+                min: clicksMin || 0,
+                max: clicksMax || Number.MAX_SAFE_INTEGER
+              }
+            };
+            filters.push(clicksFilter);
+          }
+          
+          // Impressions range filter
+          const impressionsMin = document.getElementById('impressionsMin')?.value;
+          const impressionsMax = document.getElementById('impressionsMax')?.value;
+          if (impressionsMin || impressionsMax) {
+            const impFilter = {
+              dimension: 'impressions',
+              operator: 'betweenInclusive',
+              expression: {
+                min: impressionsMin || 0,
+                max: impressionsMax || Number.MAX_SAFE_INTEGER
+              }
+            };
+            filters.push(impFilter);
+          }
+          
+          // CTR range filter (convert from percentage to decimal)
+          const ctrMin = document.getElementById('ctrMin')?.value;
+          const ctrMax = document.getElementById('ctrMax')?.value;
+          if (ctrMin || ctrMax) {
+            const ctrFilter = {
+              dimension: 'ctr',
+              operator: 'betweenInclusive',
+              expression: {
+                min: ctrMin ? parseFloat(ctrMin) / 100 : 0,
+                max: ctrMax ? parseFloat(ctrMax) / 100 : 1
+              }
+            };
+            filters.push(ctrFilter);
+          }
+        }
+
+        // Get output options
+        const includeKeywordType = document.getElementById('includeKeywordType')?.checked ?? true;
+        const includeIntentClassification = document.getElementById('includeIntentClassification')?.checked ?? true;
+        const generateInsights = document.getElementById('generateInsights')?.checked ?? true;
+        const includeRankTracker = document.getElementById('includeRankTracker')?.checked ?? true;
+        const includeGapAnalysis = document.getElementById('includeGapAnalysis')?.checked ?? true;
+        
+        // Get row limit
+        const rowLimit = document.getElementById('rowLimit')?.value || 1000;
+        
+        // Show loading
+        showLoading('Exporting data from Google Search Console...');
+        
+        // Disable export button
+        const exportButton = document.querySelector('#dataExportTab button');
+        if (exportButton) {
+          exportButton.disabled = true;
+        }
+
+        // Call server function
+        google.script.run
+          .withSuccessHandler(function(response) {
+            hideLoading();
+            
+            // Re-enable button
+            if (exportButton) {
+              exportButton.disabled = false;
+            }
+            
+            if (response && response.success) {
+              showToast(response.message || 'Data exported successfully', 'success');
+              showSuccessAnimation('exportSuccessCheck');
+            } else {
+              showError(response.message || 'Failed to export data');
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            
+            // Re-enable button
+            if (exportButton) {
+              exportButton.disabled = false;
+            }
+            
+            showError('Failed to export data: ' + error.toString());
+          })
+          .fetchAndDisplayData({
+            siteUrl: siteUrl,
+            dateRange: dateRangeType,
+            startDate: startDate,
+            endDate: endDate,
+            dimensions: dimensions,
+            rowLimit: parseInt(rowLimit),
+            updateMode: 'new', // Default to creating a new sheet
+            generateInsights: generateInsights,
+            includeKeywordType: includeKeywordType,
+            includeIntentClassification: includeIntentClassification,
+            includeRankTracker: includeRankTracker,
+            includeGapAnalysis: includeGapAnalysis,
+            filters: filters
+          });
+      }
+      
+      /**
+       * Function to show the time range selector for SEO insights
+       */
+      function showInsightsTimeRangeSelector() {
+        // Get website property first
+        const siteUrl = document.getElementById('property').value;
+        if (!siteUrl) {
+          showError('Please select a website property first');
+          return;
+        }
+
+        // Check if time range container already exists
+        let timeRangeContainer = document.getElementById('insightsTimeRangeContainer');
+        
+        if (timeRangeContainer) {
+          // Toggle display if it already exists
+          timeRangeContainer.style.display = timeRangeContainer.style.display === 'none' ? 'block' : 'none';
+          return;
+        }
+        
+        // Create container for time range controls
+        timeRangeContainer = document.createElement('div');
+        timeRangeContainer.id = 'insightsTimeRangeContainer';
+        
+        // Create time range dropdown
+        timeRangeContainer.innerHTML = `
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label for="insightsTimeRange" style="display: block; margin-bottom: 5px; font-weight: 500;">Time Range:</label>
+            <select id="insightsTimeRange">
+              <option value="LAST_7_DAYS">Last 7 days</option>
+              <option value="LAST_28_DAYS" selected>Last 28 days</option>
+              <option value="LAST_3_MONTHS">Last 3 months</option>
+              <option value="LAST_6_MONTHS">Last 6 months</option>
+              <option value="YEAR_TO_DATE">Year to date</option>
+              <option value="LAST_365_DAYS">Last 365 days</option>
+              <option value="CUSTOM">Custom range</option>
+            </select>
+          </div>
+          
+          <div id="insightsCustomDateRange" style="display: none; margin-bottom: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label for="insightsStartDate" style="display: block; margin-bottom: 5px; font-size: 12px;">Start Date:</label>
+                <input type="date" id="insightsStartDate">
+              </div>
+              <div>
+                <label for="insightsEndDate" style="display: block; margin-bottom: 5px; font-size: 12px;">End Date:</label>
+                <input type="date" id="insightsEndDate" style="width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 12px;">
+              </div>
+            </div>
+          </div>
+          
+          <div class="switch-container" style="display: flex; align-items: center; margin-bottom: 10px;">
+            <label class="switch" style="position: relative; display: inline-block; width: 40px; height: 20px; margin-right: 10px;">
+              <input type="checkbox" id="insightsExcludeBranded" checked style="opacity: 0; width: 0; height: 0;">
+              <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px;"></span>
+            </label>
+            <span style="font-size: 13px;">Exclude Branded Queries</span>
+          </div>
+          
+          <div style="text-align: right;">
+            <button onclick="applyInsightsTimeRange()" style="background-color: #1a73e8; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 13px;">
+              Apply
+            </button>
+          </div>
+        `;
+        
+        // Add event listener to handle custom date range
+        setTimeout(() => {
+          const timeRangeSelect = document.getElementById('insightsTimeRange');
+          if (timeRangeSelect) {
+            timeRangeSelect.addEventListener('change', function() {
+              const customDateFields = document.getElementById('insightsCustomDateRange');
+              if (customDateFields) {
+                customDateFields.style.display = this.value === 'CUSTOM' ? 'block' : 'none';
+                
+                // Set default dates for custom range
+                if (this.value === 'CUSTOM') {
+                  const startDateEl = document.getElementById('insightsStartDate');
+                  const endDateEl = document.getElementById('insightsEndDate');
+                  
+                  if (startDateEl && !startDateEl.value) {
+                    const startDate = new Date();
+                    startDate.setDate(startDate.getDate() - 28);
+                    startDateEl.value = startDate.toISOString().split('T')[0];
+                  }
+                  
+                  if (endDateEl && !endDateEl.value) {
+                    const endDate = new Date();
+                    endDateEl.value = endDate.toISOString().split('T')[0];
+                  }
+                }
+              }
+            });
+          }
+        }, 0);
+        
+        // Insert the container after the button
+        const buttonContainer = document.querySelector('.button-container');
+        if (buttonContainer && buttonContainer.parentNode) {
+          buttonContainer.parentNode.insertBefore(timeRangeContainer, buttonContainer.nextSibling);
+        }
+        
+        // Store the selected property in user properties
+        google.script.run
+          .withSuccessHandler(function(response) {
+            if (!response || !response.success) {
+              showError(response?.message || 'Failed to set website property');
+            }
+          })
+          .withFailureHandler(function(error) {
+            showError('Error: ' + error.toString());
+          })
+          .storeSelectedProperty(siteUrl);
+      }
+      
+      /**
+       * Handle applying the selected time range for insights
+       */
+      function applyInsightsTimeRange() {
+        const timeRange = document.getElementById('insightsTimeRange').value;
+        let startDate = null;
+        let endDate = null;
+        
+        if (timeRange === 'CUSTOM') {
+          startDate = document.getElementById('insightsStartDate').value;
+          endDate = document.getElementById('insightsEndDate').value;
+          
+          if (!startDate || !endDate) {
+            showError('Please select both start and end dates for custom range');
+            return;
+          }
+        }
+        
+        const excludeBranded = document.getElementById('insightsExcludeBranded').checked;
+        
+        // Show loading indicator
+        showLoading('Generating SEO insights...');
+        
+        const result = {
+          timeRange: timeRange,
+          startDate: startDate,
+          endDate: endDate,
+          excludeBranded: excludeBranded
+        };
+        
+        console.log('Sending time range selection to server:', JSON.stringify(result));
+        
+        // Call server function to handle the time range selection
+        google.script.run
+          .withSuccessHandler(function(response) {
+            hideLoading();
+            
+            if (response && response.success) {
+              showToast(`SEO insights generated successfully: ${response.counts.quickWin} Quick-Win opportunities, ${response.counts.ctrImprovement} CTR improvements`, 'success');
+              
+              // Add a message to show what was generated
+              if (response.counts.quickWin === 0 && response.counts.ctrImprovement === 0) {
+                showToast('No insights were found matching the criteria. Please try different date ranges or check your GSC data.', 'warning', 10);
+              }
+            } else {
+              showError(response?.message || 'Failed to generate insights');
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            showError('Error: ' + error.toString());
+          })
+          .handleTimeRangeSelection(result);
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        hideLoading();
+      }
+
+      function showLoading(message) {
+        const loading = document.getElementById('loading');
+        loading.innerHTML = `<p>${message}</p>`;
+        loading.style.display = 'block';
+      }
+
+      function hideLoading() {
+        const loading = document.getElementById('loading');
+        loading.style.display = 'none';
+      }
+
+      function showSuccess(message) {
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success';
+        successDiv.textContent = message;
+        
+        const errorDiv = document.getElementById('error');
+        errorDiv.parentNode.insertBefore(successDiv, errorDiv.nextSibling);
+        
+        // Remove success message after 5 seconds
+        setTimeout(() => successDiv.remove(), 5000);
+      }
+
+      function autoExpand(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = (textarea.scrollHeight) + 'px';
+      }
+
+      function saveBrandVariations() {
+        const variations = document.getElementById('brandVariations')
+          .value
+          .split('\n')
+          .map(v => v.trim())
+          .filter(v => v);
+          
+        google.script.run
+          .withSuccessHandler(() => {
+            showToast('Brand variations saved successfully', 'success');
+          })
+          .withFailureHandler((error) => {
+            showToast('Failed to save brand variations: ' + error, 'error');
+          })
+          .storeBrandVariations(variations);
+      }
+
+      function loadBrandVariations() {
+        console.log('Loading brand variations...');
+        google.script.run
+          .withSuccessHandler((variations) => {
+            console.log('Brand variations loaded:', variations);
+            const textarea = document.getElementById('brandVariations');
+            if (textarea && variations && Array.isArray(variations)) {
+              textarea.value = variations.join('\n');
+              autoExpand(textarea);
+              showToast('Brand keywords loaded successfully', 'success');
+            } else {
+              console.warn('No brand variations found or invalid format');
+            }
+          })
+          .withFailureHandler((error) => {
+            console.error('Failed to load brand variations:', error);
+          })
+          .getBrandVariations();
+      }
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        // Trigger reflow for animation
+        toast.offsetHeight;
+        
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translate(-50%, 100%)';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      function setupRankTracking() {
+        console.log('Setting up rank tracking');
+        showLoading('Setting up rank tracking...');
+        
+        // First check if a property is selected
+        google.script.run
+          .withSuccessHandler(function(propResponse) {
+            if (!propResponse.success || !propResponse.selectedProperty) {
+              hideLoading();
+              showToast('Error: No website selected. Please select a website first.', 'error');
+              return;
+            }
+            
+            // Property is selected, continue with rank tracking setup
+            const trackingKeywords = document.getElementById('trackingKeywords').value;
+            const trackAllQueries = document.getElementById('trackAllQueries').checked;
+            const trackingFrequency = document.getElementById('trackingFrequency').value;
+            
+            console.log('Setup params:', {
+              keywords: trackingKeywords,
+              trackAll: trackAllQueries,
+              frequency: trackingFrequency,
+              property: propResponse.selectedProperty
+            });
+            
+            google.script.run
+              .withSuccessHandler(function(response) {
+                hideLoading();
+                if (response.success) {
+                  console.log('Rank tracking setup success');
+                  
+                  // Show success animation
+                  const successCheck = document.getElementById('trackingSuccessCheck');
+                  if (successCheck) {
+                    successCheck.classList.add('show');
+                    setTimeout(function() {
+                      successCheck.classList.remove('show');
+                    }, 2000);
+                  }
+                  
+                  showToast('Rank tracking set up successfully', 'success');
+                } else {
+                  console.error('Rank tracking setup failed:', response.message);
+                  showToast('Failed to set up rank tracking: ' + response.message, 'error');
+                }
+              })
+              .withFailureHandler(function(error) {
+                hideLoading();
+                console.error('Rank tracking setup error:', error);
+                showToast('Error: ' + error, 'error');
+              })
+              .trackKeywords({
+                keywords: trackingKeywords,
+                trackAll: trackAllQueries,
+                frequency: trackingFrequency
+              });
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            console.error('Property check error:', error);
+            showToast('Error: ' + error, 'error');
+          })
+          .checkSelectedProperty();
+      }
+
+      // Function to show error in the rank tracker section
+      function showRankTrackerError(message) {
+        const errorDiv = document.getElementById('rankTrackerError');
+        if (errorDiv) {
+          errorDiv.textContent = message;
+          errorDiv.style.display = 'block';
+        } else {
+          // Fallback to main error display
+          showError(message);
+        }
+        hideLoading();
+      }
+
+      // Add click event listeners for checkboxes
+      document.addEventListener('DOMContentLoaded', function() {
+        // Add click handlers for checkbox groups
+        document.querySelectorAll('.checkbox-group').forEach(group => {
+          group.addEventListener('click', function(e) {
+            // If clicking the label or group, toggle the checkbox
+            if (e.target.tagName !== 'INPUT') {
+              const checkbox = this.querySelector('input[type="checkbox"]');
+              checkbox.checked = !checkbox.checked;
+            }
+          });
+        });
+
+        // Initialize button event listeners
+        document.querySelectorAll('button').forEach(button => {
+          button.addEventListener('click', function(e) {
+            // Prevent double-clicks
+            if (!this.disabled) {
+              this.disabled = true;
+              setTimeout(() => {
+                this.disabled = false;
+              }, 1000);
+            }
+          });
+        });
+      });
+
+      // Add function to handle Next button clicks based on current screen
+      function handleNextButton() {
+        const screen1 = document.getElementById('screen1');
+        const screen2 = document.getElementById('screen2');
+        
+        // Check which screen is active
+        if (screen1 && screen1.classList.contains('active')) {
+          validateAndProceed(); // Go to screen 2
+        } else if (screen2 && screen2.classList.contains('active')) {
+          fetchData(); // Fetch data on screen 2
+        }
+      }
+
+      // Tab Navigation
+      function showTab(tabId) {
+        // Hide all tab panels
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+          panel.classList.remove('active');
+        });
+        
+        // Deactivate all tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.classList.remove('active');
+        });
+        
+        // Show selected tab panel
+        const selectedPanel = document.getElementById(tabId);
+        if (selectedPanel) {
+          selectedPanel.classList.add('active');
+        }
+        
+        // Activate selected tab
+        const selectedTab = document.querySelector(`.tab[onclick*="${tabId}"]`);
+        if (selectedTab) {
+          selectedTab.classList.add('active');
+        }
+        
+        // Update next button text based on active tab
+        updateNextButtonState();
+        
+        // Update progress indicator
+        updateProgressIndicator(tabId);
+      }
+      
+      // Progress Indicator
+      function updateProgressIndicator(tabId) {
+        const steps = document.querySelectorAll('.progress-step');
+        let activeStep = 0;
+        
+        switch(tabId) {
+          case 'setupTab':
+            activeStep = 0;
+            break;
+          case 'rankTrackerTab':
+            activeStep = 1;
+            break;
+          case 'brandKeywordsTab':
+            activeStep = 2;
+            break;
+          case 'dataExportTab':
+            activeStep = 3;
+            break;
+        }
+        
+        steps.forEach((step, index) => {
+          const circle = step.querySelector('.step-circle');
+          const label = step.querySelector('.step-label');
+          
+          // Reset classes
+          circle.classList.remove('active', 'completed');
+          label.classList.remove('active');
+          
+          if (index === activeStep) {
+            // Active step
+            circle.classList.add('active');
+            label.classList.add('active');
+          } else if (index < activeStep) {
+            // Completed step
+            circle.classList.add('completed');
+            circle.innerHTML = '✓';
+          } else {
+            // Future step
+            circle.innerHTML = (index + 1).toString();
+          }
+        });
+      }
+      
+      // Custom Checkbox Toggle
+      function toggleCheckbox(group) {
+        const checkbox = group.querySelector('input[type="checkbox"]');
+        const customCheckbox = group.querySelector('.custom-checkbox');
+        
+        // Toggle checked state
+        checkbox.checked = !checkbox.checked;
+        
+        // Update visual state
+        if (checkbox.checked) {
+          group.classList.add('checked');
+          if (customCheckbox) customCheckbox.classList.add('checked');
+        } else {
+          group.classList.remove('checked');
+          if (customCheckbox) customCheckbox.classList.remove('checked');
+        }
+        
+        // Handle special cases
+        if (checkbox.id === 'addFilter') {
+          toggleFilterSection();
+        } else if (checkbox.id === 'trackAllQueries') {
+          // Toggle keywords textarea based on trackAllQueries state
+          const keywordsTextarea = document.getElementById('trackingKeywords');
+          const keywordCounter = document.getElementById('keywordCounter');
+          
+          if (keywordsTextarea) {
+            if (checkbox.checked) {
+              keywordsTextarea.disabled = true;
+              keywordsTextarea.style.opacity = 0.5;
+              if (keywordCounter) keywordCounter.style.opacity = 0.5;
+            } else {
+              keywordsTextarea.disabled = false;
+              keywordsTextarea.style.opacity = 1;
+              if (keywordCounter) keywordCounter.style.opacity = 1;
+            }
+          }
+        }
+      }
+      
+      // Initialize checkboxes
+      function initializeCheckboxes() {
+        document.querySelectorAll('.checkbox-group').forEach(group => {
+          const checkbox = group.querySelector('input[type="checkbox"]');
+          const customCheckbox = group.querySelector('.custom-checkbox');
+          
+          if (checkbox.checked) {
+            group.classList.add('checked');
+            customCheckbox.classList.add('checked');
+          }
+        });
+      }
+      
+      // Toggle preview section
+      function togglePreview() {
+        const previewContent = document.getElementById('previewContent');
+        previewContent.classList.toggle('open');
+      }
+      
+      // Next button handler
+      function handleNextButton() {
+        const tabs = ['setupTab', 'rankTrackerTab', 'brandKeywordsTab', 'dataExportTab'];
+        let activeTabIndex = -1;
+        
+        // Find active tab
+        tabs.forEach((tabId, index) => {
+          if (document.getElementById(tabId).classList.contains('active')) {
+            activeTabIndex = index;
+          }
+        });
+        
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.length - 1) {
+          // Move to next tab
+          showTab(tabs[activeTabIndex + 1]);
+        } else if (activeTabIndex === tabs.length - 1) {
+          // On last tab, perform data export
+          fetchData();
+        }
+      }
+      
+      // Update Next button text based on active tab
+      function updateNextButtonState() {
+        const nextBtn = document.getElementById('nextBtn');
+        const homeBtn = document.getElementById('homeBtn');
+        const tabs = ['setupTab', 'rankTrackerTab', 'brandKeywordsTab', 'dataExportTab'];
+        let activeTabIndex = -1;
+        
+        // Find active tab
+        tabs.forEach((tabId, index) => {
+          if (document.getElementById(tabId).classList.contains('active')) {
+            activeTabIndex = index;
+          }
+        });
+        
+        // Update button text
+        if (activeTabIndex === tabs.length - 1) {
+          nextBtn.textContent = 'Export';
+          homeBtn.textContent = 'Back';
+        } else {
+          nextBtn.textContent = 'Next';
+          homeBtn.textContent = activeTabIndex === 0 ? 'Home' : 'Back';
+        }
+        
+        // Update home button action
+        if (activeTabIndex === 0) {
+          homeBtn.onclick = function() { showTab('setupTab'); };
+        } else {
+          homeBtn.onclick = function() { showTab(tabs[activeTabIndex - 1]); };
+        }
+      }
+      
+      // Count keywords
+      function updateKeywordCounter() {
+        const textarea = document.getElementById('trackingKeywords');
+        const counter = document.getElementById('keywordCounter');
+        
+        if (textarea && counter) {
+          const text = textarea.value.trim();
+          const lines = text ? text.split('\n').filter(line => line.trim().length > 0) : [];
+          counter.textContent = `${lines.length} keywords`;
+        }
+      }
+      
+      // Count brand variations
+      function updateBrandCounter() {
+        const textarea = document.getElementById('brandVariations');
+        const counter = document.getElementById('brandCounter');
+        
+        if (textarea && counter) {
+          const text = textarea.value.trim();
+          const lines = text ? text.split('\n').filter(line => line.trim().length > 0) : [];
+          counter.textContent = `${lines.length} variations`;
+        }
+      }
+      
+      // Setup track all queries toggle
+      function setupTrackAllQueriesToggle() {
+        const toggle = document.getElementById('trackAllQueries');
+        const textarea = document.getElementById('trackingKeywords');
+        
+        if (toggle && textarea) {
+          toggle.addEventListener('change', function() {
+            if (this.checked) {
+              textarea.disabled = true;
+              textarea.style.opacity = '0.5';
+            } else {
+              textarea.disabled = false;
+              textarea.style.opacity = '1';
+            }
+          });
+        }
+      }
+      
+      // Setup filters toggle
+      function setupFiltersToggle() {
+        const filtersCheckbox = document.getElementById('addFilters');
+        const filtersSection = document.getElementById('filtersSection');
+        
+        if (filtersCheckbox && filtersSection) {
+          // Initialize state based on checkbox
+          filtersSection.style.display = filtersCheckbox.checked ? 'block' : 'none';
+          
+          // Find the parent checkbox group
+          const filterCheckboxGroup = filtersCheckbox.closest('.checkbox-group');
+          
+          // Add click event to the checkbox group
+          if (filterCheckboxGroup) {
+            filterCheckboxGroup.addEventListener('click', function() {
+              // Short delay to allow the checkbox state to update
+              setTimeout(() => {
+                filtersSection.style.display = filtersCheckbox.checked ? 'block' : 'none';
+                
+                // Add a fade-in effect
+                if (filtersCheckbox.checked) {
+                  filtersSection.style.opacity = '0';
+                  filtersSection.style.maxHeight = '0';
+                  
+                  setTimeout(() => {
+                    filtersSection.style.opacity = '1';
+                    filtersSection.style.maxHeight = '1000px';
+                  }, 10);
+                }
+              }, 50);
+            });
+          }
+        }
+      }
+      
+      // File drop area
+      function setupFileDropArea() {
+        const dropArea = document.getElementById('keywordDropArea');
+        const fileInput = document.getElementById('keywordFileInput');
+        const textarea = document.getElementById('trackingKeywords');
+        
+        if (dropArea && fileInput && textarea) {
+          // Open file dialog when clicking on drop area
+          dropArea.addEventListener('click', function() {
+            fileInput.click();
+          });
+          
+          // Handle file selection
+          fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+              const file = this.files[0];
+              readKeywordFile(file, textarea);
+            }
+          });
+          
+          // Prevent default drag behaviors
+          ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+          });
+          
+          // Highlight drop area when file is dragged over it
+          ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, function() {
+              dropArea.classList.add('drag-over');
+            }, false);
+          });
+          
+          ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, function() {
+              dropArea.classList.remove('drag-over');
+            }, false);
+          });
+          
+          // Handle dropped files
+          dropArea.addEventListener('drop', function(e) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            readKeywordFile(file, textarea);
+          }, false);
+        }
+      }
+      
+      // Prevent default drag behavior
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      // Read keyword file
+      function readKeywordFile(file, textarea) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+          const content = e.target.result;
+          
+          // Add file content to textarea
+          if (textarea.value.trim()) {
+            textarea.value += '\n' + content;
+          } else {
+            textarea.value = content;
+          }
+          
+          // Update keyword counter
+          updateKeywordCounter();
+          
+          // Show success message
+          showToast(`Imported keywords from ${file.name}`, 'success');
+        };
+        
+        reader.readAsText(file);
+      }
+      
+      // Show success animation
+      function showSuccessAnimation(buttonId) {
+        const button = document.getElementById(buttonId);
+        const successCheck = button.querySelector('.success-check');
+        
+        if (successCheck) {
+          successCheck.classList.add('show');
+          
+          setTimeout(() => {
+            successCheck.classList.remove('show');
+          }, 1500);
+        }
+      }
+      
+      // Brand variations handling with improved success feedback
+      function saveBrandVariations() {
+        const variationsTextarea = document.getElementById('brandVariations');
+        if (!variationsTextarea) {
+          showError('Brand variations textarea not found');
+          return;
+        }
+        
+        const variationsText = variationsTextarea.value;
+        const variations = variationsText.split('\n')
+          .map(v => v.trim())
+          .filter(v => v.length > 0);
+        
+        showLoading('Saving brand variations...');
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            hideLoading();
+            if (response && response.success) {
+              showToast(response.message || 'Brand variations saved successfully', 'success');
+              showSuccessAnimation('brandSuccessCheck');
+            } else {
+              showError(response.message || 'Failed to save brand variations');
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            showError('Failed to save brand variations: ' + error.toString());
+          })
+          .storeBrandVariations(variations);
+      }
+      
+      // Setup rank tracking with improved success feedback
+      function setupRankTracking() {
+        // Clear previous errors
+        const errorElement = document.getElementById('error');
+        if (errorElement) errorElement.style.display = 'none';
+        
+        // Get website property
+        const siteUrl = document.getElementById('property').value;
+        if (!siteUrl) {
+          showError('Please select a website property first');
+          return;
+        }
+        
+        // Check if tracking all queries
+        const trackAllQueries = document.getElementById('trackAllQueries');
+        const isTrackingAll = trackAllQueries && trackAllQueries.checked;
+        
+        // Get keywords if not tracking all
+        let keywords = [];
+        if (!isTrackingAll) {
+          const keywordsTextarea = document.getElementById('trackingKeywords');
+          if (!keywordsTextarea) {
+            showError('Keyword input field not found');
+            return;
+          }
+          
+          const keywordsInput = keywordsTextarea.value.trim();
+          if (keywordsInput) {
+            keywords = keywordsInput.split('\n')
+              .map(k => k.trim())
+              .filter(k => k.length > 0);
+          }
+        }
+        
+        // Get frequency
+        const frequencySelect = document.getElementById('trackingFrequency');
+        if (!frequencySelect) {
+          showError('Frequency selector not found');
+          return;
+        }
+        
+        const frequency = frequencySelect.value;
+        
+        // Validate frequency
+        if (!frequency || !['weekly', 'monthly'].includes(frequency)) {
+          showError('Please select a valid tracking frequency (weekly or monthly)');
+          return;
+        }
+        
+        // Show loading status
+        showLoading('Setting up rank tracking...');
+        
+        // Disable the tracking button
+        const trackingButton = document.getElementById('startTrackingBtn');
+        if (trackingButton) {
+          trackingButton.disabled = true;
+        }
+        
+        // Call server function
+        google.script.run
+          .withSuccessHandler(function(response) {
+            hideLoading();
+            
+            // Re-enable button
+            if (trackingButton) {
+              trackingButton.disabled = false;
+            }
+            
+            if (response && response.success) {
+              showToast(response.message || 'Rank tracking setup successfully', 'success');
+              showSuccessAnimation('trackingSuccessCheck');
+              
+              // Clear the textarea if not tracking all
+              if (!isTrackingAll) {
+                const keywordsTextarea = document.getElementById('trackingKeywords');
+                if (keywordsTextarea) {
+                  keywordsTextarea.value = '';
+                  updateKeywordCounter();
+                }
+              }
+              
+              // Show the preview section
+              const previewContent = document.getElementById('previewContent');
+              if (previewContent) {
+                previewContent.classList.add('open');
+              }
+            } else {
+              showError(response.message || 'Failed to setup rank tracking');
+            }
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            
+            // Re-enable button
+            if (trackingButton) {
+              trackingButton.disabled = false;
+            }
+            
+            showError('Failed to setup rank tracking: ' + error.toString());
+          })
+          .trackKeywords(keywords, frequency);
+      }
+      
+      // Global page initialization
+      function initPage() {
+        // Initialize custom checkboxes
+        initializeCheckboxes();
+        
+        // Setup textarea counters
+        const trackingKeywords = document.getElementById('trackingKeywords');
+        if (trackingKeywords) {
+          trackingKeywords.addEventListener('input', updateKeywordCounter);
+          updateKeywordCounter();
+        }
+        
+        const brandVariations = document.getElementById('brandVariations');
+        if (brandVariations) {
+          brandVariations.addEventListener('input', updateBrandCounter);
+          updateBrandCounter();
+        }
+        
+        // Setup track all queries toggle
+        setupTrackAllQueriesToggle();
+        
+        // Setup filters toggle
+        setupFiltersToggle();
+        
+        // Setup file drop area
+        setupFileDropArea();
+        
+        // Setup date range handler
+        const dateRangeSelect = document.getElementById('dateRange');
+        if (dateRangeSelect) {
+          dateRangeSelect.addEventListener('change', function() {
+            const customDateRange = document.getElementById('customDateRange');
+            if (customDateRange) {
+              customDateRange.style.display = this.value === 'CUSTOM' ? 'block' : 'none';
+            }
+          });
+        }
+        
+        // Initialize Dimension checkboxes
+        document.querySelectorAll('#dataExportTab input[type="checkbox"]').forEach(checkbox => {
+          const group = checkbox.closest('.checkbox-group');
+          const customCheckbox = group.querySelector('.custom-checkbox');
+          
+          if (checkbox.checked) {
+            group.classList.add('checked');
+            customCheckbox.classList.add('checked');
+          } else {
+            group.classList.remove('checked');
+            customCheckbox.classList.remove('checked');
+          }
+        });
+        
+        // Load properties and check auth status
+        checkAuthStatus();
+      }
+      
+      // Enhanced toast notification
+      function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        if (!toast) return;
+        
+        // Set type-specific styling
+        toast.className = 'toast';
+        toast.classList.add(`toast-${type}`);
+        
+        // Add appropriate icon
+        let icon = '';
+        if (type === 'success') {
+          icon = '<span class="toast-icon">✓</span>';
+        } else if (type === 'error') {
+          icon = '<span class="toast-icon">⚠️</span>';
+        }
+        
+        toast.innerHTML = icon + message;
+        toast.style.display = 'flex';
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          setTimeout(() => {
+            toast.style.display = 'none';
+            toast.style.opacity = '1';
+          }, 300);
+        }, 3000);
+      }
+      
+      // Enhanced error display
+      function showError(message) {
+        const errorDiv = document.getElementById('error');
+        const errorText = document.getElementById('errorText');
+        
+        if (errorDiv && errorText) {
+          errorText.textContent = message;
+          errorDiv.style.display = 'flex';
+          
+          // Scroll error into view
+          errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        hideLoading();
+      }
+      
+      // Enhanced loading indicator
+      function showLoading(message = 'Loading...') {
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
+        
+        if (loading) {
+          if (loadingText) {
+            loadingText.textContent = message;
+          }
+          loading.style.display = 'block';
+        }
+      }
+      
+      function hideLoading() {
+        const loading = document.getElementById('loading');
+        if (loading) {
+          loading.style.display = 'none';
+        }
+      }
+
+      /* Function to toggle the filter section */
+      function toggleFilterSection() {
+        const filterCheckbox = document.getElementById('addFilter');
+        const filtersSection = document.getElementById('filtersSection');
+        
+        if (!filtersSection) return;
+        
+        if (filterCheckbox && filterCheckbox.checked) {
+          filtersSection.classList.add('visible');
+        } else {
+          filtersSection.classList.remove('visible');
+        }
+      }
+
+      /* Enhanced toggleCheckbox function to handle filter section */
+      function toggleCheckbox(group) {
+        const checkbox = group.querySelector('input[type="checkbox"]');
+        const customCheckbox = group.querySelector('.custom-checkbox');
+        
+        // Toggle checked state
+        checkbox.checked = !checkbox.checked;
+        
+        // Update visual state
+        if (checkbox.checked) {
+          group.classList.add('checked');
+          if (customCheckbox) customCheckbox.classList.add('checked');
+        } else {
+          group.classList.remove('checked');
+          if (customCheckbox) customCheckbox.classList.remove('checked');
+        }
+        
+        // Handle special cases
+        if (checkbox.id === 'addFilter') {
+          toggleFilterSection();
+        } else if (checkbox.id === 'trackAllQueries') {
+          // Toggle keywords textarea based on trackAllQueries state
+          const keywordsTextarea = document.getElementById('trackingKeywords');
+          const keywordCounter = document.getElementById('keywordCounter');
+          
+          if (keywordsTextarea) {
+            if (checkbox.checked) {
+              keywordsTextarea.disabled = true;
+              keywordsTextarea.style.opacity = 0.5;
+              if (keywordCounter) keywordCounter.style.opacity = 0.5;
+            } else {
+              keywordsTextarea.disabled = false;
+              keywordsTextarea.style.opacity = 1;
+              if (keywordCounter) keywordCounter.style.opacity = 1;
+            }
+          }
+        }
+      }
+
+      // Initialize filter section when document is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        // Initialize all checkboxes
+        initializeCheckboxes();
+        
+        // Handle filter section visibility on load
+        const filterCheckbox = document.getElementById('addFilter');
+        if (filterCheckbox) {
+          toggleFilterSection();
+        }
+        
+        // Add filter section HTML if it doesn't exist
+        const dataExportTab = document.getElementById('dataExportTab');
+        if (dataExportTab && !document.getElementById('filtersSection')) {
+          const filterSectionHTML = `
+            <div id="filtersSection" class="filters-section">
+              <div class="filter-section-title">
+                <span class="icon">🔍</span>Filter Settings
+              </div>
+              <div class="filter-controls">
+                <select id="filterDimension" class="filter-select">
+                  <option value="">Select dimension</option>
+                  <option value="page">Page</option>
+                  <option value="query">Query</option>
+                  <option value="country">Country</option>
+                  <option value="device">Device</option>
+                </select>
+                <select id="filterOperator" class="filter-select">
+                  <option value="">Select operator</option>
+                  <option value="contains">Contains</option>
+                  <option value="equals">Equals</option>
+                  <option value="notContains">Doesn't contain</option>
+                  <option value="notEquals">Doesn't equal</option>
+                </select>
+                <input type="text" id="filterValue" placeholder="Filter value" class="filter-input">
+                <button id="addFilterBtn" class="secondary filter-btn">Add</button>
+              </div>
+              <div id="activeFilters" class="active-filters"></div>
+            </div>
+          `;
+          
+          // Find the right place to insert the filter section (after the metrics section)
+          const metricsSection = dataExportTab.querySelector('.form-group:nth-of-type(2)');
+          if (metricsSection) {
+            // Insert filter section after metrics section
+            metricsSection.insertAdjacentHTML('afterend', filterSectionHTML);
+            
+            // Add the filter checkbox if it doesn't exist
+            if (!document.getElementById('addFilter')) {
+              const filterCheckboxHTML = `
+                <div class="form-group">
+                  <div class="checkbox-group" onclick="toggleCheckbox(this)">
+                    <div class="custom-checkbox"></div>
+                    <input type="checkbox" id="addFilter">
+                    <label for="addFilter"><span class="icon-metric">🔍</span>Add Filter</label>
+                  </div>
+                </div>
+              `;
+              metricsSection.insertAdjacentHTML('afterend', filterCheckboxHTML);
+            }
+          }
+        }
+      });
+
+    // Store selected property when it changes
+    document.addEventListener('DOMContentLoaded', function() {
+      // Setup property change listener
+      const propertySelect = document.getElementById('property');
+      if (propertySelect) {
+        propertySelect.addEventListener('change', function() {
+          const selectedProperty = this.value;
+          console.log('Property selected:', selectedProperty);
+          
+          if (selectedProperty) {
+            // Save the selected property
+            google.script.run
+              .withSuccessHandler(function(response) {
+                if (response.success) {
+                  console.log('Property saved successfully:', selectedProperty);
+                  showToast('Property selected: ' + selectedProperty, 'success');
+                } else {
+                  console.error('Failed to save property:', response.message);
+                  showToast('Failed to save property', 'error');
+                }
+              })
+              .withFailureHandler(function(error) {
+                console.error('Error saving property:', error);
+                showToast('Error: ' + error, 'error');
+              })
+              .storeSelectedProperty(selectedProperty);
+          }
+        });
+      }
+    });
+
+    // Toast notification function
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastMessage = toast.querySelector('.toast-message');
+      const toastIcon = toast.querySelector('.toast-icon');
+      
+      // Set message and icon
+      toastMessage.textContent = message;
+      
+      if (type === 'success') {
+        toast.className = 'toast toast-success visible';
+        toastIcon.textContent = '✓';
+      } else if (type === 'error') {
+        toast.className = 'toast toast-error visible';
+        toastIcon.textContent = '✕';
+      }
+      
+      // Show toast
+      toast.classList.add('visible');
+      
+      // Hide toast after 3 seconds
+      setTimeout(function() {
+        toast.classList.remove('visible');
+      }, 3000);
+    }
+
+    // Add this function to handle the export data functionality
+    function exportData() {
+      // Show loading indicator
+      showLoading('Exporting data...');
+      
+      // Call the server-side export function
+      google.script.run
+        .withSuccessHandler(function(response) {
+          hideLoading();
+          if (response.success) {
+            showToast('Data exported successfully! File saved to your Google Drive.', 'success');
+            console.log('Export successful:', response);
+            
+            // If there's a download URL, open it
+            if (response.downloadUrl) {
+              window.open(response.downloadUrl, '_blank');
+            }
+          } else {
+            showToast('Failed to export data: ' + response.message, 'error');
+            console.error('Export error:', response.message);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Error exporting data: ' + error, 'error');
+          console.error('Export error:', error);
+        })
+        .exportGSCData();
+    }
+  </script>
+
+  <!-- /** checkbox-script -T */ -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.checkbox-group').forEach(group => {
+        const checkbox = group.querySelector('input[type="checkbox"]');
+        const customBox = group.querySelector('.custom-checkbox');
+
+        // Initialize visual state
+        if (checkbox.checked) {
+          group.classList.add('checked');
+          customBox.classList.add('checked');
+        }
+
+        // Toggle when clicking the group (but not the input itself)
+        group.addEventListener('click', function (e) {
+          if (e.target.tagName.toLowerCase() === 'input') return;
+
+          checkbox.checked = !checkbox.checked;
+          group.classList.toggle('checked', checkbox.checked);
+          customBox.classList.toggle('checked', checkbox.checked);
+        });
+
+        // Keep visual state in sync if checkbox changes independently
+        checkbox.addEventListener('change', function () {
+          group.classList.toggle('checked', checkbox.checked);
+          customBox.classList.toggle('checked', checkbox.checked);
+        });
+      });
+    });
+  </script>
+
+  <script>
+    // Add this function to your script section
+    function debugCheckProperty() {
+      showLoading('Checking stored property...');
+      
+      google.script.run
+        .withSuccessHandler(function(response) {
+          hideLoading();
+          if (response.success) {
+            showToast('Property value: ' + response.selectedProperty, 'success');
+            console.log('Retrieved property:', response.selectedProperty);
+          } else {
+            showToast('Error checking property', 'error');
+            console.error('Property check error:', response.message);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Error: ' + error, 'error');
+          console.error('Property check error:', error);
+        })
+        .checkSelectedProperty();
+    }
+  </script>
+
+  <!-- Authentication Script -->
+  <script>
+    // Check authentication status on load
+    document.addEventListener('DOMContentLoaded', function() {
+      checkAuthStatus();
+    });
+
+    function checkAuthStatus() {
+      showLoading('Checking authentication status...');
+      
+      google.script.run
+        .withSuccessHandler(function(response) {
+          hideLoading();
+          if (response.success) {
+            document.getElementById('auth-section').style.display = 'none';
+            document.querySelector('.auth-overlay').style.display = 'none';
+            loadGSCProperties();
+          } else if (response.needsAuth) {
+            const authSection = document.getElementById('auth-section');
+            const authOverlay = document.querySelector('.auth-overlay');
+            authSection.style.display = 'block';
+            authSection.classList.add('show');
+            authOverlay.style.display = 'block';
+            document.getElementById('auth-message').textContent = 
+              response.message || 'Authentication required. Please authorize access to Google Search Console.';
+            document.getElementById('auth-button').onclick = startAuth;
+          } else {
+            showError(response.message || 'Authentication check failed');
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('Failed to verify authentication status: ' + error);
+        })
+        .verifyGSCAccess();
+    }
+
+    function startAuth() {
+      showLoading('Starting authentication...');
+      
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (response.success) {
+            hideLoading();
+            document.getElementById('auth-section').style.display = 'none';
+            document.querySelector('.auth-overlay').style.display = 'none';
+            loadGSCProperties();
+          } else if (response.authUrl) {
+            const authWindow = window.open(response.authUrl, '_blank', 'width=600,height=600');
+            if (authWindow) {
+              pollAuthStatus();
+            } else {
+              hideLoading();
+              showError('Pop-up blocked. Please allow pop-ups and try again.');
+            }
+          } else {
+            hideLoading();
+            showError('Failed to start authentication process');
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showError('Failed to start authentication: ' + error);
+        })
+        .initiateAuthorization();
+    }
+
+  window.redirectToDashboard = function redirectToDashboard() {
+  const button = document.getElementById('manageAccountBtn');
+  const spinner = button.querySelector('.spinner');
+  const buttonText = button.querySelector('.button-text');
+
+  console.log('Button:', button);
+  console.log('Spinner:', spinner);
+  console.log('Button Text:', buttonText);
+
+  button.disabled = true;
+  spinner.style.display = 'inline-block';
+  buttonText.textContent = 'Loading...';
+
+  google.script.run
+    .withSuccessHandler(function (userData) {
+      button.disabled = false;
+      spinner.style.display = 'none';
+      buttonText.textContent = 'Manage account';
+
+      if (!userData || !userData.email || !userData.property || !userData.accessToken) {
+        showToast('Invalid user data received', 'error');
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          email: userData.email,
+          property: userData.property,
+          accessToken: userData.accessToken,
+        }).toString();
+
+        const dashboardUrl = `https://datapulsifywebsite-2.vercel.app/Dashboard?${params}`;
+        console.log('Redirecting to:', dashboardUrl);
+
+        window.open(dashboardUrl, '_blank');
+      } catch (error) {
+        showToast('Error redirecting to dashboard: ' + error.message, 'error');
+      }
+    })
+    .withFailureHandler(function (error) {
+      button.disabled = false;
+      spinner.style.display = 'none';
+      buttonText.textContent = 'Manage account';
+      showToast('Error getting user data: ' + error.message, 'error');
+    })
+    .getUserDataForDashboard();
+};
+
+    // Helper functions for UI feedback
+    function showLoading(message) {
+      const loading = document.getElementById('loading');
+      const loadingText = document.getElementById('loadingText');
+      if (loading && loadingText) {
+        loadingText.textContent = message;
+        loading.style.display = 'flex';
+      }
+    }
+
+    function hideLoading() {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.display = 'none';
+      }
+    }
+
+    function showError(message) {
+      const error = document.getElementById('error');
+      const errorText = document.getElementById('errorText');
+      if (error && errorText) {
+        errorText.textContent = message;
+        error.style.display = 'flex';
+        setTimeout(() => {
+          error.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      const toastMessage = toast.querySelector('.toast-message');
+      
+      toast.className = 'toast ' + type;
+      toastMessage.textContent = message;
+      toast.style.display = 'flex';
+      
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+  </script>
+
+  <!-- Data Export buttons -->
+  <div class="sticky-bar">
+    <button id="homeBtn" onclick="showTab('setupTab')">Home</button>
+    <button id="nextBtn" onclick="handleNextButton()" class="primary">Next</button>
+  </div>
+
+  <!-- Contact section at the bottom -->
+  <div class="card" style="margin-top: 24px;">
+    <h3 class="section-title"><span class="icon">📬</span>Contact Us</h3>
+    <p>Questions or suggestions? Want custom integrations?</p>
+    <div style="margin-top: 16px;">
+      <a href="mailto:support@example.com" class="contact-link">
+        <span style="margin-right: 8px;">✉️</span> support@example.com
+      </a>
+    </div>
+    <div style="margin-top: 8px;">
+      <a href="https://twitter.com/example" target="_blank" class="contact-link">
+        <span style="margin-right: 8px;">🐦</span> @example
+      </a>
+    </div>
+  </div>
+
+  <!-- WhatsApp support -->
+  <div class="whatsapp-bar">
+    <a href="https://wa.me/1234567890" target="_blank" class="whatsapp-button">
+      <span class="whatsapp-icon">📱</span> Join WhatsApp Community
+    </a>
+  </div>
+
+  <!-- <script>
+    function redirectToDashboard() {
+      console.log('google.script.run:', google.script.run);
+      // Get the button and its elements
+      const button = document.getElementById('manageAccountBtn');
+      const spinner = button.querySelector('.spinner');
+      const buttonText = button.querySelector('.button-text');
+      
+      // Disable button and show loading state
+      button.disabled = true;
+      spinner.style.display = 'inline-block';
+      buttonText.textContent = 'Loading...';
+      
+      // Get user data from Google Apps Script
+      google.script.run
+        .withSuccessHandler(function(userData) {
+          // Reset button state
+          button.disabled = false;
+          spinner.style.display = 'none';
+          buttonText.textContent = 'Manage account';
+          
+          if (!userData || !userData.email || !userData.property || !userData.accessToken) {
+            showToast('Invalid user data received', 'error');
+            return;
+          }
+          
+          try {
+            // Encode the user data as URL parameters
+            const params = new URLSearchParams({
+              email: userData.email,
+              property: userData.property,
+              accessToken: userData.accessToken
+            }).toString();
+            
+            // Redirect to data-pulsify dashboard with user data
+            window.open(`https://data-pulsify.vercel.app/Dashboard?${params}`, '_blank');
+          } catch (error) {
+            showToast('Error redirecting to dashboard: ' + error.message, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          // Reset button state
+          button.disabled = false;
+          spinner.style.display = 'none';
+          buttonText.textContent = 'Manage account';
+          
+          // Show error message
+          showToast('Error getting user data: ' + error.message, 'error');
+        })
+        .getUserDataForDashboard();
+    }
+  </script> -->
+</body>
+
+</html>
