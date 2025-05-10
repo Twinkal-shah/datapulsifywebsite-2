@@ -44,7 +44,7 @@ const AccountDashboard = () => {
 
   useEffect(() => {
     console.log('Dashboard mount - Auth state:', { user: auth.user, loading: auth.loading });
-    
+
     if (!auth.loading && !auth.user) {
       console.log('No user found after auth loaded, redirecting to home');
       navigate('/');
@@ -140,25 +140,27 @@ const AccountDashboard = () => {
         return;
       }
 
-      // Update the database
+      // Update ONLY the business_type and business_size columns
       const { error: updateError } = await supabase
         .from('user_installations')
         .update({
           business_type: formData.business_type,
-          business_size: formData.business_size,
-          updated_at: new Date().toISOString()
+          business_size: formData.business_size
         })
         .eq('email', auth.user.email);
 
       if (updateError) throw updateError;
 
-      // Update local state
-      setInstallationData(prev => prev ? {
-        ...prev,
-        business_type: formData.business_type,
-        business_size: formData.business_size
-      } : null);
+      // Re-fetch the updated data from the database
+      const { data, error } = await supabase
+        .from('user_installations')
+        .select('*')
+        .eq('email', auth.user.email)
+        .single();
 
+      if (error) throw error;
+
+      setInstallationData(data);
       setIsEditing(false);
       toast({
         title: "Settings Updated",
@@ -300,7 +302,7 @@ const AccountDashboard = () => {
 
   // Calculate API usage percentage
   const apiUsagePercentage = installationData ? (installationData.usage_count / 1000) * 100 : 0;
-  const daysLeft = installationData?.subscription_end_date ? 
+  const daysLeft = installationData?.subscription_end_date ?
     calculateDaysLeft(installationData.subscription_end_date) : null;
 
   return (
@@ -333,8 +335,8 @@ const AccountDashboard = () => {
                   <h3 className="text-xl font-semibold text-white">{auth.user.name}</h3>
                   <p className="text-gray-400">{auth.user.email}</p>
                   <p className="text-sm text-gray-500">
-                    Member since {installationData?.install_date 
-                      ? new Date(installationData.install_date).toLocaleDateString() 
+                    Member since {installationData?.install_date
+                      ? new Date(installationData.install_date).toLocaleDateString()
                       : new Date().toLocaleDateString()}
                   </p>
                 </div>
@@ -349,7 +351,7 @@ const AccountDashboard = () => {
                 </div>
                 <h3 className="text-xl font-semibold text-white">Usage Statistics</h3>
               </div>
-              
+
               <div className="space-y-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -357,8 +359,8 @@ const AccountDashboard = () => {
                     <span className="text-white">{installationData?.usage_count || 0} / 1000</span>
                   </div>
                   <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full" 
+                    <div
+                      className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full"
                       style={{ width: `${Math.min(apiUsagePercentage, 100)}%` }}
                     ></div>
                   </div>
@@ -386,7 +388,7 @@ const AccountDashboard = () => {
                       )}
                     </div>
                   </div>
-                  <Button 
+                  <Button
                     className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:opacity-90 transition-all"
                     onClick={() => window.location.href = 'https://datapulsify.com/upgrade'}
                   >
@@ -397,14 +399,83 @@ const AccountDashboard = () => {
             )}
 
             {/* Document Info Card */}
-            <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+            {/* <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
               <div className="flex items-start gap-6">
                 <div className="p-4 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl">
                   <FileText className="w-8 h-8 text-white" />
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold text-white">Working Sheet</h3>
-                  <p className="text-gray-400">{installationData?.document_info || 'No document connected'}</p>
+                  {(() => {
+                    let docInfo: any = installationData?.document_info;
+                    if (typeof docInfo === 'string') {
+                      try {
+                        docInfo = JSON.parse(docInfo);
+                      } catch {
+                        docInfo = null;
+                      }
+                    }
+                    if (docInfo && typeof docInfo === 'object') {
+                      return (
+                        <div className="text-gray-400">
+                          <div>Document Name: {docInfo && docInfo.documentName ? docInfo.documentName : 'N/A'}</div>
+                          <div>
+                            Document URL: {docInfo && docInfo.documentUrl ? (
+                              <a href={docInfo.documentUrl} target="_blank" rel="noopener noreferrer">{docInfo.documentUrl}</a>
+                            ) : 'N/A'}
+                          </div>
+                          <div>Document ID: {docInfo && docInfo.documentId ? docInfo.documentId : 'N/A'}</div>
+                        </div>
+                      );
+                    }
+                    return <p className="text-gray-400">No document connected</p>;
+                  })()}
+                </div>
+              </div>
+            </Card> */}
+
+            {/* Lifetime Deal Card */}
+            <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+              <div className="flex items-start gap-6">
+                <div className="p-4 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl">
+                  <Key className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">Lifetime Deal</h3>
+                    <p className="text-gray-400">
+                      {installationData?.lifetime_deal_status === 'active'
+                        ? 'Activated'
+                        : 'Not Activated'}
+                    </p>
+                  </div>
+
+                  {installationData?.lifetime_deal_status !== 'active' && (
+                    <div className="space-y-4">
+                      <div className="flex gap-4">
+                        <Input
+                          type="text"
+                          placeholder="Enter license key"
+                          value={licenseKey}
+                          onChange={(e) => setLicenseKey(e.target.value)}
+                          className="flex-1 bg-gray-800 border-gray-700 text-white"
+                        />
+                        <Button
+                          onClick={handleActivateLicense}
+                          className="bg-gradient-to-r from-blue-500 to-purple-600"
+                        >
+                          Activate
+                        </Button>
+                      </div>
+                      <Button
+                        onClick={() => window.location.href = '/lifetimedeal'}
+                        className="w-full bg-gradient-to-r from-yellow-500 to-orange-600"
+                      >
+                        Get Lifetime Deal
+                      </Button>
+                      <p className="text-yellow-400 text-sm">Ends in 3 days</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
@@ -449,131 +520,130 @@ const AccountDashboard = () => {
             </Card>
           </div>
 
-          {/* Lifetime Deal Card */}
-          <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
-            <div className="flex items-start gap-6">
-              <div className="p-4 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl">
-                <Key className="w-8 h-8 text-white" />
-              </div>
-              <div className="flex-1 space-y-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-white">Lifetime Deal</h3>
-                  <p className="text-gray-400">
-                    {installationData?.lifetime_deal_status === 'active' 
-                      ? 'Activated' 
-                      : 'Not Activated'}
-                  </p>
+          {/* Side-by-side Working Sheet and Account Settings */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Working Sheet Card */}
+            <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl overflow-x-auto">
+              <div className="flex items-start gap-6">
+                <div className="p-4 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl">
+                  <FileText className="w-8 h-8 text-white" />
                 </div>
+                <div className="space-y-2 w-full">
+                  <h3 className="text-xl font-semibold text-white">Working Sheet</h3>
+                  {(() => {
+                    let docInfo: any = installationData?.document_info;
+                    if (typeof docInfo === 'string') {
+                      try {
+                        docInfo = JSON.parse(docInfo);
+                      } catch {
+                        docInfo = null;
+                      }
+                    }
+                    if (docInfo && typeof docInfo === 'object') {
+                      return (
+                        <div className="text-gray-400 break-words mb-3">
+                          <div className="mb-3">
+                            <span className="font-bold">Document Name:</span> <span className="text-blue-500 font-medium">{docInfo && docInfo.documentName ? docInfo.documentName : 'N/A'}</span>
+                          </div>
+                          <div className="mb-3">
+                            <span className="font-bold">Document URL:</span> {docInfo && docInfo.documentUrl ? (
+                              <a href={docInfo.documentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 font-medium underline break-all">{docInfo.documentUrl}</a>
+                            ) : <span className="text-blue-500 font-medium">N/A</span>}
+                          </div>
+                          <div>
+                            <span className="font-bold">Document ID:</span> <span className="text-blue-500 font-medium">{docInfo && docInfo.documentId ? docInfo.documentId : 'N/A'}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return <p className="text-gray-400">No document connected</p>;
+                  })()}
+                </div>
+              </div>
+            </Card>
 
-                {installationData?.lifetime_deal_status !== 'active' && (
-                  <div className="space-y-4">
-                    <div className="flex gap-4">
-                      <Input
-                        type="text"
-                        placeholder="Enter license key"
-                        value={licenseKey}
-                        onChange={(e) => setLicenseKey(e.target.value)}
-                        className="flex-1 bg-gray-800 border-gray-700 text-white"
-                      />
-                      <Button
-                        onClick={handleActivateLicense}
-                        className="bg-gradient-to-r from-blue-500 to-purple-600"
-                      >
-                        Activate
-                      </Button>
-                    </div>
-                    <Button
-                      onClick={() => window.location.href = '/lifetimedeal'}
-                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-600"
-                    >
-                      Get Lifetime Deal
-                    </Button>
-                    <p className="text-yellow-400 text-sm">Ends in 3 days</p>
+            {/* Account Settings Card */}
+            <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl">
+                    <Settings className="w-8 h-8 text-white" />
                   </div>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* Settings Section */}
-          <Card className="bg-[#1a1d23] border-0 shadow-xl p-6 rounded-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl">
-                  <Settings className="w-8 h-8 text-white" />
+                  <h3 className="text-xl font-semibold text-white">Account Settings</h3>
                 </div>
-                <h3 className="text-xl font-semibold text-white">Account Settings</h3>
-              </div>
-              {isEditing ? (
-                <div className="flex gap-2">
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        setIsEditing(false);
+                        setFormData({
+                          business_type: installationData?.business_type || '',
+                          business_size: installationData?.business_size || ''
+                        });
+                      }}
+                      variant="outline"
+                      className="text-gray-400 hover:text-white"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSaveSettings}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600"
+                    >
+                      Save Changes
+                    </Button>
+                  </div>
+                ) : (
                   <Button
-                    onClick={() => {
-                      setIsEditing(false);
-                      setFormData({
-                        business_type: installationData?.business_type || '',
-                        business_size: installationData?.business_size || ''
-                      });
-                    }}
-                    variant="outline"
-                    className="text-gray-400 hover:text-white"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSaveSettings}
+                    onClick={() => setIsEditing(true)}
                     className="bg-gradient-to-r from-blue-500 to-purple-600"
                   >
-                    Save Changes
+                    Edit Settings
                   </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Business Type</label>
+                  {isEditing ? (
+                    <select
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white"
+                      value={formData.business_type}
+                      onChange={(e) => setFormData(prev => ({ ...prev, business_type: e.target.value }))}
+                    >
+                      <option value="Marketing agency">Marketing agency</option>
+                      <option value="B2B SaaS">B2B SaaS</option>
+                      <option value="Freelancer">Freelancer</option>
+                      <option value="Consultant">Consultant</option>
+                      <option value="E-commerce">E-commerce</option>
+                      <option value="B2B retail">B2B retail</option>
+                      <option value="Others">Others</option>
+                    </select>
+                  ) : (
+                    <p className="text-white text-lg">{installationData?.business_type || 'N/A'}</p>
+                  )}
                 </div>
-              ) : (
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600"
-                >
-                  Edit Settings
-                </Button>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Business Type</label>
-                {isEditing ? (
-                  <select 
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white"
-                    value={formData.business_type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, business_type: e.target.value }))}
-                  >
-                    <option value="Personal">Personal</option>
-                    <option value="Startup">Startup</option>
-                    <option value="Small Business">Small Business</option>
-                    <option value="Enterprise">Enterprise</option>
-                  </select>
-                ) : (
-                  <p className="text-white text-lg">{installationData?.business_type}</p>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Business Size</label>
+                  {isEditing ? (
+                    <select
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white"
+                      value={formData.business_size}
+                      onChange={(e) => setFormData(prev => ({ ...prev, business_size: e.target.value }))}
+                    >
+                      <option value="1">1</option>
+                      <option value="2–10">2–10</option>
+                      <option value="11–50">11–50</option>
+                      <option value="51–200">51–200</option>
+                      <option value="200+">200+</option>
+                    </select>
+                  ) : (
+                    <p className="text-white text-lg">{installationData?.business_size || 'N/A'}</p>
+                  )}
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Business Size</label>
-                {isEditing ? (
-                  <select 
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white"
-                    value={formData.business_size}
-                    onChange={(e) => setFormData(prev => ({ ...prev, business_size: e.target.value }))}
-                  >
-                    <option value="Small">Small (1-10 employees)</option>
-                    <option value="Medium">Medium (11-50 employees)</option>
-                    <option value="Large">Large (51-200 employees)</option>
-                    <option value="Enterprise">Enterprise (201+ employees)</option>
-                  </select>
-                ) : (
-                  <p className="text-white text-lg">{installationData?.business_size}</p>
-                )}
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
           {/* Logout Button */}
           <div className="flex justify-center pt-8">
