@@ -10,6 +10,11 @@ import Waitlist from "./pages/Waitlist";
 import LifetimeDeal from "./pages/LifetimeDeal";
 import NotFound from "./pages/NotFound";
 import AccountDashboard from "./pages/AccountDashboard";
+import AboutUs from "./pages/AboutUs";
+import ContactUs from "./pages/ContactUs";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import RefundPolicy from "./pages/RefundPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import { supabase } from "./lib/supabaseClient";
 
 const queryClient = new QueryClient({
@@ -70,6 +75,11 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/waitlist" element={<Waitlist />} />
                 <Route path="/lifetimedeal" element={<LifetimeDeal />} />
+                <Route path= "/aboutus" element={<AboutUs />} />
+                <Route path= "/contactus" element={<ContactUs />} />
+                <Route path= "/privacypolicy" element={<PrivacyPolicy />} />
+                <Route path= "/refundpolicy" element={<RefundPolicy />} />
+                <Route path= "/termsofservice" element={<TermsOfService />} />
                 <Route 
                   path="/dashboard" 
                   element={
