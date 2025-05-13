@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   Accordion,
   AccordionContent,
@@ -60,9 +61,9 @@ const FaqSection = () => {
 
         <div className="mt-16 text-center opacity-0 animate-fade-in animate-delay-300">
           <h3 className="text-xl font-semibold mb-4">Still have questions?</h3>
-          <a href="#" className="btn-secondary">
-            Contact Support
-          </a>
+          <Link to="/contactus" className="btn-secondary">
+  Contact Support
+</Link>
         </div>
       </div>
     </section>
