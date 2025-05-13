@@ -7,7 +7,7 @@ const Footer = () => {
   return (
     <footer className="bg-black text-white border-t border-gray-800">
       <div className="container mx-auto px-4 md:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-1">
             <div className="mb-6">
               <h2 className="text-2xl font-bold mb-2">Datapulsify</h2>
@@ -42,8 +42,8 @@ const Footer = () => {
           {/* <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Resources</h3>
             <ul className="space-y-2">
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Documentation</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Tutorials</a></li>
+              <li><Link to="/refundpolicy" className="text-gray-400 hover:text-white transition-colors">Refund Policy</Link></li>
+              <li><Link to="/contactus" className="text-gray-400 hover:text-white transition-colors">Contact Us</Link></li>
               <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Blog</a></li>
               <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Support Center</a></li>
             </ul>
@@ -56,6 +56,8 @@ const Footer = () => {
               <li><Link to="/waitlist" className="text-gray-400 hover:text-white transition-colors">Join Waitlist</Link></li>
               <li><Link to="/privacypolicy"className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link to="/termsofservice" className="text-gray-400 hover:text-white transition-colors">Terms of Service</Link></li>
+              <li><Link to="/refundpolicy" className="text-gray-400 hover:text-white transition-colors">Refund Policy</Link></li>
+              <li><Link to="/contactus" className="text-gray-400 hover:text-white transition-colors">Contact Us</Link></li>
             </ul>
           </div>
         </div>
