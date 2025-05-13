@@ -68,16 +68,16 @@ const Footer = () => {
           </p>
           
           <div className="flex items-center space-x-4">
-            <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+            <Link to="/privacypolicy" className="text-gray-400 hover:text-white text-sm transition-colors">
               Privacy Policy
-            </a>
-            <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+            </Link>
+            <Link to="/termsofservice" className="text-gray-400 hover:text-white text-sm transition-colors">
               Terms of Service
-            </a>
-            <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors flex items-center">
+            </Link>
+            <Link to="/contactus"className="text-gray-400 hover:text-white text-sm transition-colors flex items-center">
               <MessageCircle size={16} className="mr-1" />
               Contact
-            </a>
+            </Link>
           </div>
         </div>
       </div>
