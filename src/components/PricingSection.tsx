@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Check, Info, MessageCircle, X } from 'lucide-react';
 
@@ -172,10 +173,10 @@ const PricingSection = () => {
           <p className="text-sm md:text-base text-gray-300 mb-5 md:mb-6">
             Need custom integrations, API access, or team support? Contact us for enterprise pricing.
           </p>
-          <a href="#" className="inline-flex items-center btn-secondary text-sm md:text-base">
-            <MessageCircle size={16} className="mr-2" />
-            Contact Us for Pricing
-          </a>
+          <Link to="/contactus" className="inline-flex items-center btn-secondary text-sm md:text-base">
+  <MessageCircle size={16} className="mr-2" />
+  Contact Us for Pricing
+</Link>
         </div>
         
       </div>
