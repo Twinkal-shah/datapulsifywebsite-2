@@ -21,26 +21,25 @@ const HeroSection = () => {
       <div className="container-section relative z-10">
         <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
           <div className="flex flex-col max-w-xl mx-auto md:mx-0 text-center md:text-left">
-            <span className="inline-block py-1 px-3 rounded-full text-xs md:text-sm bg-white/10 text-white mb-4 md:mb-6 backdrop-blur-sm animate-fade-in">
-              The easiest way to analyze GSC data
-            </span>
-            
-            <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight mb-4 md:mb-6 animate-fade-in animate-delay-75">
-              Effortless GSC Data Sync for Google Sheets
+            <h1 className="inline-block py-1 px-3 rounded-full text-xs md:text-sm bg-white/10 text-white mb-4 md:mb-6 backdrop-blur-sm animate-fade-in">
+            Sync Google Search Console Data to Google Sheets in Seconds
             </h1>
             
-            <p className="text-base md:text-lg text-gray-300 mb-6 md:mb-10 animate-fade-in animate-delay-150">
-              Datapulsify lets you seamlessly pull, analyze, and automate your 
-              Google Search Console data inside Google Sheets.
-            </p>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight mb-4 md:mb-6 animate-fade-in animate-delay-75">
+            Get Actionable Insights that Drive not Just Clicks but Business
+            </h2>
+            
+            <h3 className="text-base md:text-lg text-gray-300 mb-6 md:mb-10 animate-fade-in animate-delay-150">
+            Datapulsify lets you seamlessly pull, analyze, and automate your Google Search Console data insights in Google Sheets. 
+            </h3>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start mb-6 animate-fade-in animate-delay-300">
               <a href="#pricing" className="btn-primary">
-                Get Started for Free
+              Sync Now For Free
               </a>
-              <a href="#how-it-works" className="btn-secondary">
+              {/* <a href="#how-it-works" className="btn-secondary">
                 See How It Works
-              </a>
+              </a> */}
             </div>
             
             <div className="text-xs md:text-sm text-gray-400 animate-fade-in animate-delay-500">
