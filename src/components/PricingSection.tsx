@@ -100,15 +100,15 @@ const PricingSection = () => {
                 </li>
                 <li className="flex items-start text-gray-500">
                   <X size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                  <span>Insights</span>
+                  <span>SEO Insights</span>
                 </li>
                 <li className="flex items-start text-gray-500">
                   <X size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                  <span>Categorisation</span>
+                  <span>Rank Tracker</span>
                 </li>
                 <li className="flex items-start text-gray-500">
                   <X size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                  <span>Keyword type</span>
+                  <span>Gap Analysis</span>
                 </li>
                
               </ul>
@@ -146,15 +146,15 @@ const PricingSection = () => {
                 </li>
                 <li className="flex items-start">
                   <Check size={16} className="mr-2 mt-0.5 text-white flex-shrink-0" />
-                  <span>Insights</span>
+                  <span>SEO Insights</span>
                 </li>
                 <li className="flex items-start">
                   <Check size={16} className="mr-2 mt-0.5 text-white flex-shrink-0" />
-                  <span>Categorisation</span>
+                  <span>Rank Tracker</span>
                 </li>
                 <li className="flex items-start">
                   <Check size={16} className="mr-2 mt-0.5 text-white flex-shrink-0" />
-                  <span>Keyword type</span>
+                  <span>Gap Analysis</span>
                 </li>
               </ul>
               <a href="#" className="btn-primary w-full text-center">Start free trial</a>
