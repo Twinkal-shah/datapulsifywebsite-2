@@ -38,9 +38,9 @@ const FeaturesSection = () => {
   return (
     <section id="features" className="gradient-bg py-14 md:py-20 lg:py-28">
       <div className="container-section">
-        <h2 className="section-title">Powerful Features</h2>
+        <h2 className="section-title">Built for SEOs Who Crave Clean, Actionable Data</h2>
         <p className="section-subtitle">
-          Everything you need to leverage Google Search Console data in your spreadsheets.
+        Leverage Raw Google Search Console Data Inside Spreadsheets where you live
         </p>
 
         <div className="grid sm:grid-cols-2 gap-6 md:gap-8 mt-8 md:mt-12">
