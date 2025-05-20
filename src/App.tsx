@@ -8,6 +8,7 @@ import { Suspense, useEffect, useState } from "react";
 import Index from "./pages/Index";
 import Waitlist from "./pages/Waitlist";
 import LifetimeDeal from "./pages/LifetimeDeal";
+import ThankYou from "./pages/ThankYou";
 import NotFound from "./pages/NotFound";
 import AccountDashboard from "./pages/AccountDashboard";
 import AboutUs from "./pages/AboutUs";
@@ -75,6 +76,7 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/waitlist" element={<Waitlist />} />
                 <Route path="/lifetimedeal" element={<LifetimeDeal />} />
+                <Route path="/thank-you" element={<ThankYou />} />
                 <Route path= "/aboutus" element={<AboutUs />} />
                 <Route path= "/contactus" element={<ContactUs />} />
                 <Route path= "/privacypolicy" element={<PrivacyPolicy />} />
