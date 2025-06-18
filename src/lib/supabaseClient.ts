@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getRedirectUrl } from './utils';
+import { getSupabaseRedirectUrl } from './utils';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -14,7 +14,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase configuration is incomplete. Check your environment variables.');
 }
 
-const redirectUrl = `${getRedirectUrl()}/dashboard`;
+// Ensure redirect URL is pointing to the correct dashboard
+const redirectUrl = `${getSupabaseRedirectUrl()}/dashboard`;
 console.log('Auth redirect URL:', redirectUrl);
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -25,7 +26,12 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     storageKey: 'datapulsify_auth',
     storage: window.localStorage,
     flowType: 'pkce',
-    debug: true
+    debug: true,
+    // Add site URL and redirect URLs for development
+    ...(import.meta.env.VITE_APP_ENV === 'development' && {
+      site_url: 'http://localhost:8081',
+      redirect_to: 'http://localhost:8081/dashboard'
+    })
   },
   global: {
     headers: {

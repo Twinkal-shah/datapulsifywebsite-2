@@ -1,6 +1,5 @@
-
-import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Check, Star, MessageSquare, Puzzle } from 'lucide-react';
@@ -8,13 +7,19 @@ import { toast } from '@/components/ui/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 
 const ThankYou = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   useEffect(() => {
-    // Show a welcome toast when the page loads
-    toast({
-      title: "Payment Successful! 🎉",
-      description: "Welcome to Datapulsify. Your account is now active."
-    });
-  }, []);
+    const timer = setTimeout(() => {
+      toast({
+        title: "Purchase Successful! 🎉",
+        description: "Welcome to Datapulsify. Your account is now active."
+      });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [location]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 to-black">
@@ -40,30 +45,24 @@ const ThankYou = () => {
               
               <div className="bg-black/40 backdrop-blur-sm border border-white/20 rounded-xl p-8 mb-8">
                 <h2 className="text-2xl font-bold mb-4">Your Purchase Details</h2>
-                <div className="flex justify-between items-center border-b border-gray-800 py-3">
-                  <span className="text-gray-300">Plan</span>
-                  <span className="font-medium">Lifetime Deal</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-gray-800 py-3">
-                  <span className="text-gray-300">Amount</span>
-                  <span className="font-medium">$47.00</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-gray-800 py-3">
-                  <span className="text-gray-300">Email</span>
-                  <span className="font-medium">user@example.com</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-gray-800 py-3">
-                  <span className="text-gray-300">Name</span>
-                  <span className="font-medium">John Doe</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-gray-800 py-3">
-                  <span className="text-gray-300">Row Limit</span>
-                  <span className="font-medium">75,000 rows</span>
-                </div>
-                <div className="flex justify-between items-center py-3">
-                  <span className="text-gray-300">Expiration</span>
-                  <span className="font-medium text-green-500">Never</span>
-                </div>
+                  <>
+                    <div className="flex justify-between items-center border-b border-gray-800 py-3">
+                      <span className="text-gray-300">Plan</span>
+                      <span className="font-medium">Lifetime Deal</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-800 py-3">
+                      <span className="text-gray-300">Amount</span>
+                      <span className="font-medium">$198.00</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-800 py-3">
+                      <span className="text-gray-300">Row Limit</span>
+                      <span className="font-medium">75,000 rows</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3">
+                      <span className="text-gray-300">Expiration</span>
+                      <span className="font-medium text-green-500">Never</span>
+                    </div>
+                  </>
               </div>
               
               <div className="flex flex-col md:flex-row justify-center mb-12">

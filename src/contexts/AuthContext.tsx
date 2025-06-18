@@ -2,6 +2,20 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
+import { GoogleAuthService } from '@/lib/googleAuthService';
+
+// Development mode helper - creates a mock user for development
+const DEV_MODE = import.meta.env.DEV;
+const createDevUser = (gscProperty?: string) => ({
+  id: 'dev-user-id',
+  email: 'dev@example.com',
+  name: 'Development User',
+  member_since: new Date().toISOString(),
+  current_plan: 'Free Plan',
+  isAddonUser: true,
+  gscProperty: gscProperty || 'example.com',
+  avatar_url: 'https://avatar.vercel.sh/dev@example.com'
+});
 
 interface User {
   id: string;
@@ -22,6 +36,8 @@ interface AuthContextType {
   isAddonAuthenticated: () => boolean;
   getGSCToken: () => string | null;
   getGSCProperty: () => string | null;
+  connectGSC: () => Promise<void>;
+  disconnectGSC: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -32,15 +48,17 @@ const AuthContext = createContext<AuthContextType>({
   isAddonAuthenticated: () => false,
   getGSCToken: () => null,
   getGSCProperty: () => null,
+  connectGSC: async () => {},
+  disconnectGSC: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const googleAuthService = new GoogleAuthService();
 
   useEffect(() => {
-    // Check for existing Supabase session
     const checkSession = async () => {
       try {
         console.log('Checking session...');
@@ -76,13 +94,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('User signed out, clearing data...');
         setUser(null);
         localStorage.removeItem('user');
+        localStorage.removeItem('gsc_token');
+        localStorage.removeItem('gsc_property');
         setLoading(false);
       }
     });
 
     checkSession();
 
-    // Cleanup subscription
     return () => {
       subscription.unsubscribe();
     };
@@ -91,6 +110,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const handleUser = async (supabaseUser: SupabaseUser) => {
     try {
       console.log('Handling user data for:', supabaseUser.email);
+      console.log('User metadata:', supabaseUser.user_metadata);
       
       // Get user installation data
       const { data: installationData, error: installationError } = await supabase
@@ -98,6 +118,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .select('*')
         .eq('email', supabaseUser.email)
         .single();
+
+      // Get the avatar URL from various possible sources in Google OAuth metadata
+      const avatarUrl = 
+        supabaseUser.user_metadata?.picture || // Google OAuth picture
+        supabaseUser.user_metadata?.avatar_url || // Supabase avatar
+        supabaseUser.user_metadata?.custom_claims?.picture || // Additional Google claims
+        `https://avatar.vercel.sh/${supabaseUser.email}`; // Fallback
+
+      console.log('Selected avatar URL:', avatarUrl);
 
       if (installationError) {
         console.log('Installation error:', installationError.code);
@@ -127,7 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             current_plan: newInstallation.subscription_type,
             isAddonUser: !!localStorage.getItem('gsc_token'),
             gscProperty: localStorage.getItem('gsc_property') || undefined,
-            avatar_url: supabaseUser.user_metadata?.avatar_url
+            avatar_url: avatarUrl
           };
           console.log('Setting new user data:', userData);
           setUser(userData);
@@ -145,7 +174,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           current_plan: installationData.subscription_type,
           isAddonUser: !!localStorage.getItem('gsc_token'),
           gscProperty: localStorage.getItem('gsc_property') || undefined,
-          avatar_url: supabaseUser.user_metadata?.avatar_url
+          avatar_url: avatarUrl
         };
         console.log('Setting existing user data:', userData);
         setUser(userData);
@@ -188,6 +217,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const connectGSC = async () => {
+    try {
+      await googleAuthService.initiateGSCAuth();
+    } catch (error) {
+      console.error('Error initiating GSC auth:', error);
+      throw error;
+    }
+  };
+
+  const disconnectGSC = async () => {
+    try {
+      googleAuthService.clearAuth();
+      
+      // Update user state
+      if (user) {
+        const updatedUser = {
+          ...user,
+          isAddonUser: false,
+          gscProperty: undefined
+        };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+
+      // Update Supabase
+      if (user?.id) {
+        const { error } = await supabase
+          .from('user_installations')
+          .update({
+            gsc_connected: false,
+            gsc_connected_at: null
+          })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+
+      // Force reload if on dashboard
+      if (location.pathname === '/dashboard') {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error disconnecting GSC:', error);
+      throw error;
+    }
+  };
+
   const isAddonAuthenticated = () => {
     return !!localStorage.getItem('gsc_token');
   };
@@ -200,16 +276,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return localStorage.getItem('gsc_property');
   };
 
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    isAddonAuthenticated,
+    getGSCToken,
+    getGSCProperty,
+    connectGSC,
+    disconnectGSC
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      login, 
-      logout,
-      isAddonAuthenticated,
-      getGSCToken,
-      getGSCProperty
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

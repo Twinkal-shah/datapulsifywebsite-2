@@ -1,9 +1,13 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { scrollToTop } from '@/utils/scrollUtils';
 
 const PrivacyPolicy = () => {
+  useEffect(() => {
+    scrollToTop();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col w-full bg-black text-white">
       <Navbar />

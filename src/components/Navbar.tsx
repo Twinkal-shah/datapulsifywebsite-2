@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { cn, getRedirectUrl } from '@/lib/utils';
+import { cn, getSupabaseRedirectUrl } from '@/lib/utils';
 import { Menu, X, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -38,7 +38,8 @@ const Navbar = () => {
 
   const handleLogin = async () => {
     try {
-      const redirectUrl = `${getRedirectUrl()}/dashboard`;
+      // Make sure to redirect to the new dashboard
+      const redirectUrl = `${getSupabaseRedirectUrl()}/dashboard`;
       console.log('Login redirect URL:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -48,7 +49,12 @@ const Navbar = () => {
           queryParams: {
             access_type: 'offline',
             prompt: 'consent'
-          }
+          },
+          skipBrowserRedirect: false,
+          // Force development URL in development mode
+          ...(import.meta.env.VITE_APP_ENV === 'development' && {
+            redirectTo: 'http://localhost:8081/dashboard'
+          })
         }
       });
 
@@ -83,7 +89,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav 
+    <nav
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         isScrolled ? 'bg-black/90 backdrop-blur-md py-3 shadow-lg' : 'bg-transparent py-5'
@@ -92,9 +98,9 @@ const Navbar = () => {
       <div className="container mx-auto px-4 md:px-8">
         <div className="flex justify-between items-center">
           <Link to="/" className="flex items-center">
-            <img 
-              src="/lovable-uploads/1b2fd219-c2a6-4b45-bc39-d48916e8e3f5.png" 
-              alt="Datapulsify Logo" 
+            <img
+              src="/lovable-uploads/1b2fd219-c2a6-4b45-bc39-d48916e8e3f5.png"
+              alt="Datapulsify Logo"
               className="h-10 md:h-12 w-auto transform scale-150"
               style={{ transform: 'scale(3.7)', transformOrigin: 'left' }}
             />
@@ -105,14 +111,22 @@ const Navbar = () => {
             <a href="/#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
             <a href="/#how-it-works" className="text-gray-300 hover:text-white transition-colors">How It Works</a>
             <a href="/#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
-            
+            <Link to="/privacy" className="text-gray-300 hover:text-white transition-colors">Privacy Policy</Link>
+
             {auth.user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="focus:outline-none">
-                  <Avatar className="h-8 w-8 hover:ring-2 hover:ring-white/20 transition-all">
-                    <AvatarImage src={auth.user.avatar_url || `https://avatar.vercel.sh/${auth.user.email}`} />
-                    <AvatarFallback>{auth.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-8 w-8 hover:ring-2 hover:ring-white/20 transition-all bg-gray-900">
+                      <AvatarImage
+                        src={auth.user.avatar_url}
+                        alt={auth.user.name}
+                        referrerPolicy="no-referrer"
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-gray-800 text-gray-200">{auth.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
@@ -121,7 +135,7 @@ const Navbar = () => {
                     <User className="mr-2 h-4 w-4" />
                     Dashboard
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={handleLogout}
                     className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
                   >
@@ -137,8 +151,8 @@ const Navbar = () => {
                 Login with Google
               </button>
             )}
-            <Link 
-              to="/LifetimeDeal" 
+            <Link
+              to="/LifetimeDeal"
               className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors"
             >
               Claim Lifetime Deal
@@ -153,7 +167,7 @@ const Navbar = () => {
       </div>
 
       {/* Mobile Navigation */}
-      <div 
+      <div
         className={cn(
           'md:hidden absolute w-full bg-black/95 backdrop-blur-md transition-all duration-300 overflow-hidden',
           isMenuOpen ? 'max-h-[500px] py-4 border-t border-gray-800' : 'max-h-0'
@@ -169,18 +183,23 @@ const Navbar = () => {
           <a href="/#pricing" className="text-gray-300 hover:text-white py-2 transition-colors" onClick={toggleMenu}>
             Pricing
           </a>
-          
+          <Link to="/privacy-policy" className="text-gray-300 hover:text-white py-2 transition-colors" onClick={toggleMenu}>
+            Privacy Policy
+          </Link>
+
           {auth.user ? (
             <>
               <div className="flex items-center space-x-3 py-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={auth.user.avatar_url || `https://avatar.vercel.sh/${auth.user.email}`} />
-                  <AvatarFallback>{auth.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <Avatar className="h-10 w-10 bg-gray-900">
+                  <AvatarImage
+                    src={auth.user.avatar_url}
+                    alt={auth.user.name}
+                    referrerPolicy="no-referrer"
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-gray-800 text-gray-200">{auth.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col">
-                  <span className="text-white font-medium">{auth.user.name}</span>
-                  <span className="text-gray-400 text-sm">{auth.user.email}</span>
-                </div>
+                <span className="text-gray-400 text-sm">{auth.user.email}</span>
               </div>
               <button
                 onClick={() => {
@@ -212,8 +231,8 @@ const Navbar = () => {
               Login with Google
             </button>
           )}
-          <Link 
-            to="/LifetimeDeal" 
+          <Link
+            to="/LifetimeDeal"
             className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors text-center"
             onClick={toggleMenu}
           >

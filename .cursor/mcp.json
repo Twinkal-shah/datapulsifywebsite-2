@@ -11,3 +11,22 @@
       }
     }
   }
+
+
+
+  {
+    "mcpServers": {
+      "paypal": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@paypal/mcp",
+          "--tools=all"
+        ],
+        "env": {
+          "PAYPAL_ACCESS_TOKEN": "A21AAIIvfyLuQsFJw5BUnkZ-F9O_mLYvYX7ilsWgBYc7uWM9iUAGit-jign9gKf_qj2Q9J_Xj-GnJaQtGcWkBZmvfSyEMykIQ",
+          "PAYPAL_ENVIRONMENT": "SANDBOX"
+        }
+      }
+    }
+ }

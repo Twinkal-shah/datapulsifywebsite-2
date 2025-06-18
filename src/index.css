@@ -1,4 +1,3 @@
-
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@100;200;300;400;500;600;700;800&display=swap');
 
 @tailwind base;
@@ -53,23 +52,45 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-white text-black py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all hover:bg-gray-200 inline-block text-center;
+    @apply bg-gradient-to-r from-blue-500 to-purple-600 text-white py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all duration-300 hover:from-blue-600 hover:to-purple-700 hover:scale-105 hover:shadow-lg inline-block text-center;
   }
   
   .btn-secondary {
-    @apply border border-white text-white py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all hover:bg-white/10 inline-block text-center;
+    @apply bg-gradient-to-r from-gray-700 to-gray-800 border border-gray-600 text-white py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all duration-300 hover:from-gray-600 hover:to-gray-700 hover:scale-105 hover:shadow-lg inline-block text-center;
+  }
+  
+  /* Additional gradient button variants */
+  .btn-gradient-green {
+    @apply bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all duration-300 hover:from-green-600 hover:to-emerald-700 hover:scale-105 hover:shadow-lg inline-block text-center;
+  }
+  
+  .btn-gradient-orange {
+    @apply bg-gradient-to-r from-orange-500 to-red-600 text-white py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all duration-300 hover:from-orange-600 hover:to-red-700 hover:scale-105 hover:shadow-lg inline-block text-center;
+  }
+  
+  .btn-gradient-cyan {
+    @apply bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2.5 px-5 md:py-3 md:px-6 rounded-full font-medium transition-all duration-300 hover:from-cyan-600 hover:to-blue-700 hover:scale-105 hover:shadow-lg inline-block text-center;
+  }
+  
+  /* Button accessibility improvements */
+  .btn-primary:focus,
+  .btn-secondary:focus,
+  .btn-gradient-green:focus,
+  .btn-gradient-orange:focus,
+  .btn-gradient-cyan:focus {
+    @apply outline-none ring-2 ring-white ring-offset-2 ring-offset-gray-900;
   }
   
   .container-section {
-    @apply container mx-auto px-4 md:px-8 max-w-6xl py-8 md:py-12;
+    @apply container mx-auto px-4 md:px-8 max-w-6xl py-4 md:py-6;
   }
   
   .section-title {
-    @apply text-2xl md:text-3xl lg:text-4xl font-bold mb-3 md:mb-4 text-center;
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-3 text-center;
   }
   
   .section-subtitle {
-    @apply text-base md:text-lg text-gray-300 mb-8 md:mb-12 text-center max-w-3xl mx-auto;
+    @apply text-base md:text-lg text-gray-300 mb-4 md:mb-6 text-center max-w-3xl mx-auto;
   }
   
   .card-effect {
@@ -82,6 +103,10 @@
   
   .gradient-bg {
     @apply bg-gradient-to-br from-gray-900 to-black;
+  }
+  
+  .bg-gradient-radial {
+    background: radial-gradient(circle, var(--tw-gradient-stops));
   }
   
   .animate-delay-75 {
@@ -98,5 +123,81 @@
   
   .animate-delay-500 {
     animation-delay: 500ms;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  
+  .animate-fade-in-right {
+    animation: fadeInRight 0.8s ease-out forwards;
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  /* Hero section improvements */
+  .hero-content {
+    @apply px-4 sm:px-6 md:px-8 relative;
+    z-index: 20;
+  }
+  
+  .hero-content h1,
+  .hero-content p,
+  .hero-content div {
+    @apply relative;
+    z-index: 20;
+  }
+  
+  .hero-visual {
+    @apply w-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-3xl relative;
+    z-index: 15;
+  }
+
+  /* Section spacing improvements */
+  .section-spacing {
+    @apply py-12 md:py-16 lg:py-20;
+  }
+
+  .section-spacing-tight {
+    @apply py-8 md:py-12 lg:py-16;
+  }
+
+  /* Ensure proper layering for Lottie animations */
+  .lottie-container {
+    @apply absolute inset-0 pointer-events-none;
+    z-index: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
   }
 }

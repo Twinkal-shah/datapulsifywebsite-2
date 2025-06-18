@@ -1,15 +1,19 @@
 
 import React from 'react';
-import { ArrowRight, ChevronRight } from 'lucide-react';
+import { ArrowRight, Star, Shield, Users, Zap } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import LottieBackground from './LottieBackground';
 
 const HeroSection = () => {
   const isMobile = useIsMobile();
   
   return (
     <section className="relative min-h-screen flex items-center pt-16 overflow-hidden gradient-bg">
+      {/* Lottie Background Animation */}
+      <LottieBackground className="z-0" />
+      
       {/* Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden z-10">
         <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-radial from-gray-800/20 to-transparent"></div>
         
         {/* Abstract wave patterns */}
@@ -18,84 +22,66 @@ const HeroSection = () => {
         <div className="absolute top-1/2 right-0 w-64 h-64 bg-gray-800/30 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="container-section relative z-10">
-        <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-          <div className="flex flex-col max-w-xl mx-auto md:mx-0 text-center md:text-left">
-            <h1 className="inline-block py-1 px-3 rounded-full text-xs md:text-sm bg-white/10 text-white mb-4 md:mb-6 backdrop-blur-sm animate-fade-in">
-            Sync Google Search Console Data to Google Sheets in Seconds
-            </h1>
-            
-            <h2 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight mb-4 md:mb-6 animate-fade-in animate-delay-75">
-            Get Actionable Insights that Drive not Just Clicks but Business
-            </h2>
-            
-            <h3 className="text-base md:text-lg text-gray-300 mb-6 md:mb-10 animate-fade-in animate-delay-150">
-            Datapulsify lets you seamlessly pull, analyze, and automate your Google Search Console data insights in Google Sheets. 
-            </h3>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start mb-6 animate-fade-in animate-delay-300">
-              <a href="#pricing" className="btn-primary">
-              Sync Now For Free
-              </a>
-              {/* <a href="#how-it-works" className="btn-secondary">
-                See How It Works
-              </a> */}
+      <div className="container-section relative z-20">
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Hero Badge */}
+          <div className="inline-flex items-center py-2 px-4 rounded-full text-sm bg-white/10 text-white mb-6 backdrop-blur-sm animate-fade-in border border-white/20">
+            <Zap className="w-4 h-4 mr-2 text-yellow-400" />
+            <span className="font-medium">Google Sheets + Dashboard • Built by SEOs for SEOs</span>
+          </div>
+          
+          {/* Main Headline */}
+          <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight mb-6 animate-fade-in animate-delay-75">
+            Turn Google Search Console Data Into
+            <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Actionable Insights</span>
+          </h1>
+          
+          {/* Sub-headline */}
+          <h2 className="text-xl md:text-2xl lg:text-3xl text-gray-300 mb-6 animate-fade-in animate-delay-150 font-medium">
+            Stop wrestling with GSC exports. Get clean data, beautiful reports, and find opportunities in minutes.
+          </h2>
+          
+          {/* Key Benefits */}
+          <div className="grid sm:grid-cols-3 gap-6 mb-8 max-w-3xl mx-auto animate-fade-in animate-delay-300">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-400 mb-1">25K</div>
+              <div className="text-sm text-gray-400">Row Capacity</div>
             </div>
-            
-            <div className="text-xs md:text-sm text-gray-400 animate-fade-in animate-delay-500">
-              No credit card required. Cancel anytime.
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-400 mb-1">2 Platforms</div>
+              <div className="text-sm text-gray-400">Sheets + Dashboard</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-400 mb-1">5 Min</div>
+              <div className="text-sm text-gray-400">Setup Time</div>
             </div>
           </div>
           
-          <div className="relative animate-fade-in-right animate-delay-300 mt-4 md:mt-0">
-            <div className="relative w-full aspect-[4/3] bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl overflow-hidden border border-gray-700 animate-float">
-              {/* Mockup Header */}
-              <div className="absolute top-0 left-0 right-0 h-6 md:h-8 bg-gray-800 flex items-center px-2 md:px-3">
-                <div className="flex gap-1 md:gap-1.5">
-                  <div className="w-2 h-2 md:w-3 md:h-3 bg-gray-600 rounded-full"></div>
-                  <div className="w-2 h-2 md:w-3 md:h-3 bg-gray-600 rounded-full"></div>
-                  <div className="w-2 h-2 md:w-3 md:h-3 bg-gray-600 rounded-full"></div>
-                </div>
-                <div className="absolute inset-x-0 top-0 h-full flex items-center justify-center">
-                  <div className="px-2 md:px-4 bg-gray-700 rounded-md text-[10px] md:text-xs text-gray-300">
-                    Datapulsify GSC Integration
-                  </div>
-                </div>
-              </div>
-              
-              {/* Mockup Content */}
-              <div className="pt-6 md:pt-8 p-2 md:p-4 h-full flex flex-col">
-                <div className="grid grid-cols-6 gap-1 mb-2">
-                  <div className="col-span-1 bg-gray-700 h-4 md:h-6 rounded"></div>
-                  <div className="col-span-1 bg-gray-700 h-4 md:h-6 rounded"></div>
-                  <div className="col-span-1 bg-gray-700 h-4 md:h-6 rounded"></div>
-                  <div className="col-span-1 bg-gray-700 h-4 md:h-6 rounded"></div>
-                  <div className="col-span-1 bg-gray-700 h-4 md:h-6 rounded"></div>
-                  <div className="col-span-1 bg-gray-700 h-4 md:h-6 rounded"></div>
-                </div>
-                
-                <div className="flex-1 grid grid-cols-6 gap-1">
-                  {/* Data rows */}
-                  {Array.from({ length: isMobile ? 6 : 10 }).map((_, rowIndex) => (
-                    <React.Fragment key={`row-${rowIndex}`}>
-                      <div className="col-span-3 bg-gray-700/70 h-5 md:h-8 rounded"></div>
-                      <div className="col-span-1 bg-gray-700/70 h-5 md:h-8 rounded"></div>
-                      <div className="col-span-1 bg-gray-700/70 h-5 md:h-8 rounded"></div>
-                      <div className="col-span-1 bg-gray-700/70 h-5 md:h-8 rounded"></div>
-                    </React.Fragment>
-                  ))}
-                </div>
-                
-                <div className="absolute bottom-2 md:bottom-4 right-2 md:right-4 px-2 md:px-3 py-1 md:py-1.5 bg-white text-black rounded-lg text-[10px] md:text-xs font-medium shadow-lg flex items-center gap-1">
-                  <span>Synced with GSC</span>
-                  <ChevronRight size={isMobile ? 10 : 14} />
-                </div>
-              </div>
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-fade-in animate-delay-500">
+            <a href="/lifetime-deal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-full font-bold text-lg transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl">
+              Get Lifetime Access - $47.99
+            </a>
+            <a href="#features" className="border-2 border-white text-white py-4 px-8 rounded-full font-medium text-lg transition-all hover:bg-white/10 flex items-center justify-center">
+              See How It Works
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </a>
+          </div>
+          
+          {/* Trust Indicators */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-gray-400 animate-fade-in animate-delay-700">
+            <div className="flex items-center">
+              <Shield className="w-4 h-4 mr-2 text-green-400" />
+              <span>60-day money-back guarantee</span>
             </div>
-            
-            {/* Decorative elements */}
-            <div className="absolute -bottom-6 -right-6 w-16 md:w-24 h-16 md:h-24 bg-white/5 rounded-full blur-xl"></div>
-            <div className="absolute -top-6 -left-6 w-20 md:w-32 h-20 md:h-32 bg-white/5 rounded-full blur-xl"></div>
+            <div className="flex items-center">
+              <Star className="w-4 h-4 mr-2 text-yellow-400" />
+              <span>4.9/5 rating from 200+ SEOs</span>
+            </div>
+            <div className="flex items-center">
+              <Users className="w-4 h-4 mr-2 text-blue-400" />
+              <span>Limited lifetime spots</span>
+            </div>
           </div>
         </div>
       </div>
