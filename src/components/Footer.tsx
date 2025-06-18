@@ -1,9 +1,17 @@
-
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Twitter, Linkedin, Youtube, MessageCircle } from 'lucide-react';
+import { scrollToTop } from '@/utils/scrollUtils';
 
 const Footer = () => {
+  const navigate = useNavigate();
+  
+  const handleSmoothNavigation = (path: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate(path);
+    scrollToTop();
+  };
+
   return (
     <footer className="bg-black text-white border-t border-gray-800">
       <div className="container mx-auto px-4 md:px-8 py-12">
@@ -34,30 +42,20 @@ const Footer = () => {
             <ul className="space-y-2">
               <li><a href="/#features" className="text-gray-400 hover:text-white transition-colors">Features</a></li>
               <li><a href="/#pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
-              {/* <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Roadmap</a></li> */}
+              <li><Link to="/support" className="text-gray-400 hover:text-white transition-colors" onClick={handleSmoothNavigation('/support')}>Support</Link></li>
               <li><a href="/#faq" className="text-gray-400 hover:text-white transition-colors">FAQ</a></li>
             </ul>
           </div>
           
-          {/* <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Resources</h3>
-            <ul className="space-y-2">
-              <li><Link to="/refundpolicy" className="text-gray-400 hover:text-white transition-colors">Refund Policy</Link></li>
-              <li><Link to="/contactus" className="text-gray-400 hover:text-white transition-colors">Contact Us</Link></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Blog</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Support Center</a></li>
-            </ul>
-          </div> */}
-          
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Company</h3>
             <ul className="space-y-2">
-              <li><Link to="/aboutus" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
-              <li><Link to="/waitlist" className="text-gray-400 hover:text-white transition-colors">Join Waitlist</Link></li>
-              <li><Link to="/privacypolicy"className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/termsofservice" className="text-gray-400 hover:text-white transition-colors">Terms of Service</Link></li>
-              <li><Link to="/refundpolicy" className="text-gray-400 hover:text-white transition-colors">Refund Policy</Link></li>
-              <li><Link to="/contactus" className="text-gray-400 hover:text-white transition-colors">Contact Us</Link></li>
+              <li><Link to="/about" className="text-gray-400 hover:text-white transition-colors" onClick={handleSmoothNavigation('/about')}>About Us</Link></li>
+              <li><Link to="/waitlist" className="text-gray-400 hover:text-white transition-colors" onClick={handleSmoothNavigation('/waitlist')}>Join Waitlist</Link></li>
+              <li><Link to="/privacy" className="text-gray-400 hover:text-white transition-colors" onClick={handleSmoothNavigation('/privacy')}>Privacy Policy</Link></li>
+              <li><Link to="/terms" className="text-gray-400 hover:text-white transition-colors" onClick={handleSmoothNavigation('/terms')}>Terms of Service</Link></li>
+              <li><Link to="/refund" className="text-gray-400 hover:text-white transition-colors" onClick={handleSmoothNavigation('/refund')}>Refund Policy</Link></li>
+              <li><Link to="/contact" className="text-gray-400 hover:text-white transition-colors" onClick={handleSmoothNavigation('/contact')}>Contact Us</Link></li>
             </ul>
           </div>
         </div>
@@ -68,13 +66,13 @@ const Footer = () => {
           </p>
           
           <div className="flex items-center space-x-4">
-            <Link to="/privacypolicy" className="text-gray-400 hover:text-white text-sm transition-colors">
+            <Link to="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors" onClick={handleSmoothNavigation('/privacy')}>
               Privacy Policy
             </Link>
-            <Link to="/termsofservice" className="text-gray-400 hover:text-white text-sm transition-colors">
+            <Link to="/terms" className="text-gray-400 hover:text-white text-sm transition-colors" onClick={handleSmoothNavigation('/terms')}>
               Terms of Service
             </Link>
-            <Link to="/contactus"className="text-gray-400 hover:text-white text-sm transition-colors flex items-center">
+            <Link to="/contact" className="text-gray-400 hover:text-white text-sm transition-colors flex items-center" onClick={handleSmoothNavigation('/contact')}>
               <MessageCircle size={16} className="mr-1" />
               Contact
             </Link>

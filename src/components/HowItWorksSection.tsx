@@ -14,7 +14,7 @@ const steps = [
     icon: Database
   },
   {
-    title: "Sync to Google Sheets & Automate",
+    title: "Sync to Google Sheets & Dashboard",
     description: "Seamlessly pull data into your spreadsheets",
     icon: RefreshCw
   },
@@ -62,35 +62,7 @@ const HowItWorksSection = () => {
           </div>
           
           {/* Illustration below the steps */}
-          <div className="mt-10 md:mt-16 p-4 md:p-8 border border-gray-800 rounded-xl bg-gray-900/50 opacity-0 animate-fade-in animate-delay-500">
-            <div className="aspect-[16/5] bg-gray-900 rounded-lg overflow-hidden relative">
-              {/* Decorative illustration of data flowing */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex items-center gap-4 md:gap-8 w-full px-4 md:px-8">
-                  {/* GSC Icon */}
-                  <div className="flex-shrink-0 flex flex-col items-center">
-                    <div className="w-10 h-10 md:w-16 md:h-16 bg-gray-800 rounded-full flex items-center justify-center mb-2">
-                      <span className="text-lg md:text-2xl font-bold">G</span>
-                    </div>
-                    <span className="text-[10px] md:text-xs text-gray-400">GSC</span>
-                  </div>
-                  
-                  {/* Flow animation */}
-                  <div className="flex-1 h-2 md:h-3 bg-gray-800 rounded-full overflow-hidden relative">
-                    <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-white to-gray-500 animate-pulse-slow"></div>
-                  </div>
-                  
-                  {/* Sheets Icon */}
-                  <div className="flex-shrink-0 flex flex-col items-center">
-                    <div className="w-10 h-10 md:w-16 md:h-16 bg-gray-800 rounded-full flex items-center justify-center mb-2">
-                      <div className="w-5 h-5 md:w-8 md:h-8 bg-gray-700 rounded"></div>
-                    </div>
-                    <span className="text-[10px] md:text-xs text-gray-400">Sheets</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          
         </div>
       </div>
     </section>

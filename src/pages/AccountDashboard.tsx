@@ -510,7 +510,7 @@ const AccountDashboard = () => {
                       Started: {new Date(installationData.subscription_start_date).toLocaleDateString()}
                     </p>
                   )}
-                  {calculateTrialDaysLeft() !== null && (
+                  {installationData?.subscription_type !== 'monthly_pro' && calculateTrialDaysLeft() !== null && (
                     <p className="text-yellow-400">
                       Free trial ends in {calculateTrialDaysLeft()} days
                     </p>
