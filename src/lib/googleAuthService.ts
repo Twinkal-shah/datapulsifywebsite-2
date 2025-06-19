@@ -33,18 +33,15 @@ export class GoogleAuthService {
       throw new Error('Google Client ID not configured');
     }
 
-    const stateData = {
-      value: Math.random().toString(36).substring(2),
-      timestamp: Date.now()
-    };
-    localStorage.setItem('gsc_auth_state', JSON.stringify(stateData));
+    const state = Math.random().toString(36).substring(2);
+    localStorage.setItem('oauth_state', state);
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${this.config.clientId}` +
       `&redirect_uri=${encodeURIComponent(this.config.redirectUri)}` +
       `&scope=${encodeURIComponent(this.config.scope.join(' '))}` +
       `&response_type=code` +
-      `&state=${stateData.value}` +
+      `&state=${state}` +
       `&access_type=offline` +
       `&prompt=consent`;
 
@@ -64,9 +61,9 @@ export class GoogleAuthService {
 
       // Exchange code for tokens
       const oauth2Client = new OAuth2Client({
-        clientId: process.env.VITE_GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.VITE_GOOGLE_CLIENT_SECRET!,
-        redirectUri: process.env.VITE_GOOGLE_REDIRECT_URI!,
+        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
+        redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
       });
 
       const { tokens } = await oauth2Client.getToken(code);
