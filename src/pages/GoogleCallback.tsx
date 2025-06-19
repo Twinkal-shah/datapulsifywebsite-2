@@ -11,8 +11,26 @@ export const GoogleCallback: React.FC = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        // Extract query parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const state = urlParams.get('state');
+        const oauthError = urlParams.get('error');
+
+        // Check for OAuth errors first
+        if (oauthError) {
+          setError(`OAuth error: ${oauthError}`);
+          return;
+        }
+
+        // Validate required parameters
+        if (!code || !state) {
+          setError('Missing required authentication parameters');
+          return;
+        }
+
         const authService = new GoogleAuthService();
-        const result = await authService.handleCallback();
+        const result = await authService.handleCallback(code, state);
 
         if (!result.success) {
           setError(result.error || 'Failed to authenticate with Google');
