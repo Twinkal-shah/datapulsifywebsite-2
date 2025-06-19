@@ -136,6 +136,7 @@ const App = () => {
                     <Route path="/settings/keywordscategory" element={<Settings />} />
                     
                     <Route path="/auth/google/callback" element={<GoogleCallback />} />
+                    <Route path="/auth/callback/google" element={<GoogleCallback />} />
                     <Route path="/test-gsc" element={<TestGSC />} />
                     <Route path="/share/:token" element={<SharedReportPage />} />
                     
