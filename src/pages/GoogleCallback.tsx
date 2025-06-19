@@ -12,18 +12,7 @@ export const GoogleCallback: React.FC = () => {
     const handleCallback = async () => {
       try {
         const authService = new GoogleAuthService();
-        
-        // Get code and state from URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const state = urlParams.get('state');
-
-        if (!code || !state) {
-          setError('Missing authentication parameters');
-          return;
-        }
-
-        const result = await authService.handleCallback(code, state);
+        const result = await authService.handleCallback();
 
         if (!result.success) {
           setError(result.error || 'Failed to authenticate with Google');
@@ -33,7 +22,6 @@ export const GoogleCallback: React.FC = () => {
         // Redirect to dashboard after successful authentication
         navigate('/dashboard');
       } catch (error) {
-        console.error('Authentication error:', error);
         setError(error instanceof Error ? error.message : 'An error occurred during authentication');
       }
     };
@@ -66,9 +54,18 @@ export const GoogleCallback: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold">Authenticating...</h2>
-        <p className="mt-2 text-gray-600">Please wait while we complete your authentication.</p>
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            Connecting to Google Search Console
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Please wait while we complete the authentication process...
+          </p>
+          <div className="mt-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          </div>
+        </div>
       </div>
     </div>
   );
