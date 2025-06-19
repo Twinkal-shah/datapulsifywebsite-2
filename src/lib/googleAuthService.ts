@@ -15,7 +15,7 @@ export class GoogleAuthService {
     this.config = {
       clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
       clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/callback`,
+      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/google/callback`,
       scope: ['https://www.googleapis.com/auth/webmasters.readonly', 'https://www.googleapis.com/auth/webmasters']
     };
   }
