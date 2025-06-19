@@ -25,6 +25,7 @@ import SettingUpGSC from './pages/support/SettingUpGSC';
 import GoogleAddon from './pages/support/GoogleAddon';
 import FirstDataExport from "./pages/support/FirstDataExport";
 import Documentation from "./pages/Documentation";
+import Pricing from "./pages/Pricing";
 import { DevNavPanel } from "./components/DevNavPanel";
 import { supabase } from "./lib/supabaseClient";
 import './App.css';
@@ -114,6 +115,8 @@ const App = () => {
                     <Route path= "/support/google-sheets-addon" element={<GoogleAddon />} />
                     <Route path= "/support/first-data-export" element={<FirstDataExport />} />
                     <Route path="/documentation" element={<Documentation />} />
+                    <Route path="/pricing" element={<Pricing />} />
+                    <Route path="/upgrade" element={<Pricing />} />
                     
                     {/* Account and New Dashboard Routes */}
                     <Route path="/account" element={<AccountDashboard />} />
@@ -136,7 +139,7 @@ const App = () => {
                     <Route path="/settings/keywordscategory" element={<Settings />} />
                     
                     <Route path="/auth/google/callback" element={<GoogleCallback />} />
-                    <Route path="/auth/callback/google" element={<GoogleCallback />} />
+                    <Route path="/auth/google/callback" element={<GoogleCallback />} />
                     <Route path="/test-gsc" element={<TestGSC />} />
                     <Route path="/share/:token" element={<SharedReportPage />} />
                     
