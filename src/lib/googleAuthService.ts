@@ -1,6 +1,3 @@
-import { GoogleAuth } from 'google-auth-library';
-import { OAuth2Client } from 'google-auth-library';
-
 interface GoogleAuthConfig {
   clientId: string;
   clientSecret: string;
@@ -59,17 +56,30 @@ export class GoogleAuthService {
         throw new Error('Invalid authentication state');
       }
 
-      // Exchange code for tokens
-      const oauth2Client = new OAuth2Client({
-        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-        redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
+      // Exchange code for tokens using fetch
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          code,
+          client_id: this.config.clientId,
+          client_secret: this.config.clientSecret,
+          redirect_uri: this.config.redirectUri,
+          grant_type: 'authorization_code',
+        }),
       });
 
-      const { tokens } = await oauth2Client.getToken(code);
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.json();
+        throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error}`);
+      }
+
+      const tokens = await tokenResponse.json();
       
       // Store tokens
-      localStorage.setItem('gsc_token', tokens.access_token!);
+      localStorage.setItem('gsc_token', tokens.access_token);
       if (tokens.refresh_token) {
         localStorage.setItem('gsc_refresh_token', tokens.refresh_token);
       }
@@ -156,32 +166,39 @@ export class GoogleAuthService {
 
       console.log('Access token invalid, attempting to refresh...');
       
-      // Use OAuth2Client to refresh the token
-      const oauth2Client = new OAuth2Client({
-        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-        redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
+      // Use fetch to refresh the token
+      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          refresh_token: refreshToken,
+          client_id: this.config.clientId,
+          client_secret: this.config.clientSecret,
+          grant_type: 'refresh_token',
+        }),
       });
 
-      // Set the refresh token
-      oauth2Client.setCredentials({
-        refresh_token: refreshToken,
-      });
+      if (!refreshResponse.ok) {
+        const errorData = await refreshResponse.json();
+        console.error('Token refresh failed:', errorData);
+        throw new Error(`Token refresh failed: ${errorData.error_description || errorData.error}`);
+      }
 
-      // Refresh the access token
-      const { credentials } = await oauth2Client.refreshAccessToken();
+      const tokens = await refreshResponse.json();
       
-      if (credentials.access_token) {
+      if (tokens.access_token) {
         // Store the new access token
-        localStorage.setItem('gsc_token', credentials.access_token);
+        localStorage.setItem('gsc_token', tokens.access_token);
         
         // If we got a new refresh token, store it too
-        if (credentials.refresh_token) {
-          localStorage.setItem('gsc_refresh_token', credentials.refresh_token);
+        if (tokens.refresh_token) {
+          localStorage.setItem('gsc_refresh_token', tokens.refresh_token);
         }
 
         console.log('Token refreshed successfully');
-        return credentials.access_token;
+        return tokens.access_token;
       } else {
         console.error('Failed to refresh token - no access token in response');
         return null;
