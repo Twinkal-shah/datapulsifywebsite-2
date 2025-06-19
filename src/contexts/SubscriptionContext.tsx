@@ -14,6 +14,9 @@ interface SubscriptionContextType {
   checkSubscriptionStatus: () => Promise<void>;
   isPremiumFeature: (feature: string) => boolean;
   canTrackMoreKeywords: (currentKeywordCount: number) => boolean;
+  paymentStatus: string | null;
+  subscriptionStatus: string | null;
+  nextBillingDate: Date | null;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType>({
@@ -27,6 +30,9 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   checkSubscriptionStatus: async () => {},
   isPremiumFeature: () => false,
   canTrackMoreKeywords: () => false,
+  paymentStatus: null,
+  subscriptionStatus: null,
+  nextBillingDate: null,
 });
 
 export const useSubscription = () => {
@@ -50,6 +56,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [trialDaysLeft, setTrialDaysLeft] = useState(0);
   const [subscriptionType, setSubscriptionType] = useState<string | null>(null);
   const [keywordLimit, setKeywordLimit] = useState(0);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+  const [nextBillingDate, setNextBillingDate] = useState<Date | null>(null);
 
   const checkSubscriptionStatus = async () => {
     if (!user?.email) {
@@ -59,6 +68,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       setTrialDaysLeft(0);
       setSubscriptionType(null);
       setKeywordLimit(0);
+      setPaymentStatus(null);
+      setSubscriptionStatus(null);
+      setNextBillingDate(null);
       setIsLoading(false);
       return;
     }
@@ -67,7 +79,18 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       setIsLoading(true);
       const { data: installationData, error } = await supabase
         .from('user_installations')
-        .select('subscription_type, subscription_start_date, subscription_end_date, created_at, lifetime_deal_status')
+        .select(`
+          subscription_type, 
+          subscription_start_date, 
+          subscription_end_date, 
+          created_at, 
+          lifetime_deal_status,
+          lemonsqueezy_customer_id,
+          lemonsqueezy_subscription_id,
+          payment_status,
+          subscription_status,
+          next_billing_date
+        `)
         .eq('email', user.email)
         .single();
 
@@ -75,7 +98,15 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
       if (installationData) {
         const now = new Date();
-        const isLifetime = installationData.subscription_type === 'lifetime' && installationData.lifetime_deal_status === 'active';
+        
+        // Set LemonSqueezy fields
+        setPaymentStatus(installationData.payment_status);
+        setSubscriptionStatus(installationData.subscription_status);
+        setNextBillingDate(installationData.next_billing_date ? new Date(installationData.next_billing_date) : null);
+        
+        // Determine subscription status with LemonSqueezy integration
+        const isLifetime = installationData.subscription_type === 'lifetime' && 
+                          (installationData.lifetime_deal_status === 'active' || installationData.payment_status === 'paid');
         const isMonthlyPro = installationData.subscription_type === 'monthly_pro';
         const endDate = installationData.subscription_end_date 
           ? new Date(installationData.subscription_end_date)
@@ -93,8 +124,19 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           setKeywordLimit(10); // Free plan limit
         }
 
-        // Determine if subscription is active
-        const isActive = isLifetime || (isMonthlyPro && endDate && now < endDate);
+        // Determine if subscription is active using both legacy and LemonSqueezy data
+        let isActive = false;
+        
+        if (isLifetime) {
+          // Lifetime is active if payment is paid OR legacy lifetime_deal_status is active
+          isActive = installationData.payment_status === 'paid' || installationData.lifetime_deal_status === 'active';
+        } else if (isMonthlyPro) {
+          // Monthly pro is active if:
+          // 1. LemonSqueezy subscription_status is 'active', OR
+          // 2. Legacy check: subscription_end_date is in the future
+          isActive = installationData.subscription_status === 'active' || 
+                    (endDate && now < endDate);
+        }
         
         // Check trial status - only if not on monthly pro or lifetime
         const createdAt = new Date(installationData.created_at);
@@ -114,6 +156,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         setTrialDaysLeft(0);
         setSubscriptionType(null);
         setKeywordLimit(10); // Free plan limit
+        setPaymentStatus(null);
+        setSubscriptionStatus(null);
+        setNextBillingDate(null);
       }
     } catch (error) {
       console.error('Error checking subscription status:', error);
@@ -123,6 +168,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       setTrialDaysLeft(0);
       setSubscriptionType(null);
       setKeywordLimit(10); // Free plan limit
+      setPaymentStatus(null);
+      setSubscriptionStatus(null);
+      setNextBillingDate(null);
     } finally {
       setIsLoading(false);
     }
@@ -166,6 +214,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     checkSubscriptionStatus,
     isPremiumFeature,
     canTrackMoreKeywords,
+    paymentStatus,
+    subscriptionStatus,
+    nextBillingDate,
   };
 
   return (

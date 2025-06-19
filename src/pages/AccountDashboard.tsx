@@ -390,7 +390,7 @@ const AccountDashboard = () => {
                   </div>
                   <Button
                     className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:opacity-90 transition-all"
-                    onClick={() => window.location.href = 'https://datapulsify.com/upgrade'}
+                    onClick={() => window.location.href = '/pricing'}
                   >
                     Upgrade Plan
                   </Button>
