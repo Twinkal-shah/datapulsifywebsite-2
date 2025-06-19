@@ -26,25 +26,7 @@ dist-ssr
 # Environment files
 .env
 .env.local
-.env.production
-.env.development
+.env.*.local
 
 # But allow example environment file
 !.env.example
-
-# Dependencies
-/.pnp
-.pnp.js
-
-# Testing
-/coverage
-
-# Production
-/build
-/dist
-
-# Misc
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
