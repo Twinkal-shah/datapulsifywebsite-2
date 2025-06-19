@@ -55,6 +55,7 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const navigate = useNavigate();
   const googleAuthService = new GoogleAuthService();
 
@@ -77,26 +78,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (sessionError) throw sessionError;
 
         console.log('Session status:', session ? 'Found session' : 'No session');
-
+        
         if (session?.user) {
           console.log('User found in session, handling user data...');
           await handleUser(session.user);
         } else {
-          // If no session but we have stored user data, try to refresh the session
-          if (storedUser) {
-            console.log('No session but found stored user, attempting to refresh...');
-            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-            if (refreshError) {
-              console.error('Failed to refresh session:', refreshError);
-              // Clear stored data if refresh fails
-              setUser(null);
-              localStorage.removeItem('user');
-              localStorage.removeItem('gsc_token');
-              localStorage.removeItem('gsc_property');
-            } else if (refreshedSession?.user) {
-              console.log('Session refreshed successfully');
-              await handleUser(refreshedSession.user);
-            }
+          // Try to refresh session if no active session
+          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) {
+            console.error('Failed to refresh session:', refreshError);
+            // Clear stored data if refresh fails
+            setUser(null);
+            localStorage.removeItem('user');
+            localStorage.removeItem('gsc_token');
+            localStorage.removeItem('gsc_property');
+          } else if (refreshedSession?.user) {
+            console.log('Session refreshed successfully');
+            await handleUser(refreshedSession.user);
           } else {
             console.log('No user in session, setting loading false');
             setLoading(false);
@@ -110,6 +108,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.removeItem('gsc_token');
         localStorage.removeItem('gsc_property');
         setLoading(false);
+      } finally {
+        setIsInitialLoad(false);
       }
     };
 
@@ -121,9 +121,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('User signed in, handling user data...');
         await handleUser(session.user);
         
-        // After successful login, redirect to dashboard if not already there
-        if (window.location.pathname === '/' || window.location.pathname === '/auth/google/callback') {
-          console.log('Redirecting to dashboard after successful login...');
+        // Only redirect to dashboard if this is a fresh login (not initial page load)
+        // and we're coming from login flow (home page or callback)
+        if (!isInitialLoad && (window.location.pathname === '/' || window.location.pathname === '/auth/google/callback')) {
+          console.log('Redirecting to dashboard after fresh login...');
           navigate('/dashboard');
         }
       } else if (event === 'SIGNED_OUT') {
