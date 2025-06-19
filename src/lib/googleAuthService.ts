@@ -115,4 +115,68 @@ export class GoogleAuthService {
     const data = await response.json();
     return data.siteEntry || [];
   }
+
+  async validateAndRefreshToken(): Promise<string | null> {
+    try {
+      const token = localStorage.getItem('gsc_token');
+      const refreshToken = localStorage.getItem('gsc_refresh_token');
+
+      if (!token) {
+        console.log('No token found');
+        return null;
+      }
+
+      // Create OAuth2 client
+      const oauth2Client = new OAuth2Client({
+        clientId: this.config.clientId,
+        clientSecret: this.config.clientSecret,
+        redirectUri: this.config.redirectUri,
+      });
+
+      // Set credentials
+      oauth2Client.setCredentials({
+        access_token: token,
+        refresh_token: refreshToken || undefined
+      });
+
+      try {
+        // Verify the token
+        const tokenInfo = await oauth2Client.getTokenInfo(token);
+        
+        // If token is still valid, return it
+        if (tokenInfo.expiry_date && tokenInfo.expiry_date > Date.now()) {
+          return token;
+        }
+      } catch (error) {
+        console.log('Token validation failed, attempting refresh');
+      }
+
+      // If we have a refresh token, try to refresh
+      if (refreshToken) {
+        try {
+          const { credentials } = await oauth2Client.refreshToken(refreshToken);
+          
+          if (credentials.access_token) {
+            localStorage.setItem('gsc_token', credentials.access_token);
+            if (credentials.refresh_token) {
+              localStorage.setItem('gsc_refresh_token', credentials.refresh_token);
+            }
+            return credentials.access_token;
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+          this.clearAuth();
+          return null;
+        }
+      }
+
+      // If we get here, we couldn't validate or refresh the token
+      this.clearAuth();
+      return null;
+    } catch (error) {
+      console.error('Error in validateAndRefreshToken:', error);
+      this.clearAuth();
+      return null;
+    }
+  }
 } 
