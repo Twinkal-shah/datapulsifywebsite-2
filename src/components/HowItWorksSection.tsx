@@ -27,7 +27,7 @@ const steps = [
 
 const HowItWorksSection = () => {
   return (
-    <section id="how-it-works" className="bg-black py-14 md:py-20 lg:py-28">
+    <section id="how-it-works" className="bg-black pt-4 pb-14 md:pb-20 lg:pb-28">
       <div className="container-section">
         <h2 className="section-title">How It Works</h2>
         <p className="section-subtitle">
