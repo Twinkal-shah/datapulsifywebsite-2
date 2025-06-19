@@ -64,6 +64,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Checking session...');
         setLoading(true);
         
+        // Try to get session from localStorage first
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          console.log('Found stored user data');
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+        }
+        
         // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
@@ -74,11 +82,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.log('User found in session, handling user data...');
           await handleUser(session.user);
         } else {
-          console.log('No user in session, setting loading false');
-          setLoading(false);
+          // If no session but we have stored user data, try to refresh the session
+          if (storedUser) {
+            console.log('No session but found stored user, attempting to refresh...');
+            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+              console.error('Failed to refresh session:', refreshError);
+              // Clear stored data if refresh fails
+              setUser(null);
+              localStorage.removeItem('user');
+              localStorage.removeItem('gsc_token');
+              localStorage.removeItem('gsc_property');
+            } else if (refreshedSession?.user) {
+              console.log('Session refreshed successfully');
+              await handleUser(refreshedSession.user);
+            }
+          } else {
+            console.log('No user in session, setting loading false');
+            setLoading(false);
+          }
         }
       } catch (error) {
         console.error('Error checking session:', error);
+        // Clear stored data on error
+        setUser(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('gsc_token');
+        localStorage.removeItem('gsc_property');
         setLoading(false);
       }
     };

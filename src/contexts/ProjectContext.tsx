@@ -86,25 +86,27 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
       // Try to query the projects table to see if it exists
       const { data, error } = await supabase
         .from('projects')
-        .select('count(*)')
-        .limit(1);
+        .select('*', { count: 'exact', head: true });
 
-      if (error && error.code === '42P01') {
-        // Table doesn't exist, show instructions to create it manually
-        console.log('Projects table does not exist. Please create it manually in Supabase.');
+      if (error) {
+        console.error('Error checking projects table:', error);
         
-        toast({
-          title: "Database Setup Required",
-          description: "Please run the SQL script in your Supabase dashboard to create the projects table. Check the console for details.",
-          variant: "destructive",
-        });
-        
-        console.log('='.repeat(80));
-        console.log('PROJECTS TABLE SETUP REQUIRED');
-        console.log('='.repeat(80));
-        console.log('Please go to your Supabase dashboard > SQL Editor and run the SQL from create-projects-table.sql');
-        console.log('Or copy and paste this SQL:');
-        console.log(`
+        if (error.code === '42P01') {
+          // Table doesn't exist, show instructions to create it manually
+          console.log('Projects table does not exist. Please create it manually in Supabase.');
+          
+          toast({
+            title: "Database Setup Required",
+            description: "Please run the SQL script in your Supabase dashboard to create the projects table. Check the console for details.",
+            variant: "destructive",
+          });
+          
+          console.log('='.repeat(80));
+          console.log('PROJECTS TABLE SETUP REQUIRED');
+          console.log('='.repeat(80));
+          console.log('Please go to your Supabase dashboard > SQL Editor and run the SQL from create-projects-table.sql');
+          console.log('Or copy and paste this SQL:');
+          console.log(`
 -- Create projects table for Multi-Project Workspace
 CREATE TABLE IF NOT EXISTS projects (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -139,11 +141,12 @@ CREATE POLICY "Users can delete their own projects" ON projects
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS projects_user_id_idx ON projects(user_id);
 CREATE INDEX IF NOT EXISTS projects_user_id_active_idx ON projects(user_id, is_active);
-        `);
-        console.log('='.repeat(80));
-        
-      } else if (error) {
-        console.error('Error checking projects table:', error);
+          `);
+          console.log('='.repeat(80));
+          
+        } else {
+          console.error('Error checking projects table:', error);
+        }
       } else {
         console.log('Projects table already exists');
       }
@@ -235,7 +238,7 @@ CREATE INDEX IF NOT EXISTS projects_user_id_active_idx ON projects(user_id, is_a
       console.log('Testing database connection...');
       const { data: testData, error: testError } = await supabase
         .from('projects')
-        .select('count(*)')
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
       
       console.log('Database test result:', { testData, testError });
