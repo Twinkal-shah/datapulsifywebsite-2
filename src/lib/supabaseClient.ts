@@ -38,13 +38,10 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
   }
 });
 
-// Set up auth state change listener with dashboard redirect
+// Set up auth state change listener
 supabase.auth.onAuthStateChange((event, session) => {
   console.log('Supabase Auth State Change:', event, session ? 'Session exists' : 'No session');
   
-  // If user just signed in and we're on the home page, redirect to dashboard
-  if (event === 'SIGNED_IN' && session && window.location.pathname === '/') {
-    console.log('User signed in, redirecting to dashboard...');
-    window.location.href = '/dashboard';
-  }
+  // Only log the event, don't redirect automatically
+  // Redirects should be handled by the AuthContext or specific login flows
 }); 
