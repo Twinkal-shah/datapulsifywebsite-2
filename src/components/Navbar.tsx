@@ -39,7 +39,11 @@ const Navbar = () => {
   const handleLogin = async () => {
     try {
       // Make sure to redirect to the new dashboard
-      const redirectUrl = `${getSupabaseRedirectUrl()}/dashboard`;
+      const baseUrl = import.meta.env.VITE_APP_ENV === 'development' 
+        ? 'http://localhost:8081' 
+        : 'https://datapulsify.com';
+      const redirectUrl = `${baseUrl}/dashboard`;
+      
       console.log('Login redirect URL:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -50,11 +54,7 @@ const Navbar = () => {
             access_type: 'offline',
             prompt: 'consent'
           },
-          skipBrowserRedirect: false,
-          // Force development URL in development mode
-          ...(import.meta.env.VITE_APP_ENV === 'development' && {
-            redirectTo: 'http://localhost:8081/dashboard'
-          })
+          skipBrowserRedirect: false
         }
       });
 

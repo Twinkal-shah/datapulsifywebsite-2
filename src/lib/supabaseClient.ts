@@ -1,5 +1,4 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseRedirectUrl } from './utils';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -14,9 +13,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase configuration is incomplete. Check your environment variables.');
 }
 
-// Ensure redirect URL is pointing to the correct dashboard
-const redirectUrl = `${getSupabaseRedirectUrl()}/dashboard`;
+// Determine the base URL and redirect URL more explicitly
+const isDev = import.meta.env.VITE_APP_ENV === 'development';
+const baseUrl = isDev ? 'http://localhost:8081' : 'https://datapulsify.com';
+const redirectUrl = `${baseUrl}/dashboard`;
+
 console.log('Auth redirect URL:', redirectUrl);
+console.log('Environment:', isDev ? 'development' : 'production');
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -26,12 +29,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     storageKey: 'datapulsify_auth',
     storage: window.localStorage,
     flowType: 'pkce',
-    debug: true,
-    // Add site URL and redirect URLs for development
-    ...(import.meta.env.VITE_APP_ENV === 'development' && {
-      site_url: 'http://localhost:8081',
-      redirect_to: 'http://localhost:8081/dashboard'
-    })
+    debug: true
   },
   global: {
     headers: {
@@ -40,7 +38,13 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
   }
 });
 
-// Set up auth state change listener
+// Set up auth state change listener with dashboard redirect
 supabase.auth.onAuthStateChange((event, session) => {
   console.log('Supabase Auth State Change:', event, session ? 'Session exists' : 'No session');
+  
+  // If user just signed in and we're on the home page, redirect to dashboard
+  if (event === 'SIGNED_IN' && session && window.location.pathname === '/') {
+    console.log('User signed in, redirecting to dashboard...');
+    window.location.href = '/dashboard';
+  }
 }); 

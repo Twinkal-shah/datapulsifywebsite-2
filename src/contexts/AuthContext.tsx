@@ -120,6 +120,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (event === 'SIGNED_IN' && session?.user) {
         console.log('User signed in, handling user data...');
         await handleUser(session.user);
+        
+        // After successful login, redirect to dashboard if not already there
+        if (window.location.pathname === '/' || window.location.pathname === '/auth/google/callback') {
+          console.log('Redirecting to dashboard after successful login...');
+          navigate('/dashboard');
+        }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out, clearing data...');
         setUser(null);
@@ -135,7 +141,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   const handleUser = async (supabaseUser: SupabaseUser) => {
     try {

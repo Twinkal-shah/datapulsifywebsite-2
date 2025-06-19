@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { LemonSqueezyCheckout } from '@/components/LemonSqueezyCheckout';
+import { ArrowLeft, Check } from 'lucide-react';
+import LemonSqueezyCheckout from '@/components/LemonSqueezyCheckout';
 import LemonSqueezyDebugTest from '@/components/LemonSqueezyDebugTest';
 import { Button } from '@/components/ui/button';
 
 const Pricing: React.FC = () => {
-  const [selectedPlan, setSelectedPlan] = useState<'lifetime' | 'monthly'>('monthly');
+  const { user } = useAuth();
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('monthly');
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
