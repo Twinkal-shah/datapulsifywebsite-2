@@ -20,10 +20,15 @@ export class GoogleAuthService {
   private tokenRefreshTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
+    const isProd = window.location.hostname !== 'localhost';
+    const redirectUri = isProd 
+      ? 'https://datapulsifywebsite-2-qjsr.vercel.app/auth/google/callback'
+      : 'http://localhost:8081/auth/google/callback';
+
     this.config = {
       clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
       clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/google/callback`,
+      redirectUri: redirectUri,
       scope: ['https://www.googleapis.com/auth/webmasters.readonly', 'https://www.googleapis.com/auth/webmasters']
     };
   }
