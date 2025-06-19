@@ -1,4 +1,6 @@
 [functions.create-share-link]
 verify_jwt = false
 [functions.get-shared-report-config]
+verify_jwt = false
+[functions.lemon-squeezy-webhook]
 verify_jwt = false 

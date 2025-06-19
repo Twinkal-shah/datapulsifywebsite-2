@@ -11,7 +11,7 @@ const BenefitsSection = () => {
   ];
 
   return (
-    <section className="py-20 md:py-32 bg-black">
+    <section className="bg-black pt-4 pb-14 md:pb-20 lg:pb-28">
       <div className="container-section">
         <h2 className="section-title">Why This Dual-Platform Approach Changes Everything</h2>
         

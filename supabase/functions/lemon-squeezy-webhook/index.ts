@@ -199,12 +199,12 @@ serve(async (req) => {
     const { error } = await supabase.rpc('update_subscription_from_lemonsqueezy', {
       p_email: customerEmail,
       p_customer_id: data.attributes.customer_id.toString(),
-      p_subscription_id: data.attributes.subscription_id?.toString() || null,
-      p_order_id: data.attributes.order_id?.toString() || null,
       p_variant_id: data.attributes.variant_id.toString(),
       p_payment_status: paymentStatus,
       p_subscription_status: subscriptionStatus,
       p_subscription_type: subscriptionType,
+      p_subscription_id: data.attributes.subscription_id?.toString() || null,
+      p_order_id: data.attributes.order_id?.toString() || null,
       p_start_date: startDate,
       p_end_date: endDate,
       p_next_billing_date: nextBillingDate

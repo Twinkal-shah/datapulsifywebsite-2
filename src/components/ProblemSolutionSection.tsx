@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AlertTriangle, CheckCircle, Zap, Target, Clock, FileSpreadsheet } from 'lucide-react';
 import LottieBackground from './LottieBackground';
@@ -44,9 +43,9 @@ const ProblemSolutionSection = () => {
           {/* Add GIF placeholder - Replace this URL with your actual GIF */}
           <div className="flex justify-center mb-8">
             <AnimatedGif
-              src="https://via.placeholder.com/600x400/1f2937/60a5fa?text=Your+GIF+Here"
-              alt="DataPulsify Demo GIF"
-              className="max-w-lg mx-auto"
+              src="/videos/Final SEO Data Website Hero Section.gif"
+              alt="DataPulsify Demo - SEO Data Analysis in Action"
+              className="max-w-lg mx-auto rounded-xl border border-gray-700 shadow-2xl"
             />
           </div>
           
