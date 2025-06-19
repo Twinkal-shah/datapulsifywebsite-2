@@ -1,4 +1,5 @@
 import { GoogleAuth } from 'google-auth-library';
+import { OAuth2Client } from 'google-auth-library';
 
 interface GoogleAuthConfig {
   clientId: string;
@@ -11,6 +12,7 @@ interface AuthResult {
   success: boolean;
   error?: string;
   token?: string;
+  message?: string;
 }
 
 export class GoogleAuthService {
@@ -49,63 +51,42 @@ export class GoogleAuthService {
     window.location.href = authUrl;
   }
 
-  async handleCallback(): Promise<AuthResult> {
+  async handleCallback(code: string, state: string): Promise<AuthResult> {
     try {
-      // Get the authorization code from URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-
       // Verify state to prevent CSRF attacks
-      const savedState = localStorage.getItem('gsc_auth_state');
-      if (!savedState || !state) {
-        return { success: false, error: 'Invalid state parameter' };
+      const storedState = localStorage.getItem('oauth_state');
+      localStorage.removeItem('oauth_state'); // Clean up stored state regardless of outcome
+      
+      if (!storedState || state !== storedState) {
+        console.error('State mismatch:', { storedState, receivedState: state });
+        throw new Error('Invalid authentication state');
       }
 
-      const savedStateData = JSON.parse(savedState);
-      if (savedStateData.value !== state) {
-        return { success: false, error: 'State mismatch' };
-      }
-
-      if (!code) {
-        return { success: false, error: 'No authorization code received' };
-      }
-
-      // Exchange the authorization code for tokens
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          code,
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
-          redirect_uri: this.config.redirectUri,
-          grant_type: 'authorization_code',
-        }),
+      // Exchange code for tokens
+      const oauth2Client = new OAuth2Client({
+        clientId: process.env.VITE_GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.VITE_GOOGLE_CLIENT_SECRET!,
+        redirectUri: process.env.VITE_GOOGLE_REDIRECT_URI!,
       });
 
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json();
-        return { success: false, error: errorData.error_description || 'Failed to exchange authorization code' };
-      }
-
-      const tokenData = await tokenResponse.json();
+      const { tokens } = await oauth2Client.getToken(code);
       
-      // Store the access token and refresh token
-      localStorage.setItem('gsc_token', tokenData.access_token);
-      if (tokenData.refresh_token) {
-        localStorage.setItem('gsc_refresh_token', tokenData.refresh_token);
+      // Store tokens
+      localStorage.setItem('gsc_token', tokens.access_token!);
+      if (tokens.refresh_token) {
+        localStorage.setItem('gsc_refresh_token', tokens.refresh_token);
       }
 
-      return { success: true, token: tokenData.access_token };
-    } catch (error) {
-      console.error('Error in handleCallback:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'An unknown error occurred' 
+      return {
+        success: true,
+        message: 'Authentication successful'
       };
+    } catch (error: any) {
+      console.error('Error in handleCallback:', error);
+      // Clean up any remaining auth state on error
+      localStorage.removeItem('gsc_token');
+      localStorage.removeItem('gsc_refresh_token');
+      throw error;
     }
   }
 
