@@ -115,4 +115,84 @@ export class GoogleAuthService {
     const data = await response.json();
     return data.siteEntry || [];
   }
+
+  async validateToken(token: string): Promise<boolean> {
+    try {
+      // Test the token by making a simple API call to GSC
+      const response = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error('Error validating token:', error);
+      return false;
+    }
+  }
+
+  async validateAndRefreshToken(): Promise<string | null> {
+    try {
+      const currentToken = localStorage.getItem('gsc_token');
+      const refreshToken = localStorage.getItem('gsc_refresh_token');
+
+      if (!currentToken) {
+        console.error('No access token found');
+        return null;
+      }
+
+      // First, try to validate the current token
+      const isValid = await this.validateToken(currentToken);
+      if (isValid) {
+        return currentToken;
+      }
+
+      // If current token is invalid, try to refresh it
+      if (!refreshToken) {
+        console.error('No refresh token available for token refresh');
+        return null;
+      }
+
+      console.log('Access token invalid, attempting to refresh...');
+      
+      // Use OAuth2Client to refresh the token
+      const oauth2Client = new OAuth2Client({
+        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
+        redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
+      });
+
+      // Set the refresh token
+      oauth2Client.setCredentials({
+        refresh_token: refreshToken,
+      });
+
+      // Refresh the access token
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      
+      if (credentials.access_token) {
+        // Store the new access token
+        localStorage.setItem('gsc_token', credentials.access_token);
+        
+        // If we got a new refresh token, store it too
+        if (credentials.refresh_token) {
+          localStorage.setItem('gsc_refresh_token', credentials.refresh_token);
+        }
+
+        console.log('Token refreshed successfully');
+        return credentials.access_token;
+      } else {
+        console.error('Failed to refresh token - no access token in response');
+        return null;
+      }
+
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      // Clear invalid tokens
+      localStorage.removeItem('gsc_token');
+      localStorage.removeItem('gsc_refresh_token');
+      return null;
+    }
+  }
 } 
