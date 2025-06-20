@@ -243,12 +243,69 @@ serve(async (req) => {
 
     console.log('Processing for customer:', customerEmail);
 
+    // Validate required webhook data
+    if (!data?.attributes) {
+      console.error('Missing data.attributes in webhook payload');
+      return new Response(JSON.stringify({ 
+        error: 'Bad Request', 
+        message: 'Missing required webhook data.attributes',
+        payload: payload 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const attributes = data.attributes;
+    
+    // Validate required fields
+    if (!attributes.variant_id) {
+      console.error('Missing variant_id in webhook data');
+      return new Response(JSON.stringify({ 
+        error: 'Bad Request', 
+        message: 'Missing required field: variant_id' 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!attributes.customer_id) {
+      console.error('Missing customer_id in webhook data');
+      return new Response(JSON.stringify({ 
+        error: 'Bad Request', 
+        message: 'Missing required field: customer_id' 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!attributes.status) {
+      console.error('Missing status in webhook data');
+      return new Response(JSON.stringify({ 
+        error: 'Bad Request', 
+        message: 'Missing required field: status' 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log('Webhook data validation passed. Processing data:', {
+      variant_id: attributes.variant_id,
+      customer_id: attributes.customer_id,
+      status: attributes.status,
+      subscription_id: attributes.subscription_id || 'none',
+      order_id: attributes.order_id || 'none'
+    });
+
     // Map variant ID to subscription type
-    const subscriptionType = mapVariantToSubscriptionType(data.attributes.variant_id.toString())
+    const subscriptionType = mapVariantToSubscriptionType(attributes.variant_id.toString())
     
     // Map LemonSqueezy status to our status fields
     const { paymentStatus, subscriptionStatus } = mapLemonSqueezyStatus(
-      data.attributes.status, 
+      attributes.status, 
       eventName
     )
 
@@ -259,26 +316,35 @@ serve(async (req) => {
 
     if (eventName === 'order_created' && subscriptionType === 'lifetime') {
       // Lifetime purchase - no end date
-      startDate = data.attributes.created_at
+      startDate = attributes.created_at || null
       endDate = null
       nextBillingDate = null
     } else if (eventName.startsWith('subscription_')) {
       // Subscription events
-      startDate = data.attributes.created_at
-      endDate = data.attributes.ends_at || null
-      nextBillingDate = data.attributes.renews_at || null
+      startDate = attributes.created_at || null
+      endDate = attributes.ends_at || null
+      nextBillingDate = attributes.renews_at || null
     }
+
+    console.log('Prepared data for database:', {
+      email: customerEmail,
+      customer_id: attributes.customer_id,
+      variant_id: attributes.variant_id,
+      subscription_type: subscriptionType,
+      payment_status: paymentStatus,
+      subscription_status: subscriptionStatus
+    });
 
     // Update database using the stored function
     const { error } = await supabase.rpc('update_subscription_from_lemonsqueezy', {
       p_email: customerEmail,
-      p_customer_id: data.attributes.customer_id.toString(),
-      p_variant_id: data.attributes.variant_id.toString(),
+      p_customer_id: attributes.customer_id.toString(),
+      p_variant_id: attributes.variant_id.toString(),
       p_payment_status: paymentStatus,
       p_subscription_status: subscriptionStatus,
       p_subscription_type: subscriptionType,
-      p_subscription_id: data.attributes.subscription_id?.toString() || null,
-      p_order_id: data.attributes.order_id?.toString() || null,
+      p_subscription_id: attributes.subscription_id?.toString() || null,
+      p_order_id: attributes.order_id?.toString() || null,
       p_start_date: startDate,
       p_end_date: endDate,
       p_next_billing_date: nextBillingDate
