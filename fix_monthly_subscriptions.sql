@@ -1,4 +1,4 @@
--- Fix Monthly Subscription Issues and Lifetime Plan Recognition
+-- Fix Monthly Subscription Issues
 -- Run this script in your Supabase SQL Editor
 
 -- 1. First, update the database function with the new logic
@@ -18,20 +18,12 @@ CREATE OR REPLACE FUNCTION update_subscription_from_lemonsqueezy(
 RETURNS VOID AS $$
 DECLARE
   v_calculated_end_date TIMESTAMP WITH TIME ZONE;
-  v_lifetime_deal_status TEXT;
 BEGIN
   -- Calculate end date for monthly subscriptions if not provided
   IF p_subscription_type = 'monthly_pro' AND p_end_date IS NULL AND p_start_date IS NOT NULL THEN
     v_calculated_end_date := p_start_date + INTERVAL '30 days';
   ELSE
     v_calculated_end_date := p_end_date;
-  END IF;
-
-  -- Set lifetime_deal_status for lifetime subscriptions
-  IF p_subscription_type = 'lifetime' AND p_payment_status = 'paid' THEN
-    v_lifetime_deal_status := 'active';
-  ELSE
-    v_lifetime_deal_status := NULL;
   END IF;
 
   UPDATE user_installations
@@ -46,7 +38,6 @@ BEGIN
     subscription_start_date = COALESCE(p_start_date, subscription_start_date, NOW()),
     subscription_end_date = COALESCE(v_calculated_end_date, subscription_end_date),
     next_billing_date = p_next_billing_date,
-    lifetime_deal_status = COALESCE(v_lifetime_deal_status, lifetime_deal_status),
     updated_at = NOW()
   WHERE email = p_email;
   
@@ -55,11 +46,6 @@ BEGIN
     -- Calculate end date for new monthly subscriptions
     IF p_subscription_type = 'monthly_pro' AND p_end_date IS NULL THEN
       v_calculated_end_date := COALESCE(p_start_date, NOW()) + INTERVAL '30 days';
-    END IF;
-    
-    -- Set lifetime_deal_status for new lifetime subscriptions
-    IF p_subscription_type = 'lifetime' AND p_payment_status = 'paid' THEN
-      v_lifetime_deal_status := 'active';
     END IF;
     
     INSERT INTO user_installations (
@@ -75,7 +61,6 @@ BEGIN
       subscription_start_date,
       subscription_end_date,
       next_billing_date,
-      lifetime_deal_status,
       install_date,
       created_at,
       updated_at
@@ -92,7 +77,6 @@ BEGIN
       COALESCE(p_start_date, NOW()),
       v_calculated_end_date,
       p_next_billing_date,
-      v_lifetime_deal_status,
       NOW(),
       NOW(),
       NOW()
@@ -124,42 +108,18 @@ WHERE subscription_type = 'monthly_pro'
   AND subscription_status = 'inactive'
   AND (subscription_end_date IS NULL OR subscription_end_date > NOW());
 
--- 4. Fix existing lifetime subscriptions
--- Set lifetime_deal_status to 'active' for lifetime subscriptions with paid status
-UPDATE user_installations 
-SET 
-  lifetime_deal_status = 'active',
-  subscription_status = 'active',
-  subscription_start_date = COALESCE(subscription_start_date, created_at, NOW()),
-  updated_at = NOW()
-WHERE subscription_type = 'lifetime' 
-  AND payment_status = 'paid' 
-  AND (lifetime_deal_status IS NULL OR lifetime_deal_status != 'active');
-
--- 5. Fix lifetime subscriptions that have missing start dates
-UPDATE user_installations 
-SET 
-  subscription_start_date = COALESCE(subscription_start_date, created_at, NOW()),
-  updated_at = NOW()
-WHERE subscription_type = 'lifetime' 
-  AND subscription_start_date IS NULL;
-
--- 6. Show current subscription status for debugging
+-- 4. Show current subscription status for debugging
 SELECT 
   email,
   subscription_type,
   subscription_status,
   payment_status,
-  lifetime_deal_status,
   subscription_start_date,
   subscription_end_date,
   CASE 
-    WHEN subscription_type = 'lifetime' AND (lifetime_deal_status = 'active' OR payment_status = 'paid') THEN 'Lifetime Active'
-    WHEN subscription_type = 'monthly_pro' AND subscription_status = 'active' THEN 'Monthly Pro Active'
-    WHEN subscription_type = 'monthly_pro' AND subscription_end_date > NOW() THEN 'Monthly Pro Active (legacy)'
     WHEN subscription_end_date IS NULL THEN 'No end date'
     WHEN subscription_end_date > NOW() THEN 'Active (future end date)'
-    ELSE 'Expired/Inactive'
+    ELSE 'Expired'
   END as calculated_status
 FROM user_installations 
 WHERE subscription_type IN ('monthly_pro', 'lifetime')
