@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS user_installations (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID NOT NULL,
-    email TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
     install_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     business_type TEXT,
     business_size TEXT,

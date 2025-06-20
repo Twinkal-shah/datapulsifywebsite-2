@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import { ProjectProvider } from "./contexts/ProjectContext";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { Suspense, useEffect, useState, lazy } from "react";
 import Index from "./pages/Index";
@@ -93,65 +92,63 @@ const App = () => {
         <Suspense fallback={<LoadingFallback />}>
           <AuthProvider>
             <SubscriptionProvider>
-              <ProjectProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/waitlist" element={<Waitlist />} />
-                    <Route path="/lifetimedeal" element={<LifetimeDeal />} />
-                    <Route path="/thank-you" element={<ThankYou />} />
-                    <Route path="/about" element={<AboutUs />} />
-                    <Route path="/contact" element={<ContactUs />} />
-                    <Route path="/privacy" element={<PrivacyPolicy />} />
-                    <Route path="/refund" element={<RefundPolicy />} />
-                    <Route path="/terms" element={<TermsOfService />} />
-                    <Route path="/google-sheets-addon" element={<GoogleSheetsAddon />} />
-                    <Route path= "/support" element={<Support />} />
-                    <Route path= "/support/quick-start-guide" element={<QuickStartGuide />} />
-                    <Route path= "/support/setting-up-gsc" element={<SettingUpGSC />} />
-                    <Route path= "/support/google-addon" element={<GoogleAddon />} />
-                    <Route path= "/support/google-sheets-addon" element={<GoogleAddon />} />
-                    <Route path= "/support/first-data-export" element={<FirstDataExport />} />
-                    <Route path="/documentation" element={<Documentation />} />
-                    <Route path="/pricing" element={<Pricing />} />
-                    <Route path="/upgrade" element={<Pricing />} />
-                    
-                    {/* Account and New Dashboard Routes */}
-                    <Route path="/account" element={<AccountDashboard />} />
-                    <Route path="/account-dashboard" element={<AccountDashboard />} />
-                    
-                    {/* Ensure dashboard route uses the new Dashboard component */}
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/click-gap-intelligence" element={<ClickGapIntelligence />} />
-                    <Route path="/rank-tracker" element={<RankTracker />} />
-                    <Route path="/keyword-analysis" element={<Dashboard />} />
-                    <Route path="/gap-analysis" element={<Dashboard />} />
-                    <Route path="/keyword-clustering" element={<Dashboard />} />
-                    <Route path="/reports" element={<Dashboard />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/settings/accountdashboard" element={<Settings />} />
-                    <Route path="/settings/googlesearchconsole" element={<Settings />} />
-                    <Route path="/settings/accountsettings" element={<Settings />} />
-                    <Route path="/settings/notifications" element={<Settings />} />
-                    <Route path="/settings/keywordstype" element={<Settings />} />
-                    <Route path="/settings/keywordscategory" element={<Settings />} />
-                    
-                    <Route path="/auth/google/callback" element={<GoogleCallback />} />
-                    <Route path="/auth/google/callback" element={<GoogleCallback />} />
-                    <Route path="/test-gsc" element={<TestGSC />} />
-                    <Route path="/share/:token" element={<SharedReportPage />} />
-                    
-                    <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
-                    
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/waitlist" element={<Waitlist />} />
+                  <Route path="/lifetimedeal" element={<LifetimeDeal />} />
+                  <Route path="/thank-you" element={<ThankYou />} />
+                  <Route path="/about" element={<AboutUs />} />
+                  <Route path="/contact" element={<ContactUs />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/refund" element={<RefundPolicy />} />
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/google-sheets-addon" element={<GoogleSheetsAddon />} />
+                  <Route path= "/support" element={<Support />} />
+                  <Route path= "/support/quick-start-guide" element={<QuickStartGuide />} />
+                  <Route path= "/support/setting-up-gsc" element={<SettingUpGSC />} />
+                  <Route path= "/support/google-addon" element={<GoogleAddon />} />
+                  <Route path= "/support/google-sheets-addon" element={<GoogleAddon />} />
+                  <Route path= "/support/first-data-export" element={<FirstDataExport />} />
+                  <Route path="/documentation" element={<Documentation />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/upgrade" element={<Pricing />} />
                   
-                  {/* Development Navigation Panel (only visible in dev mode) */}
-                  <DevNavPanel />
-                </TooltipProvider>
-              </ProjectProvider>
+                  {/* Account and New Dashboard Routes */}
+                  <Route path="/account" element={<AccountDashboard />} />
+                  <Route path="/account-dashboard" element={<AccountDashboard />} />
+                  
+                  {/* Ensure dashboard route uses the new Dashboard component */}
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/click-gap-intelligence" element={<ClickGapIntelligence />} />
+                  <Route path="/rank-tracker" element={<RankTracker />} />
+                  <Route path="/keyword-analysis" element={<Dashboard />} />
+                  <Route path="/gap-analysis" element={<Dashboard />} />
+                  <Route path="/keyword-clustering" element={<Dashboard />} />
+                  <Route path="/reports" element={<Dashboard />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/accountdashboard" element={<Settings />} />
+                  <Route path="/settings/googlesearchconsole" element={<Settings />} />
+                  <Route path="/settings/accountsettings" element={<Settings />} />
+                  <Route path="/settings/notifications" element={<Settings />} />
+                  <Route path="/settings/keywordstype" element={<Settings />} />
+                  <Route path="/settings/keywordscategory" element={<Settings />} />
+                  
+                  <Route path="/auth/google/callback" element={<GoogleCallback />} />
+                  <Route path="/auth/google/callback" element={<GoogleCallback />} />
+                  <Route path="/test-gsc" element={<TestGSC />} />
+                  <Route path="/share/:token" element={<SharedReportPage />} />
+                  
+                  <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
+                  
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                
+                {/* Development Navigation Panel (only visible in dev mode) */}
+                <DevNavPanel />
+              </TooltipProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </Suspense>

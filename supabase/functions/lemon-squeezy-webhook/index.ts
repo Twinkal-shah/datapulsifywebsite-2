@@ -322,7 +322,35 @@ serve(async (req) => {
     } else if (eventName.startsWith('subscription_')) {
       // Subscription events
       startDate = attributes.created_at || null
-      endDate = attributes.ends_at || null
+      
+      // For monthly subscriptions, calculate end date if not provided
+      if (subscriptionType === 'monthly_pro') {
+        if (attributes.ends_at) {
+          endDate = attributes.ends_at
+        } else if (startDate) {
+          // Calculate 30 days from start date for monthly subscriptions
+          const startDateObj = new Date(startDate)
+          const endDateObj = new Date(startDateObj)
+          endDateObj.setDate(endDateObj.getDate() + 30)
+          endDate = endDateObj.toISOString()
+          console.log('Calculated end date for monthly subscription:', { startDate, endDate })
+        }
+      } else {
+        endDate = attributes.ends_at || null
+      }
+      
+      nextBillingDate = attributes.renews_at || null
+    } else if (eventName === 'order_created' && subscriptionType === 'monthly_pro') {
+      // Handle monthly order creation
+      startDate = attributes.created_at || null
+      if (startDate) {
+        // Calculate 30 days from start date for monthly subscriptions
+        const startDateObj = new Date(startDate)
+        const endDateObj = new Date(startDateObj)
+        endDateObj.setDate(endDateObj.getDate() + 30)
+        endDate = endDateObj.toISOString()
+        console.log('Calculated end date for monthly order:', { startDate, endDate })
+      }
       nextBillingDate = attributes.renews_at || null
     }
 
