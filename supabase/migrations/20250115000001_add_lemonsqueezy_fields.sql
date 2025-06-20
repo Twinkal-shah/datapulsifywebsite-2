@@ -59,13 +59,25 @@ CREATE OR REPLACE FUNCTION update_subscription_from_lemonsqueezy(
 )
 RETURNS VOID AS $$
 DECLARE
-  v_calculated_end_date TIMESTAMP WITH TIME ZONE;
+  calculated_end_date TIMESTAMP WITH TIME ZONE;
+  calculated_start_date TIMESTAMP WITH TIME ZONE;
+  calculated_lifetime_deal_status TEXT;
 BEGIN
-  -- Calculate end date for monthly subscriptions if not provided
-  IF p_subscription_type = 'monthly_pro' AND p_end_date IS NULL AND p_start_date IS NOT NULL THEN
-    v_calculated_end_date := p_start_date + INTERVAL '30 days';
+  -- Set default start date if not provided
+  calculated_start_date := COALESCE(p_start_date, NOW());
+  
+  -- For monthly_pro subscriptions, calculate end_date as 30 days from start_date if not provided
+  IF p_subscription_type = 'monthly_pro' AND p_end_date IS NULL THEN
+    calculated_end_date := calculated_start_date + INTERVAL '30 days';
   ELSE
-    v_calculated_end_date := p_end_date;
+    calculated_end_date := p_end_date;
+  END IF;
+
+  -- For lifetime subscriptions, set lifetime_deal_status to 'active' if payment is paid
+  IF p_subscription_type = 'lifetime' AND p_payment_status = 'paid' THEN
+    calculated_lifetime_deal_status := 'active';
+  ELSE
+    calculated_lifetime_deal_status := NULL; -- Don't update if not lifetime or not paid
   END IF;
 
   UPDATE user_installations
@@ -77,19 +89,15 @@ BEGIN
     payment_status = p_payment_status,
     subscription_status = p_subscription_status,
     subscription_type = p_subscription_type,
-    subscription_start_date = COALESCE(p_start_date, subscription_start_date, NOW()),
-    subscription_end_date = COALESCE(v_calculated_end_date, subscription_end_date),
-    next_billing_date = p_next_billing_date,
+    subscription_start_date = COALESCE(calculated_start_date, subscription_start_date),
+    subscription_end_date = COALESCE(calculated_end_date, subscription_end_date),
+    next_billing_date = COALESCE(p_next_billing_date, calculated_end_date),
+    lifetime_deal_status = COALESCE(calculated_lifetime_deal_status, lifetime_deal_status),
     updated_at = NOW()
   WHERE email = p_email;
   
   -- If no user found, this might be a new customer
   IF NOT FOUND THEN
-    -- Calculate end date for new monthly subscriptions
-    IF p_subscription_type = 'monthly_pro' AND p_end_date IS NULL THEN
-      v_calculated_end_date := COALESCE(p_start_date, NOW()) + INTERVAL '30 days';
-    END IF;
-    
     INSERT INTO user_installations (
       user_id,
       email,
@@ -103,6 +111,7 @@ BEGIN
       subscription_start_date,
       subscription_end_date,
       next_billing_date,
+      lifetime_deal_status,
       created_at,
       updated_at
     ) VALUES (
@@ -115,9 +124,10 @@ BEGIN
       p_payment_status,
       p_subscription_status,
       p_subscription_type,
-      COALESCE(p_start_date, NOW()),
-      v_calculated_end_date,
-      p_next_billing_date,
+      calculated_start_date,
+      calculated_end_date,
+      COALESCE(p_next_billing_date, calculated_end_date),
+      COALESCE(calculated_lifetime_deal_status, 'inactive'),
       NOW(),
       NOW()
     );
