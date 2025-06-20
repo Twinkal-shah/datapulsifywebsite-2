@@ -314,11 +314,12 @@ serve(async (req) => {
     let endDate: string | null = null
     let nextBillingDate: string | null = null
 
-    if (eventName === 'order_created' && subscriptionType === 'lifetime') {
-      // Lifetime purchase - no end date
-      startDate = attributes.created_at || null
+    if (subscriptionType === 'lifetime') {
+      // Lifetime purchase - always set start date, no end date
+      startDate = attributes.created_at || new Date().toISOString()
       endDate = null
       nextBillingDate = null
+      console.log('Processing lifetime purchase:', { startDate, subscriptionType, eventName })
     } else if (eventName.startsWith('subscription_')) {
       // Subscription events
       startDate = attributes.created_at || null
