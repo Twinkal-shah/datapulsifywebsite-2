@@ -286,11 +286,33 @@ serve(async (req) => {
 
     if (error) {
       console.error('Database update error:', error)
-      return new Response('Database Error', { 
+      
+      // Check if it's a function not found error
+      if (error.code === '42883' || error.message?.includes('function') || error.message?.includes('does not exist')) {
+        console.error('Database function not found - please run the SQL migration script');
+        return new Response(JSON.stringify({ 
+          error: 'Database function not found', 
+          message: 'Please run the SQL migration script to create the update_subscription_from_lemonsqueezy function',
+          details: error.message 
+        }), { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Other database errors
+      return new Response(JSON.stringify({ 
+        error: 'Database Error', 
+        message: 'Failed to update subscription data',
+        details: error.message,
+        code: error.code 
+      }), { 
         status: 500, 
-        headers: corsHeaders 
-      })
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
+
+    console.log('Database update successful');
 
     // Handle specific event types
     switch (eventName) {
@@ -320,7 +342,23 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Webhook processing error:', error)
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+    
+    // Provide more detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace available';
+    
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      type: typeof error
+    });
+    
+    return new Response(JSON.stringify({ 
+      error: 'Internal Server Error',
+      message: 'Webhook processing failed',
+      details: errorMessage,
+      timestamp: new Date().toISOString()
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })

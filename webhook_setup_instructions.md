@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_user_installations_lemonsqueezy_customer ON user_
 CREATE INDEX IF NOT EXISTS idx_user_installations_lemonsqueezy_subscription ON user_installations(lemonsqueezy_subscription_id);
 CREATE INDEX IF NOT EXISTS idx_user_installations_payment_status ON user_installations(email, payment_status, subscription_status);
 
--- Create the main function
+-- Create the main function with user_id lookup
 CREATE OR REPLACE FUNCTION update_subscription_from_lemonsqueezy(
   p_email TEXT,
   p_customer_id TEXT,
@@ -56,7 +56,29 @@ CREATE OR REPLACE FUNCTION update_subscription_from_lemonsqueezy(
   p_next_billing_date TIMESTAMP WITH TIME ZONE DEFAULT NULL
 )
 RETURNS VOID AS $$
+DECLARE
+  v_user_id UUID;
 BEGIN
+  -- First, try to find the user_id from auth.users based on email
+  SELECT id INTO v_user_id 
+  FROM auth.users 
+  WHERE email = p_email 
+  LIMIT 1;
+  
+  -- If user not found in auth.users, try to find existing user_id from user_installations
+  IF v_user_id IS NULL THEN
+    SELECT user_id INTO v_user_id 
+    FROM user_installations 
+    WHERE email = p_email 
+    LIMIT 1;
+  END IF;
+  
+  -- If still no user_id found, generate a new UUID (for webhook-only users)
+  IF v_user_id IS NULL THEN
+    v_user_id := gen_random_uuid();
+  END IF;
+
+  -- Try to update existing record
   UPDATE user_installations
   SET 
     lemonsqueezy_customer_id = p_customer_id,
@@ -72,15 +94,40 @@ BEGIN
     updated_at = NOW()
   WHERE email = p_email;
   
+  -- If no existing record found, create a new one
   IF NOT FOUND THEN
     INSERT INTO user_installations (
-      email, lemonsqueezy_customer_id, lemonsqueezy_subscription_id, lemonsqueezy_order_id,
-      lemonsqueezy_variant_id, payment_status, subscription_status, subscription_type,
-      subscription_start_date, subscription_end_date, next_billing_date, created_at, updated_at
+      user_id,
+      email,
+      lemonsqueezy_customer_id,
+      lemonsqueezy_subscription_id,
+      lemonsqueezy_order_id,
+      lemonsqueezy_variant_id,
+      payment_status,
+      subscription_status,
+      subscription_type,
+      subscription_start_date,
+      subscription_end_date,
+      next_billing_date,
+      install_date,
+      created_at,
+      updated_at
     ) VALUES (
-      p_email, p_customer_id, p_subscription_id, p_order_id, p_variant_id,
-      p_payment_status, p_subscription_status, p_subscription_type,
-      COALESCE(p_start_date, NOW()), p_end_date, p_next_billing_date, NOW(), NOW()
+      v_user_id,
+      p_email,
+      p_customer_id,
+      p_subscription_id,
+      p_order_id,
+      p_variant_id,
+      p_payment_status,
+      p_subscription_status,
+      p_subscription_type,
+      COALESCE(p_start_date, NOW()),
+      p_end_date,
+      p_next_billing_date,
+      NOW(),
+      NOW(),
+      NOW()
     );
   END IF;
 END;
