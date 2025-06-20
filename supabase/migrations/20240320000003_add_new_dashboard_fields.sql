@@ -36,10 +36,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create trigger for keyword count updates
-DROP TRIGGER IF EXISTS trigger_update_keyword_count ON tracked_keywords;
-
-CREATE TRIGGER trigger_update_keyword_count
-AFTER INSERT OR DELETE ON tracked_keywords
-FOR EACH ROW
-EXECUTE FUNCTION update_keyword_count(); 
+-- Create trigger for keyword count updates (only if tracked_keywords table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tracked_keywords') THEN
+        DROP TRIGGER IF EXISTS trigger_update_keyword_count ON tracked_keywords;
+        
+        CREATE TRIGGER trigger_update_keyword_count
+        AFTER INSERT OR DELETE ON tracked_keywords
+        FOR EACH ROW
+        EXECUTE FUNCTION update_keyword_count();
+    END IF;
+END
+$$; 
