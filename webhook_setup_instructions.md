@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_user_installations_lemonsqueezy_customer ON user_
 CREATE INDEX IF NOT EXISTS idx_user_installations_lemonsqueezy_subscription ON user_installations(lemonsqueezy_subscription_id);
 CREATE INDEX IF NOT EXISTS idx_user_installations_payment_status ON user_installations(email, payment_status, subscription_status);
 
--- Create the main function with user_id lookup
+-- Create the main function with simplified user_id handling
 CREATE OR REPLACE FUNCTION update_subscription_from_lemonsqueezy(
   p_email TEXT,
   p_customer_id TEXT,
@@ -58,24 +58,19 @@ CREATE OR REPLACE FUNCTION update_subscription_from_lemonsqueezy(
 RETURNS VOID AS $$
 DECLARE
   v_user_id UUID;
+  v_existing_record_count INTEGER;
 BEGIN
-  -- First, try to find the user_id from auth.users based on email
-  SELECT id INTO v_user_id 
-  FROM auth.users 
+  -- Check if user already exists in user_installations
+  SELECT COUNT(*), user_id INTO v_existing_record_count, v_user_id
+  FROM user_installations 
   WHERE email = p_email 
+  GROUP BY user_id
   LIMIT 1;
   
-  -- If user not found in auth.users, try to find existing user_id from user_installations
-  IF v_user_id IS NULL THEN
-    SELECT user_id INTO v_user_id 
-    FROM user_installations 
-    WHERE email = p_email 
-    LIMIT 1;
-  END IF;
-  
-  -- If still no user_id found, generate a new UUID (for webhook-only users)
-  IF v_user_id IS NULL THEN
+  -- If no existing record, generate a new UUID
+  IF v_existing_record_count IS NULL OR v_existing_record_count = 0 THEN
     v_user_id := gen_random_uuid();
+    v_existing_record_count := 0;
   END IF;
 
   -- Try to update existing record
@@ -131,7 +126,7 @@ BEGIN
     );
   END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ### 2. Update LemonSqueezy Webhook URL
