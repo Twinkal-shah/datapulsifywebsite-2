@@ -69,7 +69,7 @@ BEGIN
     -- Set keyword limit based on subscription type
     keyword_limit := CASE user_sub_type
         WHEN 'lifetime' THEN 100
-        WHEN 'monthly_pro' THEN 1000
+        WHEN 'monthly_pro' THEN 999999 -- Unlimited keywords for monthly pro
         ELSE 10
     END;
 

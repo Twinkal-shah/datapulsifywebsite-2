@@ -22,16 +22,50 @@ export const supabaseWrapper = new Proxy(supabase, {
         
         // Wrap the query builder methods
         return new Proxy(query, {
-          get(target, prop) {
-            const originalMethod = target[prop];
+          get(queryTarget, queryProp) {
+            const originalMethod = queryTarget[queryProp];
             
             if (typeof originalMethod === 'function') {
-              return async (...args: any[]) => {
-                if (isTrialExpired) {
-                  throw new Error('Trial expired. Please upgrade to continue.');
-                }
-                return originalMethod.apply(target, args);
-              };
+              // Only make execution methods async, not builder methods
+              const executionMethods = ['then', 'catch', 'finally'];
+              const isExecutionMethod = executionMethods.includes(queryProp as string);
+              
+              if (isExecutionMethod) {
+                return async (...args: any[]) => {
+                  if (isTrialExpired) {
+                    throw new Error('Trial expired. Please upgrade to continue.');
+                  }
+                  return originalMethod.apply(queryTarget, args);
+                };
+              } else {
+                // For builder methods (select, eq, etc.), return them synchronously
+                return (...args: any[]) => {
+                  if (isTrialExpired && queryProp !== 'select' && queryProp !== 'eq' && queryProp !== 'neq' && queryProp !== 'gt' && queryProp !== 'gte' && queryProp !== 'lt' && queryProp !== 'lte' && queryProp !== 'like' && queryProp !== 'ilike' && queryProp !== 'is' && queryProp !== 'in' && queryProp !== 'contains' && queryProp !== 'containedBy' && queryProp !== 'rangeGt' && queryProp !== 'rangeGte' && queryProp !== 'rangeLt' && queryProp !== 'rangeLte' && queryProp !== 'rangeAdjacent' && queryProp !== 'overlaps' && queryProp !== 'textSearch' && queryProp !== 'match' && queryProp !== 'not' && queryProp !== 'or' && queryProp !== 'filter') {
+                    // Allow query building but check trial on execution
+                  }
+                  const result = originalMethod.apply(queryTarget, args);
+                  
+                  // If the result is another query builder, wrap it too
+                  if (result && typeof result === 'object' && typeof result.then === 'function') {
+                    return new Proxy(result, {
+                      get(resultTarget, resultProp) {
+                        const resultMethod = resultTarget[resultProp];
+                        if (typeof resultMethod === 'function' && executionMethods.includes(resultProp as string)) {
+                          return async (...resultArgs: any[]) => {
+                            if (isTrialExpired) {
+                              throw new Error('Trial expired. Please upgrade to continue.');
+                            }
+                            return resultMethod.apply(resultTarget, resultArgs);
+                          };
+                        }
+                        return resultMethod;
+                      }
+                    });
+                  }
+                  
+                  return result;
+                };
+              }
             }
             
             return originalMethod;

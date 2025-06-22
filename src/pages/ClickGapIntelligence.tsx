@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,7 +27,7 @@ import { format, subMonths, parseISO } from 'date-fns';
 import { PROPERTY_CHANGE_EVENT } from '@/components/PropertySelector';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { supabase } from '@/lib/supabase';
+import { supabase as supabaseClient } from '@/lib/supabaseClient';
 
 // Types
 interface PageAnalysis {
@@ -136,6 +137,7 @@ const detectCategory = (url: string): string => {
 export default function ClickGapIntelligence() {
   const { user, getGSCToken, getGSCProperty } = useAuth();
   const { subscriptionType } = useSubscription();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isPropertySwitching, setIsPropertySwitching] = useState(false);
   const [pageAnalyses, setPageAnalyses] = useState<PageAnalysis[]>([]);
@@ -148,11 +150,12 @@ export default function ClickGapIntelligence() {
   const [sortBy, setSortBy] = useState<'clickGap' | 'url' | 'category'>('clickGap');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [trackedPages, setTrackedPages] = useState<string[]>([]);
+  const [isTabActive, setIsTabActive] = useState(true);
 
   // Constants for page limits
   const PAGE_LIMITS = {
     lifetime: 30,
-    monthly_pro: 100,
+    monthly_pro: Infinity, // Unlimited pages for monthly pro
     free: 5
   };
 
@@ -164,18 +167,132 @@ export default function ClickGapIntelligence() {
 
   // Check if can track more pages
   const canTrackMorePages = () => {
-    return trackedPages.length < getPageLimit();
+    const limit = getPageLimit();
+    // If limit is unlimited (Infinity), always allow tracking
+    return limit === Infinity || trackedPages.length < limit;
+  };
+
+  // Manual refresh function for testing
+  const refreshTrackedPages = async () => {
+    console.log('=== MANUAL REFRESH TRIGGERED ===');
+    console.log('User email for refresh:', user?.email);
+    
+    if (!user?.email) {
+      console.log('No user email for manual refresh');
+      return;
+    }
+
+    try {
+      // First, let's test a simple count query
+      console.log('Testing simple count query...');
+      const { count, error: countError } = await supabaseClient
+        .from('tracked_pages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_email', user.email);
+
+      console.log('Count query result:', { count, countError });
+
+      // Now let's try the full query
+      console.log('Manual refresh: Querying tracked_pages table...');
+      console.log('Query: SELECT * FROM tracked_pages WHERE user_email =', user.email);
+      
+      const { data, error } = await supabaseClient
+        .from('tracked_pages')
+        .select('*')  // Select all fields for debugging
+        .eq('user_email', user.email);
+
+      console.log('Manual refresh result:');
+      console.log('- Data array:', data);
+      console.log('- Data length:', data?.length || 0);
+      console.log('- Error:', error);
+      console.log('- First item (if exists):', data?.[0]);
+
+      if (error) {
+        console.error('Manual refresh error details:', error);
+        toast({
+          title: "Database Query Error",
+          description: `Error: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.log('No data returned - checking if RLS is blocking the query');
+        toast({
+          title: "No Data Found",
+          description: "No tracked pages found. This might be an RLS issue.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const urls = data?.map(page => page.url) || [];
+      console.log('Manual refresh: Extracted URLs:', urls);
+      console.log('Manual refresh: Setting tracked pages state:', urls);
+      setTrackedPages(urls);
+      
+      toast({
+        title: "Refresh Complete",
+        description: `Found ${urls.length} tracked pages`,
+        variant: "default",
+      });
+      
+      console.log('=== MANUAL REFRESH COMPLETE ===');
+    } catch (error) {
+      console.error('Manual refresh catch error:', error);
+      toast({
+        title: "Error",
+        description: `Refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+    }
   };
 
   // Function to track a page
   const handleTrackPage = async (url: string) => {
-    if (!user?.email) return;
+    console.log('=== TRACK BUTTON CLICKED ===');
+    console.log('URL:', url);
+    console.log('Tab is active:', isTabActive);
+    console.log('User email:', user?.email);
+    console.log('Can track more pages:', canTrackMorePages());
+    console.log('Current tracked pages count:', trackedPages.length);
+    console.log('Page limit:', getPageLimit());
+    console.log('Is page already tracked?', trackedPages.includes(url));
+    console.log('Document.hidden:', document.hidden);
+    console.log('Window focused:', document.hasFocus());
+    
+    // Skip problematic Supabase session check - we have user from AuthContext
+    console.log('Skipping Supabase session check, using AuthContext user');
+    console.log('AuthContext user email:', user?.email);
+
+    if (!user?.email) {
+      console.error('No user email found');
+      toast({
+        title: "Authentication Error",
+        description: "Please make sure you're logged in",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if already tracked in local state
+    if (trackedPages.includes(url)) {
+      console.log('Page already tracked in local state');
+      toast({
+        title: "Already Tracked",
+        description: "This page is already being tracked",
+        variant: "default",
+      });
+      return;
+    }
 
     if (!canTrackMorePages()) {
+      console.log('Page limit reached');
       if (subscriptionType === 'lifetime') {
         toast({
           title: "Page Limit Reached",
-          description: "Upgrade to Monthly Pro Plan to track more than 30 pages.",
+          description: "Upgrade to Monthly Pro Plan for unlimited page tracking.",
           variant: "destructive",
         });
       } else {
@@ -188,56 +305,229 @@ export default function ClickGapIntelligence() {
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('tracked_pages')
-        .insert([
-          {
-            user_email: user.email,
-            url: url,
+    // INSTANT TRACKING - Update UI immediately, save to database in background
+    console.log('Adding to tracked pages instantly (UI update)');
+    setTrackedPages([...trackedPages, url]);
+    
+    // Show immediate success feedback
+    toast({
+      title: "Page Tracked",
+      description: "Page added to tracking",
+      variant: "default",
+    });
+
+    // Smart database save - detects tab switching and handles accordingly
+    const smartDatabaseSave = async (pageUrl: string, userEmail: string) => {
+      console.log('🧠 Smart database save starting...');
+      console.log('🧠 Page URL:', pageUrl);
+      console.log('🧠 User Email:', userEmail);
+      console.log('🧠 Tab was recently inactive:', !isTabActive || document.hidden);
+      
+      // If we suspect the client is in a bad state (after tab switching), try to refresh session first
+      if (!isTabActive || document.hidden) {
+        console.log('🔄 Detected potential client hang scenario - refreshing session first');
+        try {
+          // Force a quick session refresh to reset client state
+          const sessionRefresh = await Promise.race([
+            supabaseClient.auth.getUser(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Session refresh timeout')), 500))
+          ]);
+          console.log('🔄 Session refresh result:', sessionRefresh);
+        } catch (refreshError) {
+          console.log('🔄 Session refresh failed/timed out:', refreshError);
+        }
+      }
+      
+      // Now try the database save with a reasonable timeout
+      try {
+        console.log('💾 Attempting database insert...');
+        const insertPromise = supabaseClient
+          .from('tracked_pages')
+          .insert({
+            user_email: userEmail,
+            url: pageUrl,
             created_at: new Date().toISOString()
+          });
+        
+        // Use a longer timeout for the actual save (2 seconds)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database insert timeout after 2 seconds')), 2000)
+        );
+        
+        const result = await Promise.race([insertPromise, timeoutPromise]) as any;
+        console.log('🧠 Database save result:', result);
+        
+        if (result.error) {
+          if (result.error.code === '23505') {
+            console.log('🧠 Page already exists (duplicate) - success!');
+            return true;
+          } else {
+            console.error('🧠 Database error:', result.error);
+            return false;
           }
-        ]);
+        } else {
+          console.log('🧠 Database save successful!');
+          return true;
+        }
+      } catch (error) {
+        console.error('🧠 Database save failed/timed out:', error);
+        
+        // If it failed, queue it for the next refresh cycle
+        console.log('📋 Queueing for next refresh cycle...');
+        setTimeout(async () => {
+          console.log('🔄 Attempting delayed sync via refresh...');
+          try {
+            await refreshTrackedPages();
+            console.log('🔄 Delayed refresh completed');
+          } catch (refreshError) {
+            console.error('🔄 Delayed refresh failed:', refreshError);
+          }
+        }, 3000);
+        
+        return false;
+      }
+    };
 
-      if (error) throw error;
-
-      setTrackedPages([...trackedPages, url]);
-      toast({
-        title: "Success",
-        description: "Page added to tracking",
-        variant: "default",
-      });
-    } catch (error) {
-      console.error('Error tracking page:', error);
-      toast({
-        title: "Error",
-        description: "Failed to track page",
-        variant: "destructive",
-      });
-    }
+    // Save to database using smart method - handles tab switching scenarios
+    console.log('🚀 Starting smart database save...');
+    smartDatabaseSave(url, user.email).then((success) => {
+      if (success) {
+        console.log('✅ Smart database save successful!');
+      } else {
+        console.log('⚠️ Database save failed - but queued for sync');
+      }
+    }).catch((error) => {
+      console.error('💥 Smart save error:', error);
+    });
   };
 
   // Fetch tracked pages on component mount
   useEffect(() => {
     const fetchTrackedPages = async () => {
-      if (!user?.email) return;
+      console.log('=== FETCHING TRACKED PAGES ===');
+      console.log('User object:', user);
+      console.log('User email:', user?.email);
+      
+      if (!user?.email) {
+        console.log('No user email, skipping fetch tracked pages');
+        return;
+      }
 
       try {
-        const { data, error } = await supabase
+        console.log('Querying tracked_pages table...');
+        console.log('Query params:', { user_email: user.email, is_active: true });
+        
+        const { data, error } = await supabaseClient
           .from('tracked_pages')
-          .select('url')
-          .eq('user_email', user.email);
+          .select('url, is_active, created_at')
+          .eq('user_email', user.email)
+          .eq('is_active', true);
 
-        if (error) throw error;
+        console.log('Tracked pages query result:');
+        console.log('- Data:', data);
+        console.log('- Error:', error);
+        console.log('- Data length:', data?.length || 0);
 
-        setTrackedPages(data.map(page => page.url));
+        if (error) {
+          console.error('Query error details:', error);
+          toast({
+            title: "Database Error",
+            description: `Error loading tracked pages: ${error.message}`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const urls = data?.map(page => page.url) || [];
+        console.log('Extracted URLs:', urls);
+        console.log('Setting tracked pages state with:', urls);
+        setTrackedPages(urls);
+        console.log('=== FETCH COMPLETE ===');
       } catch (error) {
         console.error('Error fetching tracked pages:', error);
+        toast({
+          title: "Error",
+          description: `Failed to load tracked pages: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          variant: "destructive",
+        });
       }
     };
 
-    fetchTrackedPages();
+    // Add a small delay to ensure user is fully loaded
+    if (user?.email) {
+      setTimeout(fetchTrackedPages, 100);
+    }
   }, [user]);
+
+  // Add tab visibility change detection
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsTabActive(isVisible);
+      
+      console.log('=== TAB VISIBILITY CHANGED ===');
+      console.log('Tab is now:', isVisible ? 'ACTIVE' : 'INACTIVE');
+      console.log('User email:', user?.email);
+      console.log('Tracked pages count:', trackedPages.length);
+      
+      if (isVisible) {
+        console.log('Tab became active - checking auth and refreshing data');
+        // When tab becomes active, refresh tracked pages and check auth
+        setTimeout(() => {
+          console.log('Delayed refresh after tab activation');
+          if (user?.email) {
+            refreshTrackedPages();
+          }
+        }, 500);
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('=== WINDOW FOCUS ===');
+      console.log('Window gained focus');
+      if (user?.email) {
+        setTimeout(() => refreshTrackedPages(), 300);
+      }
+    };
+
+    const handleBlur = () => {
+      console.log('=== WINDOW BLUR ===');
+      console.log('Window lost focus');
+    };
+
+    // Add event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [user, trackedPages.length, refreshTrackedPages]);
+
+  // Monitor auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event, session) => {
+      console.log('=== AUTH STATE CHANGE ===');
+      console.log('Event:', event);
+      console.log('Session exists:', !!session);
+      console.log('User email from session:', session?.user?.email);
+      console.log('Current user email from context:', user?.email);
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        console.log('Auth refreshed, reloading tracked pages');
+        setTimeout(() => {
+          if (session?.user?.email) {
+            refreshTrackedPages();
+          }
+        }, 1000);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [refreshTrackedPages]);
 
   // Derived values from auth
   const isConnected = !!getGSCToken();
@@ -616,12 +906,49 @@ export default function ClickGapIntelligence() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-white">
                 <span>Page Tracking Status</span>
-                <Badge variant="outline" className="ml-2 text-white">
-                  {trackedPages.length}/{getPageLimit()} Pages
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-white">
+                    {trackedPages.length}/{getPageLimit() === Infinity ? <span className="text-lg">∞</span> : getPageLimit()} Pages
+                  </Badge>
+                </div>
               </CardTitle>
             </CardHeader>
           </Card>
+
+          {/* Limit Reached Card */}
+          {!canTrackMorePages() && (
+            <Card className="bg-gradient-to-r from-black-500/10 to-red-500/10 border-purple-500/50">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center">
+                      <span className="text-2xl">⚠️</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-1">
+                        Page Tracking Limit Reached
+                      </h3>
+                      <p className="text-white text-sm">
+                        {subscriptionType === 'lifetime' 
+                          ? `You've reached your ${getPageLimit()} page limit. Upgrade to Monthly Pro for unlimited page tracking.`
+                          : `You've reached your ${getPageLimit()} page limit. Upgrade your plan to track more pages.`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    className="bg-gradient-to-r from-purple-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium px-6"
+                    onClick={() => {
+                      // Navigate to Settings page subscription section
+                      navigate('/settings');
+                    }}
+                  >
+                    Upgrade Plan
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Filters and Controls */}
           <Card className="bg-gray-800 border-gray-700">
@@ -791,40 +1118,56 @@ export default function ClickGapIntelligence() {
                           {formatPosition(page.positionGap)}
                         </TableCell>
                         <TableCell className="min-w-[280px] max-w-[320px] text-center">
-                          <Badge 
-                            variant={
-                              page.trendIcon === '🚀' ? 'default' :
-                              page.trendIcon === '❌' ? 'destructive' :
-                              page.trendIcon === '🔻' ? 'secondary' : 'outline'
-                            }
-                            className={`text-sm font-medium px-3 py-1 whitespace-nowrap ${
-                              page.diagnosis === 'Trend stabled' ? '!text-white' :
-                              page.diagnosis === 'Search volume + relevancy downgraded' ? '!text-black' : ''
-                            }`}
-                            title={page.diagnosis}
-                          >
-                            {page.diagnosis}
-                          </Badge>
+                          {trackedPages.includes(page.url) ? (
+                            <Badge 
+                              variant={
+                                page.trendIcon === '🚀' ? 'default' :
+                                page.trendIcon === '❌' ? 'destructive' :
+                                page.trendIcon === '🔻' ? 'secondary' : 'outline'
+                              }
+                              className={`text-sm font-medium px-3 py-1 whitespace-nowrap ${
+                                page.diagnosis === 'Trend stabled' ? '!text-white' :
+                                page.diagnosis === 'Search volume + relevancy downgraded' ? '!text-black' : ''
+                              }`}
+                              title={page.diagnosis}
+                            >
+                              {page.diagnosis}
+                            </Badge>
+                          ) : (
+                            <div className="text-gray-500 text-sm font-medium px-3 py-1">
+                              🔒 Track to view
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="min-w-[200px] max-w-[280px] text-gray-300">
-                          <div 
-                            className="text-sm leading-tight pr-2"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              wordBreak: 'break-word',
-                              hyphens: 'auto',
-                              lineHeight: '1.3'
-                            }}
-                            title={page.actionStep}
-                          >
-                            {page.actionStep}
-                          </div>
+                          {trackedPages.includes(page.url) ? (
+                            <div 
+                              className="text-sm leading-tight pr-2"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                wordBreak: 'break-word',
+                                hyphens: 'auto',
+                                lineHeight: '1.3'
+                              }}
+                              title={page.actionStep}
+                            >
+                              {page.actionStep}
+                            </div>
+                          ) : (
+                            <div className="text-gray-500 text-sm">
+                              🔒 Track to view action step
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-2xl text-white min-w-[60px] text-center">
-                          {page.trendIcon}
+                          {trackedPages.includes(page.url) ? (
+                            page.trendIcon
+                          ) : (
+                            <div className="text-gray-500 text-sm">🔒</div>
+                          )}
                         </TableCell>
                         <TableCell className="min-w-[80px] text-center">
                           {trackedPages.includes(page.url) ? (

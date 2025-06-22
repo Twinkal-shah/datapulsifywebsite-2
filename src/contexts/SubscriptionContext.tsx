@@ -119,7 +119,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         if (isLifetime) {
           setKeywordLimit(100);
         } else if (isMonthlyPro) {
-          setKeywordLimit(1000); // Unlimited keywords for monthly pro
+          setKeywordLimit(Infinity); // Unlimited keywords for monthly pro
         } else {
           setKeywordLimit(10); // Free plan limit
         }

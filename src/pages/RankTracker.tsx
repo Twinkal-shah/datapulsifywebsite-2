@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, subDays, subMonths, subWeeks, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { Line } from 'react-chartjs-2';
-import { AlertCircle, CalendarIcon, Search, ArrowUp, ArrowDown, Minus, Download, Upload, Filter, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { AlertCircle, CalendarIcon, Search, ArrowUp, ArrowDown, Minus, Download, Upload, Filter, ChevronLeft, ChevronRight, X, Plus, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { gscService, GSCDataPoint } from '@/lib/gscService';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,9 @@ import { Label } from '@/components/ui/label';
 import { SubscriptionOverlay } from '@/components/SubscriptionOverlay';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
 import { supabase } from '@/lib/supabase';
+import { useTrackedKeywords } from '@/hooks/useTrackedKeywords';
+import { KeywordTrackingStatus } from '@/components/KeywordTrackingStatus';
+import { TrackKeywordButton } from '@/components/TrackKeywordButton';
 
 // Keyword history type
 interface KeywordHistory {
@@ -103,6 +106,18 @@ export default function RankTracker() {
   const { user, getGSCToken, getGSCProperty } = useAuth();
   const { subscriptionType, canTrackMoreKeywords, keywordLimit } = useSubscription();
   const { toast } = useToast();
+  
+  // Use the tracked keywords hook
+  const {
+    trackedKeywords,
+    loading: trackingLoading,
+    stats,
+    trackKeyword,
+    untrackKeyword,
+    isKeywordTracked,
+    trackMultipleKeywords,
+    refreshTrackedKeywords
+  } = useTrackedKeywords();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,8 +143,12 @@ export default function RankTracker() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
-  // Add new state for keyword count
-  const [totalKeywords, setTotalKeywords] = useState(0);
+  // Calculate maximum pages based on filtered keywords
+  const getMaxPages = () => {
+    return Math.ceil(filteredKeywords.length / itemsPerPage);
+  };
+  
+
   
   // Get branded keyword rules from localStorage
   const getBrandedKeywordRules = () => {
@@ -415,78 +434,63 @@ export default function RankTracker() {
   const handleAddKeyword = async () => {
     if (!newKeyword.trim()) return;
 
-    // Check if adding this keyword would exceed the limit
-    if (!canTrackMoreKeywords(totalKeywords)) {
-      if (subscriptionType === 'lifetime') {
-        toast({
-          title: "Keyword Limit Reached",
-          description: "Upgrade to Monthly Pro Plan to track more than 100 keywords.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Keyword Limit Reached",
-          description: "Upgrade your plan to track more keywords.",
-          variant: "destructive",
-        });
-      }
-      return;
-    }
-
-    try {
-      const newKeywordObj: RankTrackerKeyword = {
-        query: newKeyword.trim(),
-        type: classifyKeywordType(newKeyword) as 'branded' | 'non-branded',
-        intent: classifyKeywordIntent(newKeyword) as 'tofu' | 'mofu' | 'bofu',
-        clicks: 0,
-        impressions: 0,
-        ctr: 0,
-        position: 0,
-        lastUpdated: format(new Date(), 'yyyy-MM-dd')
-      };
-
-      setKeywords(prev => [...prev, newKeywordObj]);
+    const keywordType = classifyKeywordType(newKeyword) as 'branded' | 'non-branded';
+    const keywordIntent = classifyKeywordIntent(newKeyword) as 'tofu' | 'mofu' | 'bofu' | 'unknown';
+    
+    const success = await trackKeyword(newKeyword.trim(), keywordType, keywordIntent);
+    
+    if (success) {
       setNewKeyword('');
-      
-      // Update total keywords count after successful addition
-      setTotalKeywords(prev => prev + 1);
-    } catch (error) {
-      console.error('Error adding keyword:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add keyword",
-        variant: "destructive",
-      });
+      // Refresh keyword data to show the newly tracked keyword (silently)
+      await fetchKeywordData();
     }
   };
 
   // Handle CSV upload
-  const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const text = e.target?.result as string;
       const lines = text.split('\n');
       
-      const newKeywords = lines
+      const keywordsToTrack = lines
         .map(line => line.trim())
         .filter(line => line) // Remove empty lines
         .map(keyword => ({
-          query: keyword,
+          keyword,
           type: classifyKeywordType(keyword) as 'branded' | 'non-branded',
-          intent: classifyKeywordIntent(keyword) as 'tofu' | 'mofu' | 'bofu',
-          clicks: 0,
-          impressions: 0,
-          ctr: 0,
-          position: 0,
-          lastUpdated: format(new Date(), 'yyyy-MM-dd')
+          intent: classifyKeywordIntent(keyword) as 'tofu' | 'mofu' | 'bofu' | 'unknown'
         }));
 
-      setKeywords(prev => [...prev, ...newKeywords]);
+      if (keywordsToTrack.length === 0) {
+        toast({
+          title: "No Keywords Found",
+          description: "The CSV file doesn't contain any valid keywords",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { success, failed } = await trackMultipleKeywords(keywordsToTrack);
+      
+      toast({
+        title: "CSV Import Complete",
+        description: `${success} keywords tracked successfully, ${failed} failed`,
+        variant: success > 0 ? "default" : "destructive",
+      });
+
+      if (success > 0) {
+        // Refresh keyword data silently after successful import
+        await fetchKeywordData();
+      }
     };
     reader.readAsText(file);
+    
+    // Clear the input so the same file can be uploaded again
+    event.target.value = '';
   };
 
   // Export keywords to CSV
@@ -790,27 +794,68 @@ export default function RankTracker() {
             )}
           </SubscriptionOverlay>
             
-          {/* Add Keyword Section */}
+          {/* Keyword Tracking Status & Add Keywords */}
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
-              <CardTitle className="text-white">Filter Keywords</CardTitle>
+              <CardTitle className="text-white">Keyword Tracking</CardTitle>
               <CardDescription className="text-gray-400">
-                Search for specific keywords or add new ones
+                Track specific keywords and monitor their ranking performance
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {/* Search Input */}
+                {/* Tracking Status */}
+                <KeywordTrackingStatus 
+                  stats={stats}
+                  showProgress={true}
+                  showBadge={true}
+                />
+
+                {/* Add Keyword Input */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      value={newKeyword}
+                      onChange={(e) => setNewKeyword(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddKeyword();
+                        }
+                      }}
+                      placeholder="Enter keyword to track..."
+                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 pl-10"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleAddKeyword}
+                    disabled={!newKeyword.trim() || (stats.remaining <= 0 && stats.limit !== Infinity)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Track
+                  </Button>
+                </div>
+
+                {/* Search Existing Keywords */}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search keywords..."
+                      placeholder="Search tracked keywords..."
                       className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 pl-10"
                     />
                   </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => refreshTrackedKeywords(true)}
+                    disabled={trackingLoading}
+                    className="bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
+                  >
+                    {trackingLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+                  </Button>
                   {searchTerm && (
                     <Button
                       variant="outline"
@@ -825,16 +870,53 @@ export default function RankTracker() {
             </CardContent>
           </Card>
           
+          {/* Keyword Limit Reached Card */}
+          {stats.remaining === 0 && stats.limit !== Infinity && (
+            <Card className="bg-gray-900/50 border-purple-500/30">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-yellow-600 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Keyword Tracking Limit Reached</h3>
+                      <p className="text-gray-300 mt-1">
+                        You've reached your {stats.limit} keyword limit. Upgrade to Monthly Pro for unlimited keyword tracking.
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-2 rounded-lg"
+                    onClick={() => window.open('/settings', '_blank')}
+                  >
+                    Upgrade Plan
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Keywords Table */}
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-white">Tracked Keywords</CardTitle>
+                  <CardTitle className="text-white">All Keywords</CardTitle>
                   <CardDescription className="text-gray-400">
                     {viewMode === 'monthly' 
-                      ? 'Monthly position tracking for your keywords'
-                      : 'Weekly position tracking for your keywords'}
+                      ? 'All your GSC keywords with monthly position data - Track any keyword to unlock detailed analytics'
+                      : 'All your GSC keywords with weekly position data - Track any keyword to unlock detailed analytics'}
+                    <div className="mt-2">
+                      <KeywordTrackingStatus 
+                        stats={stats}
+                        showProgress={false}
+                        showBadge={false}
+                        className="text-sm"
+                      />
+                    </div>
                   </CardDescription>
                 </div>
                 <SubscriptionOverlay featureName="rank_tracker_analytics">
@@ -859,6 +941,24 @@ export default function RankTracker() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Data Locking Info */}
+              <div className="mb-4 p-3 bg-blue-950/50 border border-blue-800/50 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center mt-0.5">
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-300 mb-1">How Keyword Tracking Works</h4>
+                    <p className="text-xs text-blue-200">
+                      All your Google Search Console keywords are displayed below. Position data is locked by default - click the "Track" button next to any keyword to unlock detailed analytics. 
+                      You can track up to <span className="font-semibold">{stats.limit}</span> keywords with your {subscriptionType === 'lifetime' ? 'Lifetime' : 'current'} plan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {loading ? (
                 <div className="rounded-md border border-gray-700 animate-pulse">
                   <div className="h-60 bg-gray-700"></div>
@@ -871,13 +971,16 @@ export default function RankTracker() {
                         <div className="min-w-full">
                           <Table className="relative">
                             <TableHeader>
-                                <TableRow className="border-gray-700">
-                                  <TableHead 
-                                    className="bg-gray-800 text-gray-300 w-[250px] min-w-[250px] sticky left-0 z-30 border-r border-gray-700 shadow-[2px_0_4px_rgba(0,0,0,0.3)]"
-                                    style={{ position: 'sticky', left: 0 }}
-                                  >
-                                    Keyword
-                                  </TableHead>
+                                                            <TableRow className="border-gray-700">
+                              <TableHead 
+                                className="bg-gray-800 text-gray-300 w-[250px] min-w-[250px] sticky left-0 z-30 border-r border-gray-700 shadow-[2px_0_4px_rgba(0,0,0,0.3)]"
+                                style={{ position: 'sticky', left: 0 }}
+                              >
+                                Keyword
+                              </TableHead>
+                              <TableHead className="bg-gray-800 text-gray-300 w-[100px] min-w-[100px]">
+                                Status
+                              </TableHead>
                                   {viewMode === 'monthly' ? (
                                     // Monthly view headers
                                     'monthlyPositions' in keywords[0] ? 
@@ -924,50 +1027,105 @@ export default function RankTracker() {
                                             {keyword.query}
                                           </div>
                                         </TableCell>
-                                        {viewMode === 'monthly' ? (
-                                          // Monthly view cells
-                                          'monthlyPositions' in keyword ?
-                                            Object.entries(keyword.monthlyPositions).map(([monthLabel, position]) => (
-                                              <TableCell 
-                                                key={monthLabel} 
-                                                className={cn(
-                                                  "text-center w-[120px] min-w-[120px] px-4 bg-gray-900",
-                                                  position === 'Not found' ? 'text-gray-500' : 
-                                                  typeof position === 'number' && position <= 3 ? 'text-green-400' :
-                                                  typeof position === 'number' && position <= 10 ? 'text-blue-400' :
-                                                  'text-gray-300'
-                                                )}
-                                              >
-                                                {position === 'Not found' ? '–' : Number(position).toFixed(1)}
-                                              </TableCell>
-                                            )) : null
+                                        <TableCell className="bg-gray-900 w-[100px] min-w-[100px]">
+                                          <TrackKeywordButton
+                                            keyword={keyword.query}
+                                            isTracked={isKeywordTracked(keyword.query)}
+                                            onTrack={async (kw) => {
+                                              console.log('Track button clicked for:', kw);
+                                              return await trackKeyword(kw);
+                                            }}
+                                            variant="button"
+                                            disabled={(stats.remaining <= 0 && stats.limit !== Infinity) && !isKeywordTracked(keyword.query)}
+                                          />
+                                        </TableCell>
+                                        {/* Check if keyword is tracked - only show data if tracked */}
+                                        {isKeywordTracked(keyword.query) ? (
+                                          viewMode === 'monthly' ? (
+                                            // Monthly view cells - UNLOCKED (tracked)
+                                            'monthlyPositions' in keyword ?
+                                              Object.entries(keyword.monthlyPositions).map(([monthLabel, position]) => (
+                                                <TableCell 
+                                                  key={monthLabel} 
+                                                  className={cn(
+                                                    "text-center w-[120px] min-w-[120px] px-4 bg-gray-900",
+                                                    position === 'Not found' ? 'text-gray-500' : 
+                                                    typeof position === 'number' && position <= 3 ? 'text-green-400' :
+                                                    typeof position === 'number' && position <= 10 ? 'text-blue-400' :
+                                                    'text-gray-300'
+                                                  )}
+                                                >
+                                                  {position === 'Not found' ? '–' : Number(position).toFixed(1)}
+                                                </TableCell>
+                                              )) : null
+                                          ) : (
+                                            // Weekly view cells - UNLOCKED (tracked)
+                                            'weeklyPositions' in keyword ?
+                                              Object.entries(keyword.weeklyPositions).map(([weekLabel, position]) => (
+                                                <TableCell 
+                                                  key={weekLabel} 
+                                                  className={cn(
+                                                    "text-center w-[150px] min-w-[150px] px-4 bg-gray-900",
+                                                    position === 'Not found' ? 'text-gray-500' : 
+                                                    typeof position === 'number' && position <= 3 ? 'text-green-400' :
+                                                    typeof position === 'number' && position <= 10 ? 'text-blue-400' :
+                                                    'text-gray-300'
+                                                  )}
+                                                >
+                                                  {position === 'Not found' ? '–' : Number(position).toFixed(1)}
+                                                </TableCell>
+                                              )) : null
+                                          )
                                         ) : (
-                                          // Weekly view cells
-                                          'weeklyPositions' in keyword ?
-                                            Object.entries(keyword.weeklyPositions).map(([weekLabel, position]) => (
-                                              <TableCell 
-                                                key={weekLabel} 
-                                                className={cn(
-                                                  "text-center w-[150px] min-w-[150px] px-4 bg-gray-900",
-                                                  position === 'Not found' ? 'text-gray-500' : 
-                                                  typeof position === 'number' && position <= 3 ? 'text-green-400' :
-                                                  typeof position === 'number' && position <= 10 ? 'text-blue-400' :
-                                                  'text-gray-300'
-                                                )}
-                                              >
-                                                {position === 'Not found' ? '–' : Number(position).toFixed(1)}
-                                              </TableCell>
-                                            )) : null
+                                          // LOCKED STATE - Show locked cells for non-tracked keywords
+                                          viewMode === 'monthly' ? (
+                                            'monthlyPositions' in keyword ?
+                                              Object.keys(keyword.monthlyPositions).map((monthLabel) => (
+                                                <TableCell 
+                                                  key={monthLabel} 
+                                                  className="text-center w-[120px] min-w-[120px] px-4 bg-gray-900 relative"
+                                                >
+                                                  <div className="flex flex-col items-center justify-center py-2">
+                                                    <div className="w-6 h-6 bg-gray-600 rounded flex items-center justify-center mb-1">
+                                                      <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                      </svg>
+                                                    </div>
+                                                    <span className="text-xs text-gray-500">Track to see</span>
+                                                  </div>
+                                                </TableCell>
+                                              )) : null
+                                          ) : (
+                                            'weeklyPositions' in keyword ?
+                                              Object.keys(keyword.weeklyPositions).map((weekLabel) => (
+                                                <TableCell 
+                                                  key={weekLabel} 
+                                                  className="text-center w-[150px] min-w-[150px] px-4 bg-gray-900 relative"
+                                                >
+                                                  <div className="flex flex-col items-center justify-center py-2">
+                                                    <div className="w-6 h-6 bg-gray-600 rounded flex items-center justify-center mb-1">
+                                                      <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                      </svg>
+                                                    </div>
+                                                    <span className="text-xs text-gray-500">Track to see</span>
+                                                  </div>
+                                                </TableCell>
+                                              )) : null
+                                          )
                                         )}
                                       </TableRow>
                                     ))
-                                ) : (
+                                                                ) : (
                                   <TableRow>
                                     <TableCell 
                                       className="bg-gray-800 text-center py-10 text-gray-400 sticky left-0 z-20 border-r border-gray-700 shadow-[2px_0_4px_rgba(0,0,0,0.3)] w-[250px] min-w-[250px]"
                                       style={{ position: 'sticky', left: 0 }}
                                     >
                                       {loading ? "Loading..." : "No keywords"}
+                                    </TableCell>
+                                    <TableCell className="bg-gray-900 text-center py-10 text-gray-400">
+                                      {loading ? "..." : "—"}
                                     </TableCell>
                                     <TableCell 
                                       colSpan={
@@ -979,7 +1137,7 @@ export default function RankTracker() {
                                     >
                                       {loading ? "Loading keywords..." : "No keywords found. Add some keywords to start tracking."}
                                     </TableCell>
-                                </TableRow>
+                                  </TableRow>
                                 )}
                             </TableBody>
                           </Table>
@@ -1021,9 +1179,21 @@ export default function RankTracker() {
                   {filteredKeywords.length > 0 && (
                     <div className="mt-4 flex items-center justify-between px-2">
                       <div className="text-sm text-gray-400">
-                        Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredKeywords.length)} to{' '}
-                        {Math.min(currentPage * itemsPerPage, filteredKeywords.length)} of{' '}
-                        {filteredKeywords.length} keywords
+                        {(() => {
+                          const displayCount = filteredKeywords.length;
+                          const totalTracked = filteredKeywords.filter(kw => isKeywordTracked(kw.query)).length;
+                          
+                          return (
+                            <div className="flex items-center gap-4">
+                              <span>
+                                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, displayCount)} to {Math.min(currentPage * itemsPerPage, displayCount)} of {displayCount} keywords
+                              </span>
+                              <span className="text-blue-400 font-medium">
+                                {totalTracked} tracked
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center space-x-2">
                         <Button
@@ -1036,13 +1206,13 @@ export default function RankTracker() {
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <div className="text-sm text-gray-400">
-                          Page {currentPage} of {Math.ceil(filteredKeywords.length / itemsPerPage)}
+                          Page {currentPage} of {getMaxPages()}
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredKeywords.length / itemsPerPage), prev + 1))}
-                          disabled={currentPage >= Math.ceil(filteredKeywords.length / itemsPerPage)}
+                          onClick={() => setCurrentPage(prev => Math.min(getMaxPages(), prev + 1))}
+                          disabled={currentPage >= getMaxPages()}
                           className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
                         >
                           <ChevronRight className="h-4 w-4" />

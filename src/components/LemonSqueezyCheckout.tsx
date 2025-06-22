@@ -101,10 +101,10 @@ export const LemonSqueezyCheckout: React.FC<LemonSqueezyCheckoutProps> = ({
   };
 
   const lifetimeFeatures = [
-    "Unlimited keyword tracking",
-    "Advanced analytics & reporting",
-    "Data export capabilities",
-    "Priority customer support",
+    "Dashboard - Full unlimited access to all dashboard features without any restrictions",
+    "Rank Tracker - Users can track up to 100 keywords",
+    "Click Gap Intelligence - Full unlimited access to all Click Gap Intelligence features",
+    "Custom AI Reports - Users can generate up to 2 reports per month",
     "All future updates included",
     "One-time payment - no recurring fees"
   ];

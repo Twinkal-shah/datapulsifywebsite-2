@@ -13,6 +13,27 @@ CREATE TABLE IF NOT EXISTS tracked_pages (
 CREATE INDEX IF NOT EXISTS idx_tracked_pages_user_email 
 ON tracked_pages(user_email);
 
+-- Enable RLS on tracked_pages table
+ALTER TABLE tracked_pages ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies for tracked_pages
+CREATE POLICY "Users can view their own tracked pages" ON tracked_pages
+    FOR SELECT
+    USING (user_email = auth.jwt() ->> 'email');
+
+CREATE POLICY "Users can insert their own tracked pages" ON tracked_pages
+    FOR INSERT
+    WITH CHECK (user_email = auth.jwt() ->> 'email');
+
+CREATE POLICY "Users can update their own tracked pages" ON tracked_pages
+    FOR UPDATE
+    USING (user_email = auth.jwt() ->> 'email')
+    WITH CHECK (user_email = auth.jwt() ->> 'email');
+
+CREATE POLICY "Users can delete their own tracked pages" ON tracked_pages
+    FOR DELETE
+    USING (user_email = auth.jwt() ->> 'email');
+
 -- Create function to check page limit
 CREATE OR REPLACE FUNCTION check_page_limit()
 RETURNS TRIGGER AS $$
@@ -29,7 +50,7 @@ BEGIN
     -- Set page limit based on subscription type
     page_limit := CASE user_sub_type
         WHEN 'lifetime' THEN 30
-        WHEN 'monthly_pro' THEN 100
+        WHEN 'monthly_pro' THEN 999999 -- Unlimited pages for monthly pro
         ELSE 5
     END;
 

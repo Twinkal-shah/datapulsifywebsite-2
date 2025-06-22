@@ -109,8 +109,8 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
       title: 'Custom AI Dashboard',
       icon: <Sparkles className="h-5 w-5" />,
       href: '/custom-ai-dashboard',
-      active: location.pathname === '/custom-ai-dashboard',
-      badge: '🧪 Coming Soon'
+      active: location.pathname === '/custom-ai-dashboard'
+      // badge: '🧪 Coming Soon'
     },
     {
       title: 'Rank Tracker',
