@@ -102,19 +102,19 @@ const LifetimeDeal = () => {
   const productScreenshots = [
     {
       id: 1,
-      src: "/Quick-win Screenshot.gif",
+      src: "/videos/Quick-win Screenshot.gif",
       alt: "Quick-Win Analysis",
       caption: "Identify quick-win opportunities for immediate ranking improvements"
     },
     {
       id: 2,
-      src: "/Track Weekly Keyword Rankings Effortlessly.gif",
+      src: "/videos/Track Weekly Keyword Rankings Effortlessly.gif",
       alt: "Weekly Keyword Tracking",
       caption: "Track weekly keyword rankings effortlessly with automated insights"
     },
     {
       id: 3,
-      src: "/DataPulsify Website & Marketing Assets - VideosGifs.gif",
+      src: "/videos/DataPulsify Website & Marketing Assets - VideosGifs.gif",
       alt: "Marketing Assets & Videos",
       caption: "Comprehensive marketing assets and video demonstrations"
     }
