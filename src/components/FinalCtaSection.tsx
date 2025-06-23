@@ -64,13 +64,13 @@ const FinalCtaSection = () => {
                 <div className="text-sm text-gray-400">payback time</div>
               </div>
             </div>
-            <p className="text-lg text-gray-300 mt-6">DataPulsify: <span className="font-bold">$47.99 once</span> • Pays for itself in week 1</p>
+            <p className="text-lg text-gray-300 mt-6">DataPulsify: <span className="font-bold">$49.99 once</span> • Pays for itself in week 1</p>
           </div>
 
           {/* Main CTA */}
           <div className="text-center mb-12">
             <a href="/lifetime-deal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6 px-12 rounded-full font-bold text-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
-              Get Lifetime Access - $47.99
+              Get Lifetime Access - $49.99
             </a>
             <p className="text-gray-400">Both platforms • 60-day guarantee • Limited spots remaining</p>
           </div>
@@ -98,9 +98,9 @@ const FinalCtaSection = () => {
               ⚠️ Only 129 lifetime spots remaining
             </h3>
             <p className="text-lg text-gray-300 mb-4">
-              After that, it's $47/month with no grandfathering. Don't miss this one-time opportunity.
+              After that, it's $9.99/month with no grandfathering. Don't miss this one-time opportunity.
             </p>
-            <a href="/lifetime-deal" className="btn-primary inline-flex items-center">
+            <a href="/lifetimeDeal" className="btn-primary inline-flex items-center">
               Secure Your Spot Now
               <ArrowRight className="w-5 h-5 ml-2" />
             </a>

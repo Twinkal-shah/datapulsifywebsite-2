@@ -95,7 +95,7 @@ const Support = () => {
   };
 
   const handleWhatsAppGroup = () => {
-    window.open('https://chat.whatsapp.com/your-group-link', '_blank');
+    window.open('https://chat.whatsapp.com/Jw6j4yiBrIvK12gUIOl5Q0', '_blank');
   };
 
   

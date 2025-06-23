@@ -163,7 +163,7 @@ const LifetimeDeal = () => {
                 <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
                   <div className="mb-4 sm:mb-0">
                     <span className="text-sm text-gray-400 line-through">$108/year</span>
-                    <h3 className="text-3xl md:text-4xl font-bold">$47.99</h3>
+                    <h3 className="text-3xl md:text-4xl font-bold">$49.99</h3>
                     <span className="text-green-500 text-sm">One-time payment</span>
                   </div>
                   <div className="bg-white/10 px-4 py-2 rounded-lg">
@@ -317,13 +317,13 @@ const LifetimeDeal = () => {
               Compare our one-time lifetime deal with the monthly subscription to see how much you'll save
             </p>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
-              <div className="order-2 lg:order-1">
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-8 mt-12">
+              {/* <div className="order-2 lg:order-1">
                 <ComparisonTable monthlyPrice={9} lifetimePrice={47.99} />
-              </div>
+              </div> */}
               
               <div className="order-1 lg:order-2">
-                <PricingCalculator monthlyPrice={9} lifetimePrice={47.99} />
+                <PricingCalculator monthlyPrice={9} lifetimePrice={49.99} />
               </div>
             </div>
           </div>
@@ -369,7 +369,7 @@ const LifetimeDeal = () => {
                   <AccordionContent className="px-6 pb-4 pt-2 text-gray-300">
                     Our lifetime deal includes permanent access to Datapulsify with a 25,000 row limit, 
                     all current features, standard support, and all future updates to the platform. You'll 
-                    pay just once ($47.99) and own it forever—no recurring fees or subscriptions.
+                    pay just once ($49.99) and own it forever—no recurring fees or subscriptions.
                   </AccordionContent>
                 </AccordionItem>
                 
@@ -452,7 +452,7 @@ const LifetimeDeal = () => {
               </div>
               
               <div className="mt-6 text-sm text-gray-400">
-                <p>60-day money-back guarantee • One-time payment of $47.99</p>
+                <p>60-day money-back guarantee • One-time payment of $49.99</p>
               </div>
             </div>
           </div>

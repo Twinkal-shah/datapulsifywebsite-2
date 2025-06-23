@@ -59,7 +59,7 @@ const PricingSection = () => {
                 {/* Pricing */}
                 <div className="flex items-center justify-center mb-6">
                   <span className="text-2xl text-gray-400 line-through mr-4">$564/year</span>
-                  <span className="text-5xl md:text-6xl font-bold text-white">$47.99</span>
+                  <span className="text-5xl md:text-6xl font-bold text-white">$49.99</span>
                   <span className="text-xl text-gray-300 ml-3">Once</span>
                 </div>
                 
@@ -79,7 +79,7 @@ const PricingSection = () => {
               {/* CTA */}
               <div className="text-center">
                 <a href="/lifetime-deal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-full font-bold text-xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
-                  Get Lifetime Access - $47.99
+                  Get Lifetime Access - $49.99
                 </a>
                 <p className="text-sm text-gray-400">60-Day Money-Back Guarantee</p>
               </div>
@@ -97,7 +97,7 @@ const PricingSection = () => {
             <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-6 text-center">
               <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
               <h3 className="text-lg font-bold mb-2 text-red-400">Limited Spots</h3>
-              <p className="text-sm text-gray-300">Only 129 lifetime deals remaining. After that, it's $47/month forever.</p>
+              <p className="text-sm text-gray-300">Only 129 lifetime deals remaining. After that, it's $9.99/month forever.</p>
             </div>
           </div>
         </div>
