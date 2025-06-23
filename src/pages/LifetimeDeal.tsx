@@ -102,21 +102,21 @@ const LifetimeDeal = () => {
   const productScreenshots = [
     {
       id: 1,
-      src: "/lovable-uploads/1605e731-aa86-4b14-8b2c-5744f77536a9.png",
-      alt: "CTR Improvement Dashboard",
-      caption: "Track and improve your CTR with detailed keyword insights"
-    },
-    {
-      id: 2,
-      src: "/lovable-uploads/21c7adaf-f2ff-4692-84e6-8cf888be9063.png",
+      src: "/Quick-win Screenshot.gif",
       alt: "Quick-Win Analysis",
       caption: "Identify quick-win opportunities for immediate ranking improvements"
     },
     {
+      id: 2,
+      src: "/Track Weekly Keyword Rankings Effortlessly.gif",
+      alt: "Weekly Keyword Tracking",
+      caption: "Track weekly keyword rankings effortlessly with automated insights"
+    },
+    {
       id: 3,
-      src: "/lovable-uploads/ee688a90-19b0-4861-9075-bd4e3e057bb3.png",
-      alt: "Historical Performance Tracking",
-      caption: "Analyze historical performance with comprehensive date-based reporting"
+      src: "/DataPulsify Website & Marketing Assets - VideosGifs.gif",
+      alt: "Marketing Assets & Videos",
+      caption: "Comprehensive marketing assets and video demonstrations"
     }
   ];
 
