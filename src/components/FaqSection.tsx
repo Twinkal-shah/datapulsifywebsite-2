@@ -17,7 +17,7 @@ const faqs = [
     answer: "Yes! Works with any Google Search Console account. No changes needed to your current setup."
   },
   {
-    question: "What happens when I hit 75,000 rows?",
+    question: "What happens when I hit 25,000 rows?",
     answer: "That covers 99% of websites. If you need more, we'll work out a custom solution that's still way cheaper than monthly tools."
   },
   {
