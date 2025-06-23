@@ -114,7 +114,7 @@ const LifetimeDeal = () => {
     },
     {
       id: 3,
-      src: "/videos/DataPulsify Website & Marketing Assets - VideosGifs.gif",
+      src: "/videos/DataPulsify Website  & Marketing Assets - VideosGifs.gif",
       alt: "Marketing Assets & Videos",
       caption: "Comprehensive marketing assets and video demonstrations"
     }
