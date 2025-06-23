@@ -283,6 +283,21 @@ const LifetimeDeal = () => {
                 description="Transform complex data sets into clear, actionable visualizations and reports."
                 icon={Play}
               />
+              <FeatureCard
+                title="Click Gap analysis"
+                description="Transform complex data sets into clear, actionable visualizations and reports."
+                icon={Play}
+              />
+              <FeatureCard
+                title="Track Rank 100s of keywords"
+                description="Transform complex data sets into clear, actionable visualizations and reports."
+                icon={Play}
+              />
+              <FeatureCard
+                title="SEO Insights with Actionable"
+                description="Transform complex data sets into clear, actionable visualizations and reports."
+                icon={Play}
+              />
             </div>
           </div>
         </section>
