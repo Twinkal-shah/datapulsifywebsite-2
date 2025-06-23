@@ -78,7 +78,7 @@ const PricingSection = () => {
 
               {/* CTA */}
               <div className="text-center">
-                <a href="/lifetime-deal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-full font-bold text-xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
+                <a href="/lifetimeDeal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-full font-bold text-xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
                   Get Lifetime Access - $49.99
                 </a>
                 <p className="text-sm text-gray-400">60-Day Money-Back Guarantee</p>
