@@ -69,7 +69,7 @@ const FinalCtaSection = () => {
 
           {/* Main CTA */}
           <div className="text-center mb-12">
-            <a href="/lifetime-deal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6 px-12 rounded-full font-bold text-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
+            <a href="/lifetimeDeal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6 px-12 rounded-full font-bold text-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
               Get Lifetime Access - $49.99
             </a>
             <p className="text-gray-400">Both platforms • 60-day guarantee • Limited spots remaining</p>
