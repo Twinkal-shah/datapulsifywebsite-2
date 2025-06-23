@@ -22,8 +22,8 @@ interface PurchaseDetails {
 
 // Pricing mapping for different subscription types
 const PRICING_MAP: Record<string, string> = {
-  'lifetime': '$49.99',
-  'monthly_pro': '$9.99/month',
+  'lifetime': '$198.00',
+  'monthly_pro': '$29.00/month',
   'Free Plan': '$0.00',
   'free': '$0.00'
 };
@@ -214,6 +214,14 @@ const ThankYou = () => {
                         </span>
                       </div>
                     )}
+                    {purchaseDetails?.subscription_start_date && (
+                      <div className="flex justify-between items-center border-b border-gray-800 py-3">
+                        <span className="text-gray-300">Started</span>
+                        <span className="font-medium">
+                          {new Date(purchaseDetails.subscription_start_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center py-3">
                       <span className="text-gray-300">Expiration</span>
                       <span className={`font-medium ${
@@ -224,15 +232,6 @@ const ThankYou = () => {
                         {expiration}
                       </span>
                     </div>
-                    
-                    {purchaseDetails?.subscription_start_date && (
-                      <div className="flex justify-between items-center pt-3 border-t border-gray-800">
-                        <span className="text-gray-300">Started</span>
-                        <span className="font-medium">
-                          {new Date(purchaseDetails.subscription_start_date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
