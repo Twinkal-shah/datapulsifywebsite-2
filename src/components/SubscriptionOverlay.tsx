@@ -3,6 +3,8 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { Lock } from 'lucide-react';
+import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SubscriptionOverlayProps {
   featureName: string;
@@ -14,11 +16,17 @@ export const SubscriptionOverlay: React.FC<SubscriptionOverlayProps> = ({
   children
 }) => {
   const { isPremiumFeature, subscriptionEndDate, isInTrialPeriod, trialDaysLeft } = useSubscription();
+  const { user } = useAuth();
 
   // If feature is accessible (not premium, active subscription, or in trial), render normally
   if (!isPremiumFeature(featureName)) {
     return <>{children}</>;
   }
+
+  const handleUpgradeClick = () => {
+    const checkoutUrl = lemonSqueezyService.getQuickCheckoutUrl('monthly', user?.email);
+    window.location.href = checkoutUrl;
+  };
 
   return (
     <div className="relative">
@@ -54,7 +62,7 @@ export const SubscriptionOverlay: React.FC<SubscriptionOverlayProps> = ({
             </p>
           )}
           <Button 
-            onClick={() => window.location.href = '/pricing'}
+            onClick={handleUpgradeClick}
             className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-semibold"
           >
             {subscriptionEndDate ? 'Renew Subscription' : 'Upgrade to Pro'}

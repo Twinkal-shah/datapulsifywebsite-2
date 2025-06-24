@@ -28,6 +28,7 @@ import { PROPERTY_CHANGE_EVENT } from '@/components/PropertySelector';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { supabase as supabaseClient } from '@/lib/supabaseClient';
+import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
 
 // Types
 interface PageAnalysis {
@@ -869,6 +870,29 @@ export default function ClickGapIntelligence() {
     return (num >= 0 ? '+' : '') + num.toFixed(1);
   };
 
+  const handleUpgradeClick = async () => {
+    if (!user?.email) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to continue with your purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const checkoutData = await lemonSqueezyService.createCheckoutSession('monthly', user.email);
+      window.location.href = checkoutData.checkoutUrl;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast({
+        title: "Checkout Error",
+        description: error instanceof Error ? error.message : 'Failed to create checkout session',
+        variant: "destructive",
+      });
+    }
+  };
+
   // Show property switching overlay
   if (isPropertySwitching) {
     return (
@@ -938,10 +962,7 @@ export default function ClickGapIntelligence() {
                   </div>
                   <Button 
                     className="bg-gradient-to-r from-purple-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium px-6"
-                    onClick={() => {
-                      // Navigate to Settings page subscription section
-                      navigate('/settings');
-                    }}
+                    onClick={handleUpgradeClick}
                   >
                     Upgrade Plan
                   </Button>

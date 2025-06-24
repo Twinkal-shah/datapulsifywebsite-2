@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
 
 // Interface for user installation data
 interface UserInstallation {
@@ -256,6 +257,29 @@ const AccountDashboard = () => {
     }
   };
 
+  const handleUpgradeClick = async () => {
+    if (!auth.user?.email) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to continue with your purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const checkoutData = await lemonSqueezyService.createCheckoutSession('monthly', auth.user.email);
+      window.location.href = checkoutData.checkoutUrl;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast({
+        title: "Checkout Error",
+        description: error instanceof Error ? error.message : 'Failed to create checkout session',
+        variant: "destructive",
+      });
+    }
+  };
+
   if (auth.loading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900 flex items-center justify-center">
@@ -390,7 +414,7 @@ const AccountDashboard = () => {
                   </div>
                   <Button
                     className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:opacity-90 transition-all"
-                    onClick={() => window.location.href = '/pricing'}
+                    onClick={handleUpgradeClick}
                   >
                     Upgrade Plan
                   </Button>

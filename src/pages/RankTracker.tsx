@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase';
 import { useTrackedKeywords } from '@/hooks/useTrackedKeywords';
 import { KeywordTrackingStatus } from '@/components/KeywordTrackingStatus';
 import { TrackKeywordButton } from '@/components/TrackKeywordButton';
+import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
 
 // Keyword history type
 interface KeywordHistory {
@@ -609,6 +610,29 @@ export default function RankTracker() {
     fetchKeywordData();
   }, [dateRange, countryFilter, viewMode]);
   
+  const handleUpgradeClick = async () => {
+    if (!user?.email) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to continue with your purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const checkoutData = await lemonSqueezyService.createCheckoutSession('monthly', user.email);
+      window.location.href = checkoutData.checkoutUrl;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast({
+        title: "Checkout Error",
+        description: error instanceof Error ? error.message : 'Failed to create checkout session',
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <DashboardLayout title="Rank Tracker" fullScreen={true}>
       <RenewalOverlay>
@@ -890,7 +914,7 @@ export default function RankTracker() {
                   </div>
                   <Button 
                     className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-2 rounded-lg"
-                    onClick={() => window.open('/settings', '_blank')}
+                    onClick={handleUpgradeClick}
                   >
                     Upgrade Plan
                   </Button>

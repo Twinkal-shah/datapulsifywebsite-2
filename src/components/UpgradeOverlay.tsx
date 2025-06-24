@@ -1,11 +1,40 @@
 import { Button } from './ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
+import { useToast } from '@/hooks/use-toast';
 
 interface UpgradeOverlayProps {
   isVisible: boolean;
 }
 
 export function UpgradeOverlay({ isVisible }: UpgradeOverlayProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
   if (!isVisible) return null;
+
+  const handleUpgradeClick = async () => {
+    if (!user?.email) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to continue with your purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const checkoutData = await lemonSqueezyService.createCheckoutSession('monthly', user.email);
+      window.location.href = checkoutData.checkoutUrl;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast({
+        title: "Checkout Error",
+        description: error instanceof Error ? error.message : 'Failed to create checkout session',
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 backdrop-blur-md bg-black/50 flex items-center justify-center">
@@ -23,7 +52,7 @@ export function UpgradeOverlay({ isVisible }: UpgradeOverlayProps) {
         <div className="space-y-4">
           <Button 
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:opacity-90"
-            onClick={() => window.location.href = '/upgrade'}
+            onClick={handleUpgradeClick}
           >
             Upgrade Now
           </Button>

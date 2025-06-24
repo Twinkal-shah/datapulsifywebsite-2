@@ -22,7 +22,7 @@ const SocialProofSection = () => {
   ];
 
   const stats = [
-    { icon: Users, value: "200+", label: "SEO Professionals" },
+    // { icon: Users, value: "200+", label: "SEO Professionals" },
     { icon: TrendingUp, value: "15hrs", label: "Saved Per Month" },
     { icon: Zap, value: "5min", label: "Setup Time" },
     { icon: Star, value: "4.9/5", label: "User Rating" }
@@ -37,7 +37,7 @@ const SocialProofSection = () => {
         <h2 className="section-title">Trusted by 82 SEO Professionals and marketing agencies</h2>
         
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto mb-16">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-3xl mx-auto mb-16">
           {stats.map((stat, index) => (
             <div key={index} className="text-center">
               <div className="bg-white/10 backdrop-blur-sm rounded-full p-4 w-fit mx-auto mb-3 border border-white/20">
@@ -75,7 +75,7 @@ const SocialProofSection = () => {
                 <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
               ))}
             </div>
-            <span className="font-semibold">4.9/5 from 200+ SEO professionals</span>
+            {/* <span className="font-semibold">4.9/5 from 200+ SEO professionals</span> */}
           </div>
         </div>
       </div>

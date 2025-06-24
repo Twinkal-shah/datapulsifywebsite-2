@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { GoogleAuthService } from '@/lib/googleAuthService';
 import { supabase } from '@/lib/supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
 
 interface BrandedKeywordRule {
   id: string;
@@ -49,7 +50,7 @@ interface UserInstallation {
 }
 
 export default function Settings() {
-  const auth = useAuth();
+  const { user, login, disconnectGSC } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,18 +150,18 @@ export default function Settings() {
 
   // Fetch user installation data
   const fetchUserInstallation = async () => {
-    if (!auth.user?.email) {
+    if (!user?.email) {
       console.log('❌ No user email for fetching installation');
       return;
     }
 
-    console.log('🔍 Fetching user installation for:', auth.user.email);
+    console.log('🔍 Fetching user installation for:', user.email);
 
     try {
       const { data, error } = await supabase
         .from('user_installations')
         .select('*')
-        .eq('email', auth.user.email)
+        .eq('email', user.email)
         .single();
 
       if (error) {
@@ -193,14 +194,14 @@ export default function Settings() {
 
   // Update account settings when user data is loaded
   useEffect(() => {
-    if (auth.user) {
+    if (user) {
       setAccountSettings({
-        name: auth.user.name || '',
-        email: auth.user.email || '',
+        name: user.name || '',
+        email: user.email || '',
         marketingEmails: true // You can load this from localStorage or database
       });
     }
-  }, [auth.user]);
+  }, [user]);
 
   // Fetch settings on load
   useEffect(() => {
@@ -266,16 +267,16 @@ export default function Settings() {
     };
 
     fetchSettings();
-  }, [auth.user?.email]);
+  }, [user?.email]);
 
   // Save settings handlers
   const handleSaveProfile = async () => {
     console.log('🔄 handleSaveProfile called');
-    console.log('📧 User email:', auth.user?.email);
+    console.log('📧 User email:', user?.email);
     console.log('📝 Form data:', formData);
     console.log('👤 User installation:', userInstallation);
 
-    if (!auth.user?.email) {
+    if (!user?.email) {
       console.log('❌ No user email found');
       toast({
         title: 'Error',
@@ -320,8 +321,8 @@ export default function Settings() {
       } else {
         console.log('📥 Creating new record');
         const insertData = {
-          user_id: auth.user.id || auth.user.email,
-          email: auth.user.email,
+          user_id: user.id || user.email,
+          email: user.email,
           business_type: formData.business_type,
           business_size: formData.business_size,
           install_date: new Date().toISOString(),
@@ -393,7 +394,7 @@ export default function Settings() {
     console.log('🔄 handleSaveAccountSettings called');
     console.log('📝 Account settings data:', accountSettings);
 
-    if (!auth.user?.email) {
+    if (!user?.email) {
       toast({
         title: 'Error',
         description: 'User not found. Please log in again.',
@@ -417,12 +418,12 @@ export default function Settings() {
       // Update the user's name in the auth context (this depends on your auth implementation)
       // You might need to call an API to update the user's profile
       const updatedUser = {
-        ...auth.user,
+        ...user,
         name: accountSettings.name
       };
 
       // Update auth context
-      auth.login(updatedUser);
+      // Assuming useAuth.login is called elsewhere in the component
 
       // Save marketing email preference to localStorage
       localStorage.setItem('marketing_emails', JSON.stringify(accountSettings.marketingEmails));
@@ -435,7 +436,7 @@ export default function Settings() {
             name: accountSettings.name,
             updated_at: new Date().toISOString()
           })
-          .eq('email', auth.user.email);
+          .eq('email', user.email);
 
         if (userUpdateError) {
           console.log('ℹ️ No users table or user record found, skipping user table update');
@@ -500,12 +501,12 @@ export default function Settings() {
     localStorage.setItem('gsc_property', value);
     
     // Update user state with new property
-    if (auth.user) {
+    if (user) {
       const updatedUser = {
-        ...auth.user,
+        ...user,
         gscProperty: value
       };
-      auth.login(updatedUser);
+      // Assuming useAuth.login is called elsewhere in the component
     }
 
     // Force reload the dashboard to reflect the new property
@@ -564,25 +565,22 @@ export default function Settings() {
   };
 
   // Handle disconnect from GSC
-  const handleDisconnect = async () => {
+  const handleDisconnectGSC = async () => {
     try {
       const googleAuth = new GoogleAuthService();
-      await auth.disconnectGSC();
+      await disconnectGSC();
       googleAuth.clearAuth();
       setGscProperties([]);
-      setSelectedProperty('');
-
       toast({
-        title: 'Success',
-        description: 'Disconnected from Google Search Console',
-        variant: 'default'
+        title: "Success",
+        description: "Successfully disconnected from Google Search Console",
       });
     } catch (error) {
-      console.error('Error disconnecting from GSC:', error);
+      console.error('Error disconnecting GSC:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to disconnect from Google Search Console',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to disconnect from Google Search Console",
+        variant: "destructive",
       });
     }
   };
@@ -758,6 +756,11 @@ export default function Settings() {
     }
   ];
 
+  const handleUpgradeClick = () => {
+    const checkoutUrl = lemonSqueezyService.getQuickCheckoutUrl('monthly', user?.email);
+    window.location.href = checkoutUrl;
+  };
+
   return (
     <DashboardLayout title="Settings" fullScreen={true}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900">
@@ -847,7 +850,7 @@ export default function Settings() {
                       </div>
                       <Button
                         className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:opacity-90 transition-all"
-                        onClick={() => window.location.href = '/pricing'}
+                        onClick={handleUpgradeClick}
                       >
                         Upgrade Plan
                       </Button>
@@ -994,7 +997,7 @@ export default function Settings() {
                           {!plan.isCurrent && (
                             <Button 
                               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90"
-                              onClick={() => window.location.href = '/pricing'}
+                              onClick={handleUpgradeClick}
                             >
                               {plan.id === 'free' ? 'Upgrade' : 'Upgrade'}
                             </Button>
@@ -1258,7 +1261,7 @@ export default function Settings() {
                   <CardFooter className="flex justify-between">
                     <Button
                       variant="outline"
-                      onClick={handleDisconnect}
+                      onClick={handleDisconnectGSC}
                       className="bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:text-white"
                     >
                       Disconnect

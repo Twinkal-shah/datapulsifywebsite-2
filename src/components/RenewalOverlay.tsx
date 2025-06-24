@@ -3,6 +3,9 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { Lock } from 'lucide-react';
+import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface RenewalOverlayProps {
   children: React.ReactNode;
@@ -10,6 +13,8 @@ interface RenewalOverlayProps {
 
 export const RenewalOverlay: React.FC<RenewalOverlayProps> = ({ children }) => {
   const { isSubscriptionActive, subscriptionEndDate, isInTrialPeriod } = useSubscription();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   // Only show content if subscription is active or in trial period
   // This ensures expired subscriptions don't get access
@@ -21,6 +26,30 @@ export const RenewalOverlay: React.FC<RenewalOverlayProps> = ({ children }) => {
   // 1. Subscription has expired (subscriptionEndDate exists but isSubscriptionActive is false)
   // 2. User never had a subscription
   // 3. Trial has ended
+
+  const handleUpgradeClick = async () => {
+    if (!user?.email) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to continue with your purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const checkoutData = await lemonSqueezyService.createCheckoutSession('monthly', user.email);
+      window.location.href = checkoutData.checkoutUrl;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast({
+        title: "Checkout Error",
+        description: error instanceof Error ? error.message : 'Failed to create checkout session',
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="relative h-full">
       {/* Blurred content */}
@@ -50,7 +79,7 @@ export const RenewalOverlay: React.FC<RenewalOverlayProps> = ({ children }) => {
           )}
           <div className="space-y-4">
             <Button 
-              onClick={() => window.location.href = '/pricing'}
+              onClick={handleUpgradeClick}
               className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-semibold px-8 py-6 text-lg w-full"
             >
               {subscriptionEndDate ? 'Renew Subscription' : 'Upgrade to Pro'}

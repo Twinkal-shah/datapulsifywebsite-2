@@ -237,16 +237,16 @@ export class LemonSqueezyService {
    */
   getQuickCheckoutUrl(planType: 'lifetime' | 'monthly', userEmail?: string): string {
     const plan = PLANS[planType];
-    const baseUrl = 'https://datapulsify.lemonsqueezy.com/checkout/buy';
+    const baseUrl = 'https://klientsgrowth.lemonsqueezy.com/checkout';
     const params = new URLSearchParams({
-      variant: plan.variantId,
+      custom: '1',
     });
 
     if (userEmail) {
       params.append('email', userEmail);
     }
 
-    return `${baseUrl}/${plan.variantId}?${params.toString()}`;
+    return `${baseUrl}?${params.toString()}`;
   }
 }
 
