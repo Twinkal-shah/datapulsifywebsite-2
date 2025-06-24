@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Check, BarChart2, Database, RefreshCw } from 'lucide-react';
 
@@ -27,14 +26,14 @@ const steps = [
 
 const HowItWorksSection = () => {
   return (
-    <section id="how-it-works" className="bg-black pt-4 pb-14 md:pb-20 lg:pb-28">
+    <section id="how-it-works" className="bg-black py-12 md:py-16">
       <div className="container-section">
         <h2 className="section-title">How It Works</h2>
         <p className="section-subtitle">
           Getting started with Datapulsify is easy. Here's how you can begin analyzing your GSC data in minutes.
         </p>
 
-        <div className="mt-10 md:mt-16 relative">
+        <div className="mt-8 md:mt-12 relative">
           {/* Timeline connector - only visible on larger screens */}
           <div className="hidden md:block absolute top-16 left-0 right-0 h-0.5 bg-gray-800"></div>
           

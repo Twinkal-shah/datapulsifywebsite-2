@@ -1,11 +1,15 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, Star, Shield, Users, Zap } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LottieBackground from './LottieBackground';
+import VideoModal from './VideoModal';
 
 const HeroSection = () => {
   const isMobile = useIsMobile();
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  
+  // Replace this with your actual YouTube video ID
+  const videoId = "Ax_npBKTKMw"; // Example YouTube video ID
   
   return (
     <section className="relative min-h-screen flex items-center pt-16 overflow-hidden gradient-bg">
@@ -32,19 +36,19 @@ const HeroSection = () => {
           
           {/* Main Headline */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight mb-6 animate-fade-in animate-delay-75">
-            Turn Google Search Console Data Into
+            Turn Turn SEO Data Into
             <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Actionable Insights</span>
           </h1>
           
           {/* Sub-headline */}
           <h2 className="text-xl md:text-2xl lg:text-3xl text-gray-300 mb-6 animate-fade-in animate-delay-150 font-medium">
-            Stop wrestling with GSC exports. Get clean data, beautiful reports, and find opportunities in minutes.
+          Stop wrestling with SEO data. Get clean data, beautiful reports, and find growth opportunities in minutes.
           </h2>
           
           {/* Key Benefits */}
           <div className="grid sm:grid-cols-3 gap-6 mb-8 max-w-3xl mx-auto animate-fade-in animate-delay-300">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-400 mb-1">25K</div>
+              <div className="text-2xl font-bold text-blue-400 mb-1">Upto 75K</div>
               <div className="text-sm text-gray-400">Row Capacity</div>
             </div>
             <div className="text-center">
@@ -60,12 +64,15 @@ const HeroSection = () => {
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-fade-in animate-delay-500">
             <a href="/lifetimeDeal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-full font-bold text-lg transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl">
-              Get Lifetime Access - $49.99
+              Get Lifetime Access 
             </a>
-            <a href="#features" className="border-2 border-white text-white py-4 px-8 rounded-full font-medium text-lg transition-all hover:bg-white/10 flex items-center justify-center">
+            <button 
+              onClick={() => setIsVideoModalOpen(true)}
+              className="border-2 border-white text-white py-4 px-8 rounded-full font-medium text-lg transition-all hover:bg-white/10 flex items-center justify-center"
+            >
               See How It Works
               <ArrowRight className="w-5 h-5 ml-2" />
-            </a>
+            </button>
           </div>
           
           {/* Trust Indicators */}
@@ -85,6 +92,14 @@ const HeroSection = () => {
           </div>
         </div>
       </div>
+
+      {/* Video Modal */}
+      <VideoModal 
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        videoId={videoId}
+        title="How DataPulsify Works"
+      />
     </section>
   );
 };

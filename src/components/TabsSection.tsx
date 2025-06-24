@@ -5,7 +5,7 @@ const TabsSection = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
-    <section className="bg-black py-14 md:py-20 lg:py-28">
+    <section className="bg-black py-12 md:py-16">
       <div className="px-4 md:px-8 w-full max-w-[95vw] mx-auto">
         <div className="flex flex-col items-center">
           {/* Tabs */}

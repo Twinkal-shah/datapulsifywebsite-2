@@ -11,7 +11,7 @@ const FinalCtaSection = () => {
   ];
 
   return (
-    <section className="py-20 md:py-32 bg-black">
+    <section className="py-12 md:py-20 bg-black">
       <div className="container-section">
         <h2 className="section-title">Ready to Transform Your SEO Workflow?</h2>
         
@@ -70,7 +70,7 @@ const FinalCtaSection = () => {
           {/* Main CTA */}
           <div className="text-center mb-12">
             <a href="/lifetimeDeal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6 px-12 rounded-full font-bold text-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
-              Get Lifetime Access - $49.99
+              Get Lifetime Access
             </a>
             <p className="text-gray-400">Both platforms • 60-day guarantee • Limited spots remaining</p>
           </div>

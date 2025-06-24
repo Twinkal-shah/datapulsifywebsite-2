@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Star, Quote, TrendingUp, Users, Zap } from 'lucide-react';
 import LottieBackground from './LottieBackground';
@@ -30,12 +29,12 @@ const SocialProofSection = () => {
   ];
 
   return (
-    <section className="gradient-bg py-20 md:py-32 relative overflow-hidden">
+    <section className="gradient-bg py-12 md:py-20 relative overflow-hidden">
       {/* Lottie Background Animation */}
       <LottieBackground className="z-0" />
       
       <div className="container-section relative z-10">
-        <h2 className="section-title">Trusted by SEO Professionals</h2>
+        <h2 className="section-title">Trusted by 82 SEO Professionals and marketing agencies</h2>
         
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto mb-16">

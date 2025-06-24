@@ -16,7 +16,7 @@ const PricingSection = () => {
   ];
 
   return (
-    <section id="pricing" className="py-20 md:py-32 bg-black relative overflow-hidden">
+    <section id="pricing" className="py-12 md:py-20 bg-black relative overflow-hidden">
       {/* Lottie Background Animation */}
       <LottieBackground className="z-0" />
       
@@ -79,7 +79,7 @@ const PricingSection = () => {
               {/* CTA */}
               <div className="text-center">
                 <a href="/lifetimeDeal" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-full font-bold text-xl transition-all hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-xl inline-block mb-4">
-                  Get Lifetime Access - $49.99
+                  Get Lifetime Access 
                 </a>
                 <p className="text-sm text-gray-400">60-Day Money-Back Guarantee</p>
               </div>

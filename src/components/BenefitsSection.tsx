@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Clock, DollarSign, TrendingUp, Users, Zap, Target } from 'lucide-react';
 
@@ -11,11 +10,11 @@ const BenefitsSection = () => {
   ];
 
   return (
-    <section className="bg-black pt-4 pb-14 md:pb-20 lg:pb-28">
+    <section className="bg-black py-12 md:py-16">
       <div className="container-section">
         <h2 className="section-title">Why This Dual-Platform Approach Changes Everything</h2>
         
-        <div className="max-w-4xl mx-auto text-center mb-16">
+        <div className="max-w-4xl mx-auto text-center mb-12">
           <div className="bg-blue-900/20 border border-blue-500/30 rounded-2xl p-8">
             <h3 className="text-2xl md:text-3xl font-bold mb-6">Here's what I learned in 8 years of SEO:</h3>
             <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed">
@@ -25,7 +24,7 @@ const BenefitsSection = () => {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 mb-16 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 mb-12 max-w-5xl mx-auto">
           {/* Spreadsheet Days */}
           <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-8">
             <div className="flex items-center mb-6">
@@ -80,7 +79,7 @@ const BenefitsSection = () => {
         </div>
 
         {/* The Magic */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-2xl p-8 border border-blue-500/30 max-w-4xl mx-auto">
             <Zap className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
             <h3 className="text-2xl font-bold mb-4">The Magic:</h3>
@@ -92,7 +91,7 @@ const BenefitsSection = () => {
 
         {/* ROI Numbers */}
         <div className="max-w-6xl mx-auto">
-          <h3 className="text-2xl md:text-3xl font-bold text-center mb-12">The Numbers That Actually Matter:</h3>
+          <h3 className="text-2xl md:text-3xl font-bold text-center mb-8">The Numbers That Actually Matter:</h3>
           
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {benefits.map((benefit, index) => (

@@ -32,7 +32,7 @@ const faqs = [
 
 const FaqSection = () => {
   return (
-    <section id="faq" className="gradient-bg py-20 md:py-32">
+    <section id="faq" className="gradient-bg py-12 md:py-20">
       <div className="container-section">
         <h2 className="section-title">Questions? I've Got Answers.</h2>
 
