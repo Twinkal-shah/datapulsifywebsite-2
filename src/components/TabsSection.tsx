@@ -40,9 +40,15 @@ const TabsSection = () => {
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
                   <img 
-                    src="/videos/DP Dashboard Video Final.gif"
+                    src="/videos/dp-dashboard-video-final.gif"
                     alt="Dashboard View"
                     className="w-full h-auto"
+                    onError={(e) => {
+                      console.error('Image failed to load:', e);
+                      console.log('Trying fallback image...');
+                      e.currentTarget.src = "/videos/Track Weekly Keyword Rankings Effortlessly.gif";
+                    }}
+                    onLoad={() => console.log('Dashboard image loaded successfully')}
                   />
                 </div>
               </div>
@@ -52,12 +58,17 @@ const TabsSection = () => {
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
                   <video 
-                    src="/videos/DP Add-on Working.mp4" 
+                    src="/videos/dp-addon-working.mp4" 
                     autoPlay
                     loop
                     muted
                     playsInline
+                    controls={false}
+                    preload="auto"
                     className="w-full h-auto"
+                    onError={(e) => console.error('Video error:', e)}
+                    onLoadStart={() => console.log('Video loading started')}
+                    onLoadedData={() => console.log('Video data loaded')}
                   />
                 </div>
               </div>
