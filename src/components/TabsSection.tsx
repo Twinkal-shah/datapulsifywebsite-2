@@ -43,12 +43,6 @@ const TabsSection = () => {
                     src="/videos/dp-dashboard-video-final.gif"
                     alt="Dashboard View"
                     className="w-full h-auto"
-                    onError={(e) => {
-                      console.error('Image failed to load:', e);
-                      console.log('Trying fallback image...');
-                      e.currentTarget.src = "/videos/Track Weekly Keyword Rankings Effortlessly.gif";
-                    }}
-                    onLoad={() => console.log('Dashboard image loaded successfully')}
                   />
                 </div>
               </div>
@@ -57,16 +51,10 @@ const TabsSection = () => {
             {activeTab === 'sheet' && (
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
-                <img 
-                    src="/videos/DP Add-on Working.gif"
-                    alt="Googlesheet View"
+                  <img 
+                    src="/videos/DP Add-on Working.gif" 
+                    alt="Google Sheet Integration"
                     className="w-full h-auto"
-                    onError={(e) => {
-                      console.error('Image failed to load:', e);
-                      console.log('Trying fallback image...');
-                      e.currentTarget.src = "/videos/DP Add-on Working.gif";
-                    }}
-                    onLoad={() => console.log('googlesheet image loaded successfully')}
                   />
                 </div>
               </div>
