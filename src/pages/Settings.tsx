@@ -774,7 +774,7 @@ export default function Settings() {
     }
   ];
 
-  const handleUpgradeClick = async () => {
+  const handleUpgradeClick = async (planId?: string) => {
     if (!user?.email) {
       toast({
         title: "Authentication Required",
@@ -784,15 +784,26 @@ export default function Settings() {
       return;
     }
 
+    // Determine the target plan
+    let targetPlan: 'lifetime' | 'monthly';
+    if (planId === 'pro') {
+      targetPlan = 'monthly';
+    } else if (planId === 'lifetime') {
+      targetPlan = 'lifetime';
+    } else {
+      // Default behavior for the main upgrade button
+      targetPlan = 'lifetime';
+    }
+
     try {
       // For Monthly Pro users upgrading to Lifetime, add a special parameter
-      const customData = subscription.subscriptionType === 'monthly_pro' ? {
+      const customData = subscription.subscriptionType === 'monthly_pro' && targetPlan === 'lifetime' ? {
         is_upgrade: 'true',
         from_plan: 'monthly_pro'
       } : undefined;
 
       const checkoutData = await lemonSqueezyService.createCheckoutSession(
-        'lifetime',
+        targetPlan,
         user.email,
         customData
       );
@@ -901,7 +912,7 @@ export default function Settings() {
                       </div>
                       <Button
                         className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:opacity-90 transition-all"
-                        onClick={handleUpgradeClick}
+                        onClick={() => handleUpgradeClick()}
                       >
                         Upgrade Plan
                       </Button>
@@ -1014,7 +1025,7 @@ export default function Settings() {
                           {!plan.isCurrent && (
                             <Button 
                               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90"
-                              onClick={handleUpgradeClick}
+                              onClick={() => handleUpgradeClick(plan.id)}
                             >
                               {plan.id === 'free' ? 'Upgrade' : 'Upgrade'}
                             </Button>
