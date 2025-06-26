@@ -26,18 +26,30 @@ import FirstDataExport from "./pages/support/FirstDataExport";
 import Documentation from "./pages/Documentation";
 import Pricing from "./pages/Pricing";
 import { DevNavPanel } from "./components/DevNavPanel";
+import { LazyComponentWrapper } from "./components/LazyComponentWrapper";
 import { supabase } from "./lib/supabaseClient";
 import './App.css';
 import { GoogleCallback } from '@/pages/GoogleCallback';
 import TestGSC from './pages/TestGSC';
+import { navigationOptimizer } from './utils/navigationOptimizer';
 
-// Lazy load the new dashboard pages
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const RankTracker = lazy(() => import('./pages/RankTracker'));
-const Settings = lazy(() => import('./pages/Settings'));
-const SharedReportPage = lazy(() => import('./pages/SharedReportPage'));
-const ClickGapIntelligence = lazy(() => import('./pages/ClickGapIntelligence'));
-const CustomAIDashboard = lazy(() => import('./pages/CustomAIDashboard'));
+// Enhanced lazy loading with retry on tab visibility
+const createLazyComponent = (importFn: () => Promise<any>) => {
+  const LazyComponent = lazy(importFn);
+  return (props: any) => (
+    <LazyComponentWrapper>
+      <LazyComponent {...props} />
+    </LazyComponentWrapper>
+  );
+};
+
+// Lazy load the new dashboard pages with enhanced error handling
+const Dashboard = createLazyComponent(() => import('./pages/Dashboard'));
+const RankTracker = createLazyComponent(() => import('./pages/RankTracker'));
+const Settings = createLazyComponent(() => import('./pages/Settings'));
+const SharedReportPage = createLazyComponent(() => import('./pages/SharedReportPage'));
+const ClickGapIntelligence = createLazyComponent(() => import('./pages/ClickGapIntelligence'));
+const CustomAIDashboard = createLazyComponent(() => import('./pages/CustomAIDashboard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +74,12 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCheckedSession, setHasCheckedSession] = useState(false);
   const [showDevPanel, setShowDevPanel] = useState(false);
+
+  // Initialize navigation optimizer
+  useEffect(() => {
+    // Navigation optimizer is automatically initialized when imported
+    console.log('Navigation optimizer initialized');
+  }, []);
 
   useEffect(() => {
     const checkSession = async () => {

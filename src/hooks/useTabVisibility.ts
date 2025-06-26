@@ -1,31 +1,48 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-export const useTabVisibility = () => {
+interface UseTabVisibilityOptions {
+  onVisible?: () => void | Promise<void>;
+}
+
+export const useTabVisibility = (options?: UseTabVisibilityOptions) => {
   const [isVisible, setIsVisible] = useState(!document.hidden);
   const [lastVisibilityChange, setLastVisibilityChange] = useState(Date.now());
 
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      const wasHidden = !isVisible;
-      const nowVisible = !document.hidden;
-      
-      setIsVisible(nowVisible);
-      setLastVisibilityChange(Date.now());
+  const handleVisibilityChange = useCallback(async () => {
+    const wasHidden = !isVisible;
+    const nowVisible = !document.hidden;
+    
+    setIsVisible(nowVisible);
+    setLastVisibilityChange(Date.now());
 
-      // If tab became visible after being hidden, refresh session
-      if (wasHidden && nowVisible) {
-        console.log('Tab became visible, refreshing session...');
-        try {
-          // Non-blocking session refresh
-          await supabase.auth.getSession();
-          console.log('Session refreshed successfully');
-        } catch (error) {
-          console.warn('Session refresh failed:', error);
+    // If tab became visible after being hidden, refresh session and data
+    if (wasHidden && nowVisible) {
+      console.log('Tab became visible, performing minimal session check...');
+      try {
+        // Very lightweight session check - don't trigger full refresh
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn('Session check error:', error);
+        } else {
+          console.log('Session check completed', session ? 'Session valid' : 'No session');
         }
+        
+        // Delay data refresh to avoid interfering with navigation
+        setTimeout(async () => {
+          if (options?.onVisible && document.visibilityState === 'visible') {
+            console.log('Executing delayed data refresh callback');
+            await options.onVisible();
+          }
+        }, 1000); // 1 second delay to let navigation complete first
+        
+      } catch (error) {
+        console.warn('Session check failed:', error);
       }
-    };
+    }
+  }, [isVisible, options?.onVisible]);
 
+  useEffect(() => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Also listen for focus events as backup
@@ -40,7 +57,7 @@ export const useTabVisibility = () => {
       window.removeEventListener('focus', handleVisibilityChange);
       window.removeEventListener('blur', handleVisibilityChange);
     };
-  }, [isVisible]);
+  }, [handleVisibilityChange]);
 
   return {
     isVisible,

@@ -54,6 +54,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { GSCService } from '@/lib/gscService';
 import { PROPERTY_CHANGE_EVENT } from '@/components/PropertySelector';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
+import { useTabVisibility } from '@/hooks/useTabVisibility';
 
 const PERFORMANCE_TREND_GRANULARITY_OPTIONS = [
   { label: 'Daily', value: 'daily' },
@@ -762,253 +763,255 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Define fetchAllDashboardData function outside useEffect for reuse
+  const fetchAllDashboardData = async () => {
+    if (!gscProperty || !isConnected || !token) {
+      setLoading(false);
+      setIsPropertySwitching(false);
+      return;
+    }
+
+    // Set loading states
+    setLoading(true);
+    setIsPerformanceTrendLoading(true);
+    setIsRankingDataLoading(true);
+    setError(null);
+    setPerformanceTrendError(null);
+    setRankingDataError(null);
+
+    try {
+      // Fetch available countries first
+      console.log('[Dashboard] Attempting to fetch available countries.');
+      console.log('[Dashboard] GSC Property:', gscProperty, 'Token available:', !!token);
+      console.log('[Dashboard] Date range for country fetch:', dateRange.startDate, 'to', dateRange.endDate);
+
+      if (!gscProperty || !token || !dateRange.startDate || !dateRange.endDate) {
+        console.warn('[Dashboard] Missing gscProperty, token, or valid dateRange for fetching countries. Setting default countries.');
+        setAvailableCountries([{ label: 'All Countries', value: 'all' }]);
+      } else {
+        const countries = await gscService.getAvailableCountries(gscProperty, dateRange.startDate, dateRange.endDate);
+        console.log('[Dashboard] Fetched countries raw response from gscService:', JSON.parse(JSON.stringify(countries)));
+        if (countries && countries.length > 0) {
+          setAvailableCountries(countries);
+          console.log('[Dashboard] Successfully updated availableCountries state.');
+        } else {
+          setAvailableCountries([{ label: 'All Countries', value: 'all' }]);
+          console.warn('[Dashboard] Fetched countries list from gscService was empty or invalid. Defaulting to \"All Countries\".');
+        }
+      }
+      // Continue with the rest of the data fetching logic
+      
+      // Prepare common filters for main data fetching
+      const filters = [];
+      if (selectedUrlFilter) {
+        const urlFilterExpression = selectedUrlFilter.startsWith('http') ? selectedUrlFilter : `https://${gscProperty}${selectedUrlFilter.startsWith('/') ? selectedUrlFilter : '/' + selectedUrlFilter}`;
+        const urlFilter = {
+          dimension: 'page',
+          operator: 'equals',
+          expression: urlFilterExpression
+        };
+        console.log('[Dashboard] Adding URL filter:', urlFilter);
+        filters.push(urlFilter);
+      }
+      if (countryFilter !== 'all') {
+        filters.push({
+          dimension: 'country',
+          operator: 'equals',
+          expression: countryFilter.toUpperCase()
+        });
+      }
+      if (deviceFilter !== 'all') {
+        filters.push({
+          dimension: 'device',
+          operator: 'equals',
+          expression: deviceFilter.toLowerCase()
+        });
+      }
+
+      console.log('[Dashboard] Combined filters for main data fetch:', filters);
+      const dimensionFilterGroups = filters.length > 0 ? [{ filters }] : undefined;
+
+      // Fetch all data in parallel with proper date ranges
+      const [
+        queryDataForCurrentPeriod,
+        queryDataForComparisonPeriod,
+        trendData,
+        rankingData,
+        pageDataForCurrentPeriod,
+        pageDataForComparisonPeriod
+      ] = await Promise.all([
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          dimensions: ['query', 'page'],
+          rowLimit: 25000,
+          dimensionFilterGroups
+        }),
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          startDate: comparisonRange.startDate,
+          endDate: comparisonRange.endDate,
+          dimensions: ['query', 'page'],
+          rowLimit: 25000,
+          dimensionFilterGroups
+        }),
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          ...getPerformanceTrendDateRangeInternal(performanceTrendGranularity),
+          dimensions: ['date'],
+          rowLimit: 25000,
+          dimensionFilterGroups // Apply global filters
+        }),
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          ...getRankingDistributionDateRangeInternal(rankingTimeView),
+          dimensions: ['query', 'date', 'page', 'country', 'device'],
+          rowLimit: 25000,
+          dimensionFilterGroups // Apply global filters
+        }),
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          dimensions: ['page'],
+          rowLimit: 25000,
+          dimensionFilterGroups
+        }),
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          startDate: comparisonRange.startDate,
+          endDate: comparisonRange.endDate,
+          dimensions: ['page'],
+          rowLimit: 25000,
+          dimensionFilterGroups
+        })
+      ]);
+
+      const processAndFilterQueries = (data: GSCDataPoint[]) => {
+        return data
+          .filter(item => item.query)
+          .map(item => ({
+            ...item,
+            type: classifyKeywordType(item.query || ''),
+            intent: classifyKeywordCategory(item.query || '')
+          }))
+          .filter(item => {
+            const matchesType = keywordTypeFilter === 'all' || item.type === keywordTypeFilter;
+            const matchesCategory = keywordCategoryFilter === 'all' || item.intent === keywordCategoryFilter;
+            return matchesType && matchesCategory;
+          });
+      };
+
+      const processedPageTableData = pageDataForCurrentPeriod
+        .filter(item => item.page)
+        .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
+        .slice(0, 10);
+      setTopPages(processedPageTableData);
+
+      const filteredQueries = processAndFilterQueries(queryDataForCurrentPeriod)
+        .sort((a, b) => (b.clicks || 0) - (a.clicks || 0));
+      setTopQueries(filteredQueries);
+      setCurrentKeywordPage(1);
+
+      let currentMetricsForDisplay: AggregatedMetrics;
+      let comparisonMetricsForDisplay: AggregatedMetrics;
+      const calculateChange = (current: number, previous: number) => {
+        if (previous === 0) return current > 0 ? 100 : 0; 
+        if (current === 0 && previous === 0) return 0; 
+        return ((current - previous) / previous) * 100;
+      };
+      
+      const defaultMetrics: AggregatedMetrics = { clicks: 0, impressions: 0, ctr: 0, position: 0 };
+
+      if (selectedUrlFilter) {
+        const targetUrl = selectedUrlFilter.startsWith('http') ? selectedUrlFilter : `https://${gscProperty}${selectedUrlFilter}`;
+        const currentFilteredPageData = pageDataForCurrentPeriod.find(p => p.page === targetUrl);
+        const comparisonFilteredPageData = pageDataForComparisonPeriod.find(p => p.page === targetUrl);
+
+        currentMetricsForDisplay = currentFilteredPageData ? 
+          { clicks: currentFilteredPageData.clicks, impressions: currentFilteredPageData.impressions, ctr: currentFilteredPageData.ctr, position: currentFilteredPageData.position } 
+          : defaultMetrics;
+        
+        comparisonMetricsForDisplay = comparisonFilteredPageData ? 
+          { clicks: comparisonFilteredPageData.clicks, impressions: comparisonFilteredPageData.impressions, ctr: comparisonFilteredPageData.ctr, position: comparisonFilteredPageData.position } 
+          : defaultMetrics;
+        
+        console.log("Using PAGE-LEVEL data for metrics due to selectedUrlFilter:", { currentMetricsForDisplay, comparisonMetricsForDisplay });
+
+      } else {
+        const aggregatedCurrentQueries = processAndFilterQueries(queryDataForCurrentPeriod);
+        currentMetricsForDisplay = {
+          clicks: aggregatedCurrentQueries.reduce((sum, item) => sum + (item.clicks || 0), 0),
+          impressions: aggregatedCurrentQueries.reduce((sum, item) => sum + (item.impressions || 0), 0),
+          ctr: aggregatedCurrentQueries.length > 0 ? aggregatedCurrentQueries.reduce((sum, item) => sum + (item.ctr || 0), 0) / aggregatedCurrentQueries.length : 0,
+          position: aggregatedCurrentQueries.length > 0 ? aggregatedCurrentQueries.reduce((sum, item) => sum + (item.position || 0), 0) / aggregatedCurrentQueries.length : 0
+        };
+
+        const aggregatedComparisonQueries = processAndFilterQueries(queryDataForComparisonPeriod);
+        comparisonMetricsForDisplay = {
+          clicks: aggregatedComparisonQueries.reduce((sum, item) => sum + (item.clicks || 0), 0),
+          impressions: aggregatedComparisonQueries.reduce((sum, item) => sum + (item.impressions || 0), 0),
+          ctr: aggregatedComparisonQueries.length > 0 ? aggregatedComparisonQueries.reduce((sum, item) => sum + (item.ctr || 0), 0) / aggregatedComparisonQueries.length : 0,
+          position: aggregatedComparisonQueries.length > 0 ? aggregatedComparisonQueries.reduce((sum, item) => sum + (item.position || 0), 0) / aggregatedComparisonQueries.length : 0
+        };
+
+        console.log("Using QUERY-LEVEL aggregated data for metrics:", { currentMetricsForDisplay, comparisonMetricsForDisplay });
+      }
+
+      const metricsForDisplay = {
+        totalClicks: currentMetricsForDisplay.clicks,
+        totalImpressions: currentMetricsForDisplay.impressions,
+        avgCtr: currentMetricsForDisplay.ctr,
+        avgPosition: currentMetricsForDisplay.position,
+        clicksChange: calculateChange(currentMetricsForDisplay.clicks, comparisonMetricsForDisplay.clicks),
+        impressionsChange: calculateChange(currentMetricsForDisplay.impressions, comparisonMetricsForDisplay.impressions),
+        ctrChange: calculateChange(currentMetricsForDisplay.ctr, comparisonMetricsForDisplay.ctr),
+        positionChange: calculateChange(comparisonMetricsForDisplay.position, currentMetricsForDisplay.position) // Note: reversed for position
+      };
+
+      console.log("Final calculated metrics for display:", metricsForDisplay);
+      setMetrics(metricsForDisplay);
+
+      const processedTrendData = processGSCDataForPerformanceTrends(trendData, performanceTrendGranularity, chartMetric);
+      setPerformanceTrendData(processedTrendData);
+
+      const { overall, breakdown } = processGSCDataForKeywordRanking(rankingData, rankingTimeView);
+      setOverallRankingData(overall);
+      setPositionBreakdownData(breakdown);
+
+      // At the end of successful data fetch - clear all loading states
+      setLoading(false);
+      setIsPerformanceTrendLoading(false);
+      setIsRankingDataLoading(false);
+      setIsPropertySwitching(false);
+
+    } catch (error) {
+      console.error('[Dashboard] Error fetching dashboard data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch dashboard data');
+      setLoading(false);
+      setIsPerformanceTrendLoading(false);
+      setIsRankingDataLoading(false);
+      setIsPropertySwitching(false);
+    }
+  };
+
+  // Tab visibility hook - refresh data when tab becomes visible (with delay to avoid navigation interference)
+  useTabVisibility({
+    onVisible: () => {
+      // Only refresh dashboard data if we're currently on the dashboard page
+      if (window.location.pathname === '/dashboard') {
+        setTimeout(() => {
+          console.log('Dashboard: Refreshing data after tab visibility');
+          fetchAllDashboardData();
+        }, 500); // Short delay to avoid interference with navigation
+      }
+    }
+  });
+
   // Consolidated useEffect for data fetching
   useEffect(() => {
-    let mounted = true;
-    
-    const fetchAllDashboardData = async () => {
-      if (!gscProperty || !isConnected || !token) {
-        setLoading(false);
-        setIsPropertySwitching(false);
-        return;
-      }
-
-      // Set loading states
-      setLoading(true);
-      setIsPerformanceTrendLoading(true);
-      setIsRankingDataLoading(true);
-      setError(null);
-      setPerformanceTrendError(null);
-      setRankingDataError(null);
-
-      try {
-        // Fetch available countries first
-        console.log('[Dashboard] useEffect: Attempting to fetch available countries.');
-        console.log('[Dashboard] useEffect: GSC Property:', gscProperty, 'Token available:', !!token);
-        console.log('[Dashboard] useEffect: Date range for country fetch:', dateRange.startDate, 'to', dateRange.endDate);
-
-        if (!gscProperty || !token || !dateRange.startDate || !dateRange.endDate) {
-          console.warn('[Dashboard] useEffect: Missing gscProperty, token, or valid dateRange for fetching countries. Setting default countries.');
-          if (mounted) setAvailableCountries([{ label: 'All Countries', value: 'all' }]);
-        } else {
-          const countries = await gscService.getAvailableCountries(gscProperty, dateRange.startDate, dateRange.endDate);
-          console.log('[Dashboard] useEffect: Fetched countries raw response from gscService:', JSON.parse(JSON.stringify(countries)));
-          if (mounted) {
-            if (countries && countries.length > 0) {
-              setAvailableCountries(countries);
-              console.log('[Dashboard] useEffect: Successfully updated availableCountries state.');
-            } else {
-              setAvailableCountries([{ label: 'All Countries', value: 'all' }]);
-              console.warn('[Dashboard] useEffect: Fetched countries list from gscService was empty or invalid. Defaulting to \"All Countries\".');
-            }
-          }
-        }
-        // End of country fetching logic
-
-        // Prepare common filters for main data fetching
-        const filters = [];
-        if (selectedUrlFilter) {
-          const urlFilterExpression = selectedUrlFilter.startsWith('http') ? selectedUrlFilter : `https://${gscProperty}${selectedUrlFilter.startsWith('/') ? selectedUrlFilter : '/' + selectedUrlFilter}`;
-          const urlFilter = {
-            dimension: 'page',
-            operator: 'equals',
-            expression: urlFilterExpression
-          };
-          console.log('[Dashboard] Adding URL filter:', urlFilter);
-          filters.push(urlFilter);
-        }
-        if (countryFilter !== 'all') {
-          filters.push({
-            dimension: 'country',
-            operator: 'equals',
-            expression: countryFilter.toUpperCase()
-          });
-        }
-        if (deviceFilter !== 'all') {
-          filters.push({
-            dimension: 'device',
-            operator: 'equals',
-            expression: deviceFilter.toLowerCase()
-          });
-        }
-
-        console.log('[Dashboard] Combined filters for main data fetch:', filters);
-        const dimensionFilterGroups = filters.length > 0 ? [{ filters }] : undefined;
-
-        // Fetch all data in parallel with proper date ranges
-        const [
-          queryDataForCurrentPeriod,
-          queryDataForComparisonPeriod,
-          trendData,
-          rankingData,
-          pageDataForCurrentPeriod,
-          pageDataForComparisonPeriod
-        ] = await Promise.all([
-          gscService.fetchSearchAnalyticsData({
-            siteUrl: gscProperty,
-            startDate: dateRange.startDate,
-            endDate: dateRange.endDate,
-            dimensions: ['query', 'page'],
-            rowLimit: 25000,
-            dimensionFilterGroups
-          }),
-          gscService.fetchSearchAnalyticsData({
-            siteUrl: gscProperty,
-            startDate: comparisonRange.startDate,
-            endDate: comparisonRange.endDate,
-            dimensions: ['query', 'page'],
-            rowLimit: 25000,
-            dimensionFilterGroups
-          }),
-          gscService.fetchSearchAnalyticsData({
-            siteUrl: gscProperty,
-            ...getPerformanceTrendDateRangeInternal(performanceTrendGranularity),
-            dimensions: ['date'],
-            rowLimit: 25000,
-            dimensionFilterGroups // Apply global filters
-          }),
-          gscService.fetchSearchAnalyticsData({
-            siteUrl: gscProperty,
-            ...getRankingDistributionDateRangeInternal(rankingTimeView),
-            dimensions: ['query', 'date', 'page', 'country', 'device'],
-            rowLimit: 25000,
-            dimensionFilterGroups // Apply global filters
-          }),
-          gscService.fetchSearchAnalyticsData({
-            siteUrl: gscProperty,
-            startDate: dateRange.startDate,
-            endDate: dateRange.endDate,
-            dimensions: ['page'],
-            rowLimit: 25000,
-            dimensionFilterGroups
-          }),
-          gscService.fetchSearchAnalyticsData({
-            siteUrl: gscProperty,
-            startDate: comparisonRange.startDate,
-            endDate: comparisonRange.endDate,
-            dimensions: ['page'],
-            rowLimit: 25000,
-            dimensionFilterGroups
-          })
-        ]);
-
-        if (!mounted) return;
-
-        const processAndFilterQueries = (data: GSCDataPoint[]) => {
-          return data
-            .filter(item => item.query)
-            .map(item => ({
-              ...item,
-              type: classifyKeywordType(item.query || ''),
-              intent: classifyKeywordCategory(item.query || '')
-            }))
-            .filter(item => {
-              const matchesType = keywordTypeFilter === 'all' || item.type === keywordTypeFilter;
-              const matchesCategory = keywordCategoryFilter === 'all' || item.intent === keywordCategoryFilter;
-              return matchesType && matchesCategory;
-            });
-        };
-
-        const processedPageTableData = pageDataForCurrentPeriod
-          .filter(item => item.page)
-          .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
-          .slice(0, 10);
-        setTopPages(processedPageTableData);
-
-        const filteredQueries = processAndFilterQueries(queryDataForCurrentPeriod)
-          .sort((a, b) => (b.clicks || 0) - (a.clicks || 0));
-        setTopQueries(filteredQueries);
-        setCurrentKeywordPage(1);
-
-        let currentMetricsForDisplay: AggregatedMetrics;
-        let comparisonMetricsForDisplay: AggregatedMetrics;
-        const calculateChange = (current: number, previous: number) => {
-          if (previous === 0) return current > 0 ? 100 : 0; 
-          if (current === 0 && previous === 0) return 0; 
-          return ((current - previous) / previous) * 100;
-        };
-        
-        const defaultMetrics: AggregatedMetrics = { clicks: 0, impressions: 0, ctr: 0, position: 0 };
-
-        if (selectedUrlFilter) {
-          const targetUrl = selectedUrlFilter.startsWith('http') ? selectedUrlFilter : `https://${gscProperty}${selectedUrlFilter}`;
-          const currentFilteredPageData = pageDataForCurrentPeriod.find(p => p.page === targetUrl);
-          const comparisonFilteredPageData = pageDataForComparisonPeriod.find(p => p.page === targetUrl);
-
-          currentMetricsForDisplay = currentFilteredPageData ? 
-            { clicks: currentFilteredPageData.clicks, impressions: currentFilteredPageData.impressions, ctr: currentFilteredPageData.ctr, position: currentFilteredPageData.position } 
-            : defaultMetrics;
-          
-          comparisonMetricsForDisplay = comparisonFilteredPageData ? 
-            { clicks: comparisonFilteredPageData.clicks, impressions: comparisonFilteredPageData.impressions, ctr: comparisonFilteredPageData.ctr, position: comparisonFilteredPageData.position } 
-            : defaultMetrics;
-          
-          console.log("Using PAGE-LEVEL data for metrics due to selectedUrlFilter:", { currentMetricsForDisplay, comparisonMetricsForDisplay });
-
-        } else {
-          const aggregatedCurrentQueries = processAndFilterQueries(queryDataForCurrentPeriod);
-          currentMetricsForDisplay = {
-            clicks: aggregatedCurrentQueries.reduce((sum, item) => sum + (item.clicks || 0), 0),
-            impressions: aggregatedCurrentQueries.reduce((sum, item) => sum + (item.impressions || 0), 0),
-            ctr: aggregatedCurrentQueries.length > 0 ? aggregatedCurrentQueries.reduce((sum, item) => sum + (item.ctr || 0), 0) / aggregatedCurrentQueries.length : 0,
-            position: aggregatedCurrentQueries.length > 0 ? aggregatedCurrentQueries.reduce((sum, item) => sum + (item.position || 0), 0) / aggregatedCurrentQueries.length : 0
-          };
-
-          const aggregatedComparisonQueries = processAndFilterQueries(queryDataForComparisonPeriod);
-          comparisonMetricsForDisplay = {
-            clicks: aggregatedComparisonQueries.reduce((sum, item) => sum + (item.clicks || 0), 0),
-            impressions: aggregatedComparisonQueries.reduce((sum, item) => sum + (item.impressions || 0), 0),
-            ctr: aggregatedComparisonQueries.length > 0 ? aggregatedComparisonQueries.reduce((sum, item) => sum + (item.ctr || 0), 0) / aggregatedComparisonQueries.length : 0,
-            position: aggregatedComparisonQueries.length > 0 ? aggregatedComparisonQueries.reduce((sum, item) => sum + (item.position || 0), 0) / aggregatedComparisonQueries.length : 0
-          };
-          console.log("Using QUERY-LEVEL aggregated data for metrics (no URL filter):", { currentMetricsForDisplay, comparisonMetricsForDisplay });
-        }
-
-        setMetrics({
-          totalClicks: currentMetricsForDisplay.clicks,
-          totalImpressions: currentMetricsForDisplay.impressions,
-          avgCtr: currentMetricsForDisplay.ctr,
-          avgPosition: currentMetricsForDisplay.position,
-          clicksChange: calculateChange(currentMetricsForDisplay.clicks, comparisonMetricsForDisplay.clicks),
-          impressionsChange: calculateChange(currentMetricsForDisplay.impressions, comparisonMetricsForDisplay.impressions),
-          ctrChange: calculateChange(currentMetricsForDisplay.ctr, comparisonMetricsForDisplay.ctr),
-          positionChange: calculateChange(currentMetricsForDisplay.position, comparisonMetricsForDisplay.position)
-        });
-
-        // Process performance trend data
-        const processedTrendData = processGSCDataForPerformanceTrends(trendData, performanceTrendGranularity, chartMetric);
-        setPerformanceTrendData(processedTrendData);
-
-        // Process ranking data
-        const { overall, breakdown } = processGSCDataForKeywordRanking(rankingData, rankingTimeView);
-        setOverallRankingData(overall);
-        setPositionBreakdownData(breakdown);
-
-        // At the end of successful data fetch - clear all loading states
-        if (mounted) {
-          setLoading(false);
-          setIsPerformanceTrendLoading(false);
-          setIsRankingDataLoading(false);
-          setIsPropertySwitching(false);
-        }
-        
-      } catch (error: any) {
-        console.error('[Dashboard] Error fetching dashboard data:', error);
-        if (mounted) {
-          setError(error.message || 'Failed to load dashboard data');
-          setLoading(false);
-          setIsPerformanceTrendLoading(false);
-          setIsRankingDataLoading(false);
-          setIsPropertySwitching(false);
-        }
-      }
-    };
-
     fetchAllDashboardData();
-    
-    return () => {
-      mounted = false;
-    };
   }, [
     gscProperty,
     isConnected,

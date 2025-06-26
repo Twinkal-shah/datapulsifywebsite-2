@@ -60,10 +60,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const googleAuthService = new GoogleAuthService();
 
   useEffect(() => {
-    const checkSession = async () => {
+    const checkSession = async (isBackgroundRefresh = false) => {
       try {
         console.log('Checking session...');
-        setLoading(true);
+        // Only set loading to true if this is not a background refresh
+        if (!isBackgroundRefresh) {
+          setLoading(true);
+        }
         
         // Try to get session from localStorage first
         const storedUser = localStorage.getItem('user');

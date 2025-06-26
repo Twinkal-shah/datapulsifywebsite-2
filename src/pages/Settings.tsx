@@ -21,6 +21,7 @@ import { GoogleAuthService } from '@/lib/googleAuthService';
 import { supabase } from '@/lib/supabaseClient';
 import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTabVisibility } from '@/hooks/useTabVisibility';
 
 interface BrandedKeywordRule {
   id: string;
@@ -241,7 +242,7 @@ export default function Settings() {
 
         // Fetch actual GSC properties
         const googleAuth = new GoogleAuthService();
-        const properties = await googleAuth.fetchGSCProperties(token);
+        const properties = await googleAuth.fetchGSCProperties();
         setGscProperties(properties.map(p => p.siteUrl));
 
         // Get last sync date from localStorage
@@ -276,6 +277,35 @@ export default function Settings() {
 
     fetchSettings();
   }, [user?.email]);
+
+  // Define refresh function for tab visibility
+  const refreshSettingsData = async () => {
+    try {
+      await fetchUserInstallation();
+      // Also refresh other settings data if needed
+      const token = localStorage.getItem('gsc_token');
+      if (token) {
+        const googleAuth = new GoogleAuthService();
+        const properties = await googleAuth.fetchGSCProperties();
+        setGscProperties(properties.map(p => p.siteUrl));
+      }
+    } catch (error) {
+      console.log('Error refreshing settings data:', error);
+    }
+  };
+
+  // Tab visibility hook - refresh data when tab becomes visible (with delay to avoid navigation interference)
+  useTabVisibility({
+    onVisible: () => {
+      // Only refresh settings data if we're currently on a settings page
+      if (window.location.pathname.startsWith('/settings')) {
+        setTimeout(() => {
+          console.log('Settings: Refreshing data after tab visibility');
+          refreshSettingsData();
+        }, 500); // Short delay to avoid interference with navigation
+      }
+    }
+  });
 
   // Save settings handlers
   const handleSaveProfile = async () => {

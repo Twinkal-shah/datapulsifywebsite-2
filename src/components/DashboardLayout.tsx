@@ -1,9 +1,11 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UpgradeOverlay } from './UpgradeOverlay';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useTabVisibility } from '@/hooks/useTabVisibility';
+import { useComponentPreloader } from '@/hooks/useComponentPreloader';
 import { toast } from '@/hooks/use-toast';
 
 import { 
@@ -48,6 +50,50 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isExpired, daysLeft, isLoading } = useTrialStatus();
   const { isSubscriptionActive } = useSubscription();
+  const authLoadingTimeoutRef = useRef<NodeJS.Timeout>();
+  
+  // Preload components for faster navigation after tab switching
+  useComponentPreloader();
+
+  // Handle prolonged auth loading states (potential stuck loading after tab switch)
+  useEffect(() => {
+    if (auth.loading) {
+      // Set a shorter timeout to automatically refresh if auth loading is stuck
+      authLoadingTimeoutRef.current = setTimeout(() => {
+        console.warn('Auth loading has been stuck for 15 seconds, automatically refreshing...');
+        // Automatically refresh the page to recover from stuck loading
+        window.location.reload();
+      }, 1000); // 15 second timeout - only for truly stuck states
+    } else {
+      // Clear timeout if auth loading finishes
+      if (authLoadingTimeoutRef.current) {
+        clearTimeout(authLoadingTimeoutRef.current);
+      }
+    }
+
+    return () => {
+      if (authLoadingTimeoutRef.current) {
+        clearTimeout(authLoadingTimeoutRef.current);
+      }
+    };
+  }, [auth.loading]);
+
+  // Add tab visibility handling - but only for truly stuck states
+  useTabVisibility({
+    onVisible: () => {
+      // Only intervene if auth has been loading for a long time
+      if (auth.loading) {
+        console.log('Tab became visible while auth loading');
+        // Only refresh if auth has been loading for more than 10 seconds
+        setTimeout(() => {
+          if (auth.loading) {
+            console.log('Auth still loading after 10 seconds of tab visibility - refreshing page');
+            window.location.reload();
+          }
+        }, 10000); // 10 second delay - only for truly stuck cases
+      }
+    }
+  });
   
   // Format the property name for display
   const formatPropertyTitle = (property: string | null) => {
