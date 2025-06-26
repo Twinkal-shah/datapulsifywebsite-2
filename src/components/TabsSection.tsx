@@ -40,7 +40,7 @@ const TabsSection = () => {
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
                   <img 
-                    src="/videos/dp-dashboard-video-final.gif"
+                    src="/videos/Final SEO Data Website Hero Section.gif"
                     alt="Dashboard View"
                     className="w-full h-auto"
                   />
@@ -52,7 +52,7 @@ const TabsSection = () => {
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
                   <img 
-                    src="/videos/DP Add-on Working.gif" 
+                    src="/videos/DataPulsify Website  & Marketing Assets - VideosGifs.gif" 
                     alt="Google Sheet Integration"
                     className="w-full h-auto"
                   />
