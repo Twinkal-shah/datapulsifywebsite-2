@@ -36,7 +36,7 @@ const HeroSection = () => {
           
           {/* Main Headline */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight mb-6 animate-fade-in animate-delay-75">
-            Turn Turn SEO Data Into
+             Turn SEO Data Into
             <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Actionable Insights</span>
           </h1>
           

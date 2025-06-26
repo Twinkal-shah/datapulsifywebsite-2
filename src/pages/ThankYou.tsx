@@ -17,13 +17,13 @@ interface PurchaseDetails {
   subscription_end_date: string | null;
   next_billing_date: string | null;
   lemonsqueezy_customer_id: string | null;
-  amount?: string;
+  amount: number | null;
 }
 
 // Pricing mapping for different subscription types
 const PRICING_MAP: Record<string, string> = {
-  'lifetime': '$198.00',
-  'monthly_pro': '$29.00/month',
+  'lifetime': '$49.99',
+  'monthly_pro': '$9.99/month',
   'Free Plan': '$0.00',
   'free': '$0.00'
 };
@@ -73,7 +73,8 @@ const ThankYou = () => {
           subscription_start_date,
           subscription_end_date,
           next_billing_date,
-          lemonsqueezy_customer_id
+          lemonsqueezy_customer_id,
+          amount
         `)
         .eq('email', user.email)
         .single();
@@ -141,7 +142,9 @@ const ThankYou = () => {
   // Get display values
   const planType = purchaseDetails?.subscription_type || subscriptionType || 'Free Plan';
   const planName = PLAN_NAMES[planType] || planType;
-  const amount = PRICING_MAP[planType] || 'N/A';
+  const amount = purchaseDetails?.amount 
+    ? `$${purchaseDetails.amount.toFixed(2)}${planType === 'monthly_pro' ? '/month' : ''}`
+    : PRICING_MAP[planType] || 'N/A';
   const status = purchaseDetails?.payment_status || paymentStatus;
   const subStatus = purchaseDetails?.subscription_status || subscriptionStatus;
   

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useDataExports } from '@/hooks/useDataExports';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -107,6 +108,7 @@ export default function RankTracker() {
   const { user, getGSCToken, getGSCProperty } = useAuth();
   const { subscriptionType, canTrackMoreKeywords, keywordLimit } = useSubscription();
   const { toast } = useToast();
+  const { trackExport } = useDataExports();
   
   // Use the tracked keywords hook
   const {
@@ -495,9 +497,13 @@ export default function RankTracker() {
   };
 
   // Export keywords to CSV
-  const exportCSV = () => {
+  const exportCSV = async () => {
     try {
       if (viewMode === 'monthly') {
+        // Check if we can track this export
+        const canExport = await trackExport('rank_tracker_monthly');
+        if (!canExport) return;
+
         // Export monthly data
         const monthlyKeywords = keywords as MonthlyKeywordData[];
         if (!monthlyKeywords.length) {
@@ -529,15 +535,19 @@ export default function RankTracker() {
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
         link.setAttribute("download", `rank_tracker_monthly_${format(new Date(), 'yyyyMMdd')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
         toast({
           title: "Export successful",
           description: "Monthly ranking data has been exported to CSV.",
         });
       } else {
+        // Check if we can track this export
+        const canExport = await trackExport('rank_tracker_weekly');
+        if (!canExport) return;
+
         // Export weekly data
         const weeklyKeywords = keywords as WeeklyKeywordData[];
         if (!weeklyKeywords.length) {

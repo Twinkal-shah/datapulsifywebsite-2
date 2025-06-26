@@ -26,13 +26,13 @@ export const PLANS: Record<string, PlanConfig> = {
   lifetime: {
     name: 'Lifetime Deal',
     variantId: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_LIFETIME,
-    price: 47.99,
+    price: 49.99,
     billing: 'lifetime'
   },
   monthly: {
     name: 'Monthly Pro',
     variantId: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_MONTHLY,
-    price: 9.00,
+    price: 9.99,
     billing: 'monthly'
   }
 };

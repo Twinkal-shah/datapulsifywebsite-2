@@ -482,7 +482,8 @@ serve(async (req) => {
       p_order_id: attributes.order_id?.toString() || null,
       p_start_date: startDate,
       p_end_date: endDate,
-      p_next_billing_date: nextBillingDate
+      p_next_billing_date: nextBillingDate,
+      p_amount: attributes.total || null
     })
 
     if (error) {

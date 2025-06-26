@@ -22,11 +22,12 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { gscService, GSCDataPoint } from '@/lib/gscService';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useDataExports } from '@/hooks/useDataExports';
+import { useToast } from '@/hooks/use-toast';
 import { format, subMonths, parseISO } from 'date-fns';
 import { PROPERTY_CHANGE_EVENT } from '@/components/PropertySelector';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
-import { useSubscription } from '@/contexts/SubscriptionContext';
 import { supabase as supabaseClient } from '@/lib/supabaseClient';
 import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
 
@@ -137,7 +138,9 @@ const detectCategory = (url: string): string => {
 
 export default function ClickGapIntelligence() {
   const { user, getGSCToken, getGSCProperty } = useAuth();
-  const { subscriptionType } = useSubscription();
+  const { subscriptionType, isSubscriptionActive } = useSubscription();
+  const { toast } = useToast();
+  const { trackExport } = useDataExports();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isPropertySwitching, setIsPropertySwitching] = useState(false);
@@ -818,7 +821,11 @@ export default function ClickGapIntelligence() {
   }, [pageAnalyses, searchTerm, categoryFilter, diagnosisFilter, actionFilter, sortBy, sortOrder]);
 
   // Export to CSV
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
+    // Check if we can track this export
+    const canExport = await trackExport('click_gap_intelligence');
+    if (!canExport) return;
+
     const headers = [
       'Page URL',
       'Category',
@@ -1100,117 +1107,119 @@ export default function ClickGapIntelligence() {
           <Card className="bg-gray-800 border-gray-700">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table className="relative">
-                  <TableHeader>
-                    <TableRow className="border-gray-700 hover:bg-gray-700/50">
-                      <TableHead className="sticky left-0 z-20 bg-gray-800 text-gray-300 min-w-[200px] max-w-[300px] whitespace-nowrap border-r border-gray-700 shadow-lg">Page URL</TableHead>
-                      <TableHead className="text-gray-300 min-w-[100px] whitespace-nowrap">Category</TableHead>
-                      <TableHead className="text-gray-300 min-w-[100px] whitespace-nowrap text-center">Click Gap</TableHead>
-                      <TableHead className="text-gray-300 min-w-[120px] whitespace-nowrap text-center">Impression Gap</TableHead>
-                      <TableHead className="text-gray-300 min-w-[90px] whitespace-nowrap text-center">CTR Gap</TableHead>
-                      <TableHead className="text-gray-300 min-w-[110px] whitespace-nowrap text-center">Position Gap</TableHead>
-                      <TableHead className="text-gray-300 min-w-[280px] max-w-[320px] whitespace-nowrap text-center">Diagnosis</TableHead>
-                      <TableHead className="text-gray-300 min-w-[200px] max-w-[280px] whitespace-nowrap">Action Step</TableHead>
-                      <TableHead className="text-gray-300 min-w-[60px] whitespace-nowrap text-center">Trend</TableHead>
-                      <TableHead className="text-gray-300 min-w-[80px] whitespace-nowrap text-center">Track</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAnalyses.map((page, index) => (
-                      <TableRow key={index} className="hover:bg-gray-700/50 border-gray-700">
-                        <TableCell className="sticky left-0 z-10 bg-gray-800 hover:bg-gray-700/50 min-w-[200px] max-w-[300px] text-white border-r border-gray-700 shadow-lg">
-                          <div className="truncate pr-2" title={page.url}>
-                            {page.url}
-                          </div>
-                        </TableCell>
-                        <TableCell className="min-w-[100px]">
-                          <Badge variant="outline" className="border-gray-600 text-gray-300 whitespace-nowrap">{page.category}</Badge>
-                        </TableCell>
-                        <TableCell className={`min-w-[100px] font-mono text-center ${page.clickGap >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {page.clickGap >= 0 ? '+' : ''}{formatNumber(page.clickGap)}
-                        </TableCell>
-                        <TableCell className={`min-w-[120px] font-mono text-center ${page.impressionGap >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {page.impressionGap >= 0 ? '+' : ''}{formatNumber(page.impressionGap)}
-                        </TableCell>
-                        <TableCell className={`min-w-[90px] font-mono text-center ${page.ctrGap >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {formatPercentage(page.ctrGap)}
-                        </TableCell>
-                        <TableCell className={`min-w-[110px] font-mono text-center ${page.positionGap <= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {formatPosition(page.positionGap)}
-                        </TableCell>
-                        <TableCell className="min-w-[280px] max-w-[320px] text-center">
-                          {trackedPages.includes(page.url) ? (
-                            <Badge 
-                              variant={
-                                page.trendIcon === '🚀' ? 'default' :
-                                page.trendIcon === '❌' ? 'destructive' :
-                                page.trendIcon === '🔻' ? 'secondary' : 'outline'
-                              }
-                              className={`text-sm font-medium px-3 py-1 whitespace-nowrap ${
-                                page.diagnosis === 'Trend stabled' ? '!text-white' :
-                                page.diagnosis === 'Search volume + relevancy downgraded' ? '!text-black' : ''
-                              }`}
-                              title={page.diagnosis}
-                            >
-                              {page.diagnosis}
-                            </Badge>
-                          ) : (
-                            <div className="text-gray-500 text-sm font-medium px-3 py-1">
-                              🔒 Track to view
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="min-w-[200px] max-w-[280px] text-gray-300">
-                          {trackedPages.includes(page.url) ? (
-                            <div 
-                              className="text-sm leading-tight pr-2"
-                              style={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                wordBreak: 'break-word',
-                                hyphens: 'auto',
-                                lineHeight: '1.3'
-                              }}
-                              title={page.actionStep}
-                            >
-                              {page.actionStep}
-                            </div>
-                          ) : (
-                            <div className="text-gray-500 text-sm">
-                              🔒 Track to view action step
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-2xl text-white min-w-[60px] text-center">
-                          {trackedPages.includes(page.url) ? (
-                            page.trendIcon
-                          ) : (
-                            <div className="text-gray-500 text-sm">🔒</div>
-                          )}
-                        </TableCell>
-                        <TableCell className="min-w-[80px] text-center">
-                          {trackedPages.includes(page.url) ? (
-                            <Badge variant="outline" className="bg-green-900/30 text-green-400 border-green-700">
-                              Tracked
-                            </Badge>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleTrackPage(page.url)}
-                              disabled={!canTrackMorePages()}
-                              className="bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:text-white"
-                            >
-                              Track
-                            </Button>
-                          )}
-                        </TableCell>
+                <div className="max-h-[600px] overflow-y-auto">
+                  <Table className="relative">
+                    <TableHeader className="sticky top-0 z-30 bg-gray-800">
+                      <TableRow className="border-gray-700 hover:bg-gray-700/50">
+                        <TableHead className="sticky left-0 z-40 bg-gray-800 text-gray-300 min-w-[200px] max-w-[300px] whitespace-nowrap border-r border-gray-700 shadow-lg">Page URL</TableHead>
+                        <TableHead className="text-gray-300 min-w-[100px] whitespace-nowrap">Category</TableHead>
+                        <TableHead className="text-gray-300 min-w-[100px] whitespace-nowrap text-center">Click Gap</TableHead>
+                        <TableHead className="text-gray-300 min-w-[120px] whitespace-nowrap text-center">Impression Gap</TableHead>
+                        <TableHead className="text-gray-300 min-w-[90px] whitespace-nowrap text-center">CTR Gap</TableHead>
+                        <TableHead className="text-gray-300 min-w-[110px] whitespace-nowrap text-center">Position Gap</TableHead>
+                        <TableHead className="text-gray-300 min-w-[280px] max-w-[320px] whitespace-nowrap text-center">Diagnosis</TableHead>
+                        <TableHead className="text-gray-300 min-w-[200px] max-w-[280px] whitespace-nowrap">Action Step</TableHead>
+                        <TableHead className="text-gray-300 min-w-[60px] whitespace-nowrap text-center">Trend</TableHead>
+                        <TableHead className="text-gray-300 min-w-[80px] whitespace-nowrap text-center">Track</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAnalyses.map((page, index) => (
+                        <TableRow key={index} className="hover:bg-gray-700/50 border-gray-700">
+                          <TableCell className="sticky left-0 z-10 bg-gray-800 hover:bg-gray-700/50 min-w-[200px] max-w-[300px] text-white border-r border-gray-700 shadow-lg">
+                            <div className="truncate pr-2" title={page.url}>
+                              {page.url}
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-[100px]">
+                            <Badge variant="outline" className="border-gray-600 text-gray-300 whitespace-nowrap">{page.category}</Badge>
+                          </TableCell>
+                          <TableCell className={`min-w-[100px] font-mono text-center ${page.clickGap >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {page.clickGap >= 0 ? '+' : ''}{formatNumber(page.clickGap)}
+                          </TableCell>
+                          <TableCell className={`min-w-[120px] font-mono text-center ${page.impressionGap >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {page.impressionGap >= 0 ? '+' : ''}{formatNumber(page.impressionGap)}
+                          </TableCell>
+                          <TableCell className={`min-w-[90px] font-mono text-center ${page.ctrGap >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {formatPercentage(page.ctrGap)}
+                          </TableCell>
+                          <TableCell className={`min-w-[110px] font-mono text-center ${page.positionGap <= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {formatPosition(page.positionGap)}
+                          </TableCell>
+                          <TableCell className="min-w-[280px] max-w-[320px] text-center">
+                            {trackedPages.includes(page.url) ? (
+                              <Badge 
+                                variant={
+                                  page.trendIcon === '🚀' ? 'default' :
+                                  page.trendIcon === '❌' ? 'destructive' :
+                                  page.trendIcon === '🔻' ? 'secondary' : 'outline'
+                                }
+                                className={`text-sm font-medium px-3 py-1 whitespace-nowrap ${
+                                  page.diagnosis === 'Trend stabled' ? '!text-white' :
+                                  page.diagnosis === 'Search volume + relevancy downgraded' ? '!text-black' : ''
+                                }`}
+                                title={page.diagnosis}
+                              >
+                                {page.diagnosis}
+                              </Badge>
+                            ) : (
+                              <div className="text-gray-500 text-sm font-medium px-3 py-1">
+                                🔒 Track to view
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="min-w-[200px] max-w-[280px] text-gray-300">
+                            {trackedPages.includes(page.url) ? (
+                              <div 
+                                className="text-sm leading-tight pr-2"
+                                style={{
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                  wordBreak: 'break-word',
+                                  hyphens: 'auto',
+                                  lineHeight: '1.3'
+                                }}
+                                title={page.actionStep}
+                              >
+                                {page.actionStep}
+                              </div>
+                            ) : (
+                              <div className="text-gray-500 text-sm">
+                                🔒 Track to view action step
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-2xl text-white min-w-[60px] text-center">
+                            {trackedPages.includes(page.url) ? (
+                              page.trendIcon
+                            ) : (
+                              <div className="text-gray-500 text-sm">🔒</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="min-w-[80px] text-center">
+                            {trackedPages.includes(page.url) ? (
+                              <Badge variant="outline" className="bg-green-900/30 text-green-400 border-green-700">
+                                Tracked
+                              </Badge>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleTrackPage(page.url)}
+                                disabled={!canTrackMorePages()}
+                                className="bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:text-white"
+                              >
+                                Track
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
               
               {filteredAnalyses.length === 0 && (

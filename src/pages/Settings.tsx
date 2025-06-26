@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useTrackedKeywords } from '@/hooks/useTrackedKeywords';
+import { useDataExports } from '@/hooks/useDataExports';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,8 +19,8 @@ import { gscService } from '@/lib/gscService';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleAuthService } from '@/lib/googleAuthService';
 import { supabase } from '@/lib/supabaseClient';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { lemonSqueezyService } from '@/lib/lemonSqueezyService';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface BrandedKeywordRule {
   id: string;
@@ -68,6 +70,12 @@ export default function Settings() {
     business_type: '',
     business_size: ''
   });
+
+  // Use the tracked keywords hook
+  const { stats: keywordStats } = useTrackedKeywords();
+  
+  // Use the data exports hook
+  const { stats: exportStats } = useDataExports();
 
   // Notification settings
   const [notifications, setNotifications] = useState({
@@ -684,16 +692,26 @@ export default function Settings() {
     loadPatternsToEditor();
   }, [categoryPatterns]);
 
-  // Usage statistics (derived from existing data)
+  // Usage statistics (derived from real-time data)
   const getUsageStats = () => {
     const apiCalls = userInstallation?.usage_count || 0;
     const maxApiCalls = subscription.isSubscriptionActive ? 10000 : 1000;
     
     return {
       apiCalls: { current: apiCalls, max: maxApiCalls },
-      keywordsTracked: { current: 0, max: subscription.keywordLimit }, // This would come from actual keyword tracking
-      reports: { current: 5, max: subscription.isSubscriptionActive ? 100 : 10 },
-      exports: { current: 2, max: subscription.isSubscriptionActive ? 50 : 5 }
+      keywordsTracked: { 
+        current: keywordStats.totalTracked, 
+        max: keywordStats.limit 
+      },
+      // Temporarily commenting out reports stats
+      // reports: { 
+      //   current: 5, 
+      //   max: subscription.isSubscriptionActive ? 100 : 10 
+      // },
+      exports: { 
+        current: exportStats.totalExports, 
+        max: exportStats.limit 
+      }
     };
   };
 
@@ -756,9 +774,38 @@ export default function Settings() {
     }
   ];
 
-  const handleUpgradeClick = () => {
-    const checkoutUrl = lemonSqueezyService.getQuickCheckoutUrl('monthly', user?.email);
-    window.location.href = checkoutUrl;
+  const handleUpgradeClick = async () => {
+    if (!user?.email) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to continue with your purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // For Lifetime Plan users, create a new checkout session instead of using quick checkout
+      if (subscription.subscriptionType === 'lifetime') {
+        const checkoutData = await lemonSqueezyService.createCheckoutSession('monthly', user.email);
+        if (checkoutData?.checkoutUrl) {
+          window.location.href = checkoutData.checkoutUrl;
+        } else {
+          throw new Error('No checkout URL received');
+        }
+      } else {
+        // For other users, use the quick checkout URL
+        const checkoutUrl = lemonSqueezyService.getQuickCheckoutUrl('monthly', user.email);
+        window.location.href = checkoutUrl;
+      }
+    } catch (error) {
+      console.error('Error initiating checkout:', error);
+      toast({
+        title: "Checkout Error",
+        description: error instanceof Error ? error.message : 'Failed to initiate checkout',
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -859,24 +906,7 @@ export default function Settings() {
                 </Card>
 
                 {/* Usage Statistics */}
-                <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* <Card className="bg-[#1a1d23] border-0">
-                    <CardContent className="p-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-400">API Calls</span>
-                          <span className="text-white">{usageStats.apiCalls.current}/{usageStats.apiCalls.max}</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full"
-                            style={{ width: `${(usageStats.apiCalls.current / usageStats.apiCalls.max) * 100}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card> */}
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card className="bg-[#1a1d23] border-0">
                     <CardContent className="p-4">
                       <div className="space-y-2">
@@ -888,23 +918,6 @@ export default function Settings() {
                           <div
                             className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"
                             style={{ width: `${(usageStats.keywordsTracked.current / usageStats.keywordsTracked.max) * 100}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-[#1a1d23] border-0">
-                    <CardContent className="p-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-400">Reports Generated</span>
-                          <span className="text-white">{usageStats.reports.current}/{usageStats.reports.max}</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full"
-                            style={{ width: `${(usageStats.reports.current / usageStats.reports.max) * 100}%` }}
                           ></div>
                         </div>
                       </div>

@@ -1,5 +1,7 @@
 import { useState, useEffect, createContext, useContext, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useDataExports } from '@/hooks/useDataExports';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -47,7 +49,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Badge } from '@/components/ui/badge';
 import { GSCTester } from '@/components/GSCTester';
 import { ShareReportModal } from '@/components/ShareReportModal';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { GSCService } from '@/lib/gscService';
 import { PROPERTY_CHANGE_EVENT } from '@/components/PropertySelector';
@@ -606,6 +608,9 @@ const getComparisonDateRange = (currentRange: { startDate: string; endDate: stri
 
 export default function Dashboard() {
   const { user, getGSCToken, getGSCProperty } = useAuth();
+  const { isSubscriptionActive } = useSubscription();
+  const { toast } = useToast();
+  const { trackExport } = useDataExports();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false); // State for modal visibility
@@ -1022,7 +1027,11 @@ export default function Dashboard() {
     rankingTimeView
   ]);
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
+    // Check if we can track this export
+    const canExport = await trackExport('dashboard_keywords');
+    if (!canExport) return;
+
     console.log("Exporting CSV for global filters data...");
     const headers = ['Keyword', 'Intent', 'Type', 'Clicks', 'Impressions', 'CTR', 'Position'];
     const rows = topQueries.map(q => [
@@ -1035,8 +1044,8 @@ export default function Dashboard() {
       q.position.toFixed(1)
     ]);
     let csvContent = "data:text/csv;charset=utf-8,"
-      + headers.join(",") + "\\n"
-      + rows.map(e => e.join(",")).join("\\n");
+      + headers.join(",") + "\n"
+      + rows.map(e => e.join(",")).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");

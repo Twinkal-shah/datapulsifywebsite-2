@@ -7,7 +7,8 @@ ADD COLUMN IF NOT EXISTS lemonsqueezy_variant_id TEXT,
 ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending',
 ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS lemonsqueezy_checkout_id TEXT,
-ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive';
+ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive',
+ADD COLUMN IF NOT EXISTS amount DECIMAL(10,2);
 
 -- Add check constraint for payment_status
 ALTER TABLE user_installations
@@ -55,7 +56,8 @@ CREATE OR REPLACE FUNCTION update_subscription_from_lemonsqueezy(
   p_order_id TEXT DEFAULT NULL,
   p_start_date TIMESTAMP WITH TIME ZONE DEFAULT NULL,
   p_end_date TIMESTAMP WITH TIME ZONE DEFAULT NULL,
-  p_next_billing_date TIMESTAMP WITH TIME ZONE DEFAULT NULL
+  p_next_billing_date TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  p_amount DECIMAL(10,2) DEFAULT NULL
 )
 RETURNS VOID AS $$
 DECLARE
@@ -93,6 +95,7 @@ BEGIN
     subscription_end_date = COALESCE(calculated_end_date, subscription_end_date),
     next_billing_date = COALESCE(p_next_billing_date, calculated_end_date),
     lifetime_deal_status = COALESCE(calculated_lifetime_deal_status, lifetime_deal_status),
+    amount = COALESCE(p_amount, amount),
     updated_at = NOW()
   WHERE email = p_email;
   
@@ -112,6 +115,7 @@ BEGIN
       subscription_end_date,
       next_billing_date,
       lifetime_deal_status,
+      amount,
       created_at,
       updated_at
     ) VALUES (
@@ -128,6 +132,7 @@ BEGIN
       calculated_end_date,
       COALESCE(p_next_billing_date, calculated_end_date),
       COALESCE(calculated_lifetime_deal_status, 'inactive'),
+      p_amount,
       NOW(),
       NOW()
     );
