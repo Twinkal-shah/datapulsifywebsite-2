@@ -661,7 +661,7 @@ export default function RankTracker() {
 
           {/* Filters Row */}
           <SubscriptionOverlay featureName="rank_tracker_filters">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
               <Select value={dateRange} onValueChange={(value) => { setDateRange(value); setCurrentPage(1); }}>
                 <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-gray-300">
                   <SelectValue placeholder="Select date range" />
@@ -713,6 +713,31 @@ export default function RankTracker() {
                   ))}
                 </SelectContent>
               </Select>
+
+              <Button 
+                variant="outline" 
+                onClick={exportCSV} 
+                className="w-full bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-blue-300"
+              >
+                <Download className="h-4 w-4 mr-2" /> Export
+              </Button>
+
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCSVUpload}
+                  className="hidden"
+                  id="csv-upload-filter"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById('csv-upload-filter')?.click()}
+                  className="w-full bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-green-300"
+                >
+                  <Upload className="h-4 w-4 mr-2" /> Import
+                </Button>
+              </div>
             </div>
           </SubscriptionOverlay>
             
@@ -1180,34 +1205,7 @@ export default function RankTracker() {
                     </div>
                   </div>
 
-                  {/* Export/Import Buttons */}
-                  <SubscriptionOverlay featureName="rank_tracker_export">
-                    <div className="flex gap-2 xl:col-start-5 mt-4">
-                      <Button
-                        variant="outline"
-                        onClick={exportCSV}
-                        className="flex-1 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-blue-300"
-                      >
-                        <Download className="h-4 w-4 mr-2" /> Export
-                      </Button>
-                      <div className="relative">
-                        <input
-                          type="file"
-                          accept=".csv"
-                          onChange={handleCSVUpload}
-                          className="hidden"
-                          id="csv-upload"
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => document.getElementById('csv-upload')?.click()}
-                          className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-green-300"
-                        >
-                          <Upload className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </SubscriptionOverlay>
+
 
                   {/* Pagination Controls */}
                   {filteredKeywords.length > 0 && (
