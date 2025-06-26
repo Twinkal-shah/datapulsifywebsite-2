@@ -295,21 +295,20 @@ const LifetimeDeal = () => {
               </p>
             </div>
             
-            <div className="max-w-4xl mx-auto border-2 border-white/20 rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10 hover:border-white/40 transition-all duration-300">
-              <a 
-                href="https://app.arcade.software/share/3vKxZRWFqZGznMAlhDoC" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="block aspect-w-16 aspect-h-9 bg-gray-900 hover:bg-gray-800 transition-colors duration-300"
-              >
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center p-8">
-                    <Play size={48} className="mx-auto mb-4 text-white hover:text-blue-400 transition-colors duration-300" />
-                    <h3 className="text-xl font-medium text-white">Take a Live Tour</h3>
-                    <p className="text-sm text-gray-400 mt-2">Click to explore DataPulsify's powerful features</p>
-                  </div>
-                </div>
-              </a>
+            <div className="max-w-4xl mx-auto border-2 border-white/20 rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10">
+              {/*ARCADE EMBED START*/}
+              <div style={{ position: 'relative', paddingBottom: 'calc(54.02777777777777% + 41px)', height: 0, width: '100%' }}>
+                <iframe 
+                  src="https://demo.arcade.software/3vKxZRWFqZGznMAlhDoC?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true" 
+                  title="Analyze Website Performance with Google Search Console Integration" 
+                  frameBorder="0" 
+                  loading="lazy" 
+                  allowFullScreen 
+                  allow="clipboard-write" 
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', colorScheme: 'light' }}
+                />
+              </div>
+              {/*ARCADE EMBED END*/}
             </div>
           </div>
         </section>
