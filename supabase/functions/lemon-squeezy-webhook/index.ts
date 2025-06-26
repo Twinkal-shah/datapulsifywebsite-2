@@ -493,25 +493,10 @@ serve(async (req) => {
       p_end_date: endDate,
       p_next_billing_date: nextBillingDate,
       p_amount: attributes.total || null
-    })
+    });
 
     if (error) {
-      console.error('Database update error:', error)
-      
-      // Check if it's a function not found error
-      if (error.code === '42883' || error.message?.includes('function') || error.message?.includes('does not exist')) {
-        console.error('Database function not found - please run the SQL migration script');
-        return new Response(JSON.stringify({ 
-          error: 'Database function not found', 
-          message: 'Please run the SQL migration script to create the update_subscription_from_lemonsqueezy function',
-          details: error.message 
-        }), { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      // Other database errors
+      console.error('Database update error:', error);
       return new Response(JSON.stringify({ 
         error: 'Database Error', 
         message: 'Failed to update subscription data',
@@ -523,7 +508,23 @@ serve(async (req) => {
       });
     }
 
-    console.log('Database update successful');
+    // For Lifetime plans, ensure the lifetime_deal_status is set to active
+    if (subscriptionType === 'lifetime' && paymentStatus === 'paid') {
+      const { error: lifetimeError } = await supabase
+        .from('user_installations')
+        .update({
+          lifetime_deal_status: 'active',
+          subscription_end_date: null,
+          next_billing_date: null
+        })
+        .eq('email', customerEmail);
+
+      if (lifetimeError) {
+        console.error('Error updating lifetime status:', lifetimeError);
+      } else {
+        console.log('Successfully activated lifetime plan for:', customerEmail);
+      }
+    }
 
     // Handle specific event types
     switch (eventName) {
@@ -576,6 +577,25 @@ serve(async (req) => {
             console.error('Failed to cancel subscription:', error);
           } else {
             console.log('Successfully cancelled subscription:', userData.lemonsqueezy_subscription_id);
+            
+            // Update the user's subscription to Lifetime
+            const { error: updateError } = await supabase
+              .from('user_installations')
+              .update({
+                subscription_type: 'lifetime',
+                subscription_status: 'active',
+                payment_status: 'paid',
+                subscription_end_date: null, // Lifetime has no end date
+                next_billing_date: null, // Lifetime has no billing date
+                lifetime_deal_status: 'active'
+              })
+              .eq('email', customerEmail);
+
+            if (updateError) {
+              console.error('Error updating to lifetime plan:', updateError);
+            } else {
+              console.log('Successfully updated to lifetime plan for:', customerEmail);
+            }
           }
         }
       } catch (error) {
