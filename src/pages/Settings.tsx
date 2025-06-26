@@ -785,18 +785,22 @@ export default function Settings() {
     }
 
     try {
-      // For Lifetime Plan users, create a new checkout session instead of using quick checkout
-      if (subscription.subscriptionType === 'lifetime') {
-        const checkoutData = await lemonSqueezyService.createCheckoutSession('monthly', user.email);
-        if (checkoutData?.checkoutUrl) {
-          window.location.href = checkoutData.checkoutUrl;
-        } else {
-          throw new Error('No checkout URL received');
-        }
+      // For Monthly Pro users upgrading to Lifetime, add a special parameter
+      const customData = subscription.subscriptionType === 'monthly_pro' ? {
+        is_upgrade: 'true',
+        from_plan: 'monthly_pro'
+      } : undefined;
+
+      const checkoutData = await lemonSqueezyService.createCheckoutSession(
+        'lifetime',
+        user.email,
+        customData
+      );
+      
+      if (checkoutData?.checkoutUrl) {
+        window.location.href = checkoutData.checkoutUrl;
       } else {
-        // For other users, use the quick checkout URL
-        const checkoutUrl = lemonSqueezyService.getQuickCheckoutUrl('monthly', user.email);
-        window.location.href = checkoutUrl;
+        throw new Error('No checkout URL received');
       }
     } catch (error) {
       console.error('Error initiating checkout:', error);

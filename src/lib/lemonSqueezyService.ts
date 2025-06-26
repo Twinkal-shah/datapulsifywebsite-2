@@ -248,6 +248,30 @@ export class LemonSqueezyService {
 
     return `${baseUrl}?${params.toString()}`;
   }
+
+  /**
+   * Cancel a subscription
+   */
+  async cancelSubscription(subscriptionId: string): Promise<void> {
+    try {
+      const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Accept': 'application/vnd.api+json',
+          'Content-Type': 'application/vnd.api+json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Failed to cancel subscription: ${JSON.stringify(error)}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

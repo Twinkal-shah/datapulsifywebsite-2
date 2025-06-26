@@ -14,6 +14,8 @@ interface WebhookPayload {
       user_email?: string;
       plan_type?: string;
       variant_id?: string;
+      is_upgrade?: string;
+      from_plan?: string;
     };
   };
   data: {
@@ -213,15 +215,22 @@ serve(async (req) => {
       });
     }
     
-    const { meta, data } = payload
-    const eventName = meta.event_name
+    const { meta, data } = payload;
+    const eventName = meta.event_name;
+    const isUpgrade = meta.custom_data?.is_upgrade === 'true';
+    const fromPlan = meta.custom_data?.from_plan;
 
-    console.log('Processing webhook event:', eventName, data?.id || 'no-id')
+    console.log('Processing webhook event:', {
+      eventName,
+      isUpgrade,
+      fromPlan,
+      dataId: data?.id || 'no-id'
+    });
 
     // Initialize Supabase client
     console.log('Initializing Supabase client...');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     console.log('Environment check:', {
       supabaseUrl: supabaseUrl ? 'Present' : 'Missing',
@@ -240,14 +249,14 @@ serve(async (req) => {
     console.log('Supabase client created successfully');
 
     // Extract customer email from webhook data
-    const customerEmail = data?.attributes?.customer_email || meta?.custom_data?.user_email
+    const customerEmail = data?.attributes?.customer_email || meta?.custom_data?.user_email;
     
     if (!customerEmail) {
-      console.error('No customer email found in webhook data')
+      console.error('No customer email found in webhook data');
       return new Response('Bad Request: No customer email', { 
         status: 400, 
         headers: corsHeaders 
-      })
+      });
     }
 
     console.log('Processing for customer:', customerEmail);
@@ -535,6 +544,43 @@ serve(async (req) => {
         break
       default:
         console.log(`Unhandled event: ${eventName}`)
+    }
+
+    // For upgrades from Monthly Pro to Lifetime, we need to cancel the monthly subscription
+    if (isUpgrade && fromPlan === 'monthly_pro' && eventName === 'order_created') {
+      console.log('Processing upgrade from Monthly Pro to Lifetime');
+      
+      try {
+        // Get the user's current subscription details
+        const { data: userData, error: userError } = await supabase
+          .from('user_installations')
+          .select('lemonsqueezy_subscription_id')
+          .eq('email', customerEmail)
+          .single();
+
+        if (userError) {
+          console.error('Error fetching user subscription:', userError);
+        } else if (userData?.lemonsqueezy_subscription_id) {
+          // Cancel the existing monthly subscription
+          const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${userData.lemonsqueezy_subscription_id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('LEMONSQUEEZY_API_KEY')}`,
+              'Accept': 'application/vnd.api+json',
+              'Content-Type': 'application/vnd.api+json'
+            }
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            console.error('Failed to cancel subscription:', error);
+          } else {
+            console.log('Successfully cancelled subscription:', userData.lemonsqueezy_subscription_id);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing upgrade:', error);
+      }
     }
 
     return new Response(JSON.stringify({ success: true }), {

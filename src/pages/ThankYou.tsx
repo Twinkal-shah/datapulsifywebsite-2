@@ -53,6 +53,10 @@ const ThankYou = () => {
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Get plan type from URL parameters
+  const searchParams = new URLSearchParams(location.search);
+  const urlPlanType = searchParams.get('plan');
+
   // Fetch detailed purchase information
   const fetchPurchaseDetails = async () => {
     if (!user?.email) {
@@ -86,6 +90,11 @@ const ThankYou = () => {
       }
 
       if (data) {
+        // If we have a plan type from the URL, use that instead of the database value
+        // This handles the case where the database hasn't been updated yet
+        if (urlPlanType) {
+          data.subscription_type = urlPlanType === 'lifetime' ? 'lifetime' : 'monthly_pro';
+        }
         setPurchaseDetails(data);
       }
     } catch (err) {
@@ -140,7 +149,7 @@ const ThankYou = () => {
   }
 
   // Get display values
-  const planType = purchaseDetails?.subscription_type || subscriptionType || 'Free Plan';
+  const planType = urlPlanType || purchaseDetails?.subscription_type || subscriptionType || 'Free Plan';
   const planName = PLAN_NAMES[planType] || planType;
   const amount = purchaseDetails?.amount 
     ? `$${purchaseDetails.amount.toFixed(2)}${planType === 'monthly_pro' ? '/month' : ''}`
