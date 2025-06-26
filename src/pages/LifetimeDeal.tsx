@@ -27,7 +27,6 @@ const LifetimeDeal = () => {
     seconds: 12
   });
 
-  const [emailInput, setEmailInput] = useState('');
   const [slotsRemaining, setSlotsRemaining] = useState(315);
   const totalSlots = 349;
   const claimedSlots = totalSlots - slotsRemaining;
@@ -52,16 +51,7 @@ const LifetimeDeal = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailInput.trim()) {
-      toast({
-        title: "Email Required",
-        description: "Please enter your email address to proceed."
-      });
-      return;
-    }
-
+  const handleSubmit = () => {
     toast({
       title: "Processing...",
       description: "Taking you to the payment page."
@@ -174,18 +164,11 @@ const LifetimeDeal = () => {
                   </div>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
-                  <input 
-                    type="email" 
-                    placeholder="Enter your email" 
-                    className="flex-grow px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-white/50"
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                  />
-                  <button type="submit" className="btn-primary whitespace-nowrap py-3">
-                    Claim Your Spot Now
-                  </button>
-                </form>
+                <div className="text-center">
+                  <Link to="/pricing" className="btn-primary whitespace-nowrap py-3 px-8 w-full inline-block text-center">
+                    Claim Lifetime Deal
+                  </Link>
+                </div>
                 <p className="text-center text-xs text-gray-400 mt-3">
                   60-day money-back guarantee • Secure payment • Instant access
                 </p>
@@ -312,14 +295,21 @@ const LifetimeDeal = () => {
               </p>
             </div>
             
-            <div className="max-w-4xl mx-auto border-2 border-white/20 rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10">
-              <div className="aspect-w-16 aspect-h-9 bg-gray-900 flex items-center justify-center">
-                <div className="text-center p-8">
-                  <Play size={48} className="mx-auto mb-4 text-white" />
-                  <h3 className="text-xl font-medium">Product Demo</h3>
-                  <p className="text-sm text-gray-400 mt-2">Click to watch a quick demonstration</p>
+            <div className="max-w-4xl mx-auto border-2 border-white/20 rounded-xl overflow-hidden shadow-2xl shadow-purple-500/10 hover:border-white/40 transition-all duration-300">
+              <a 
+                href="https://app.arcade.software/share/3vKxZRWFqZGznMAlhDoC" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block aspect-w-16 aspect-h-9 bg-gray-900 hover:bg-gray-800 transition-colors duration-300"
+              >
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <Play size={48} className="mx-auto mb-4 text-white hover:text-blue-400 transition-colors duration-300" />
+                    <h3 className="text-xl font-medium text-white">Take a Live Tour</h3>
+                    <p className="text-sm text-gray-400 mt-2">Click to explore DataPulsify's powerful features</p>
+                  </div>
                 </div>
-              </div>
+              </a>
             </div>
           </div>
         </section>
@@ -458,9 +448,9 @@ const LifetimeDeal = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row justify-center gap-4 max-w-md mx-auto">
-                <a href="#pricing" className="btn-primary py-3 px-8 text-lg font-medium">
-                  Claim Your Spot Now
-                </a>
+                <Link to="/pricing" className="btn-primary py-3 px-8 text-lg font-medium">
+                  Claim Lifetime Deal
+                </Link>
                 <Link to="/" className="btn-secondary py-3 px-8 text-lg font-medium">
                   Learn More
                 </Link>

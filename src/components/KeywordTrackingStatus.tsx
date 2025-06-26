@@ -60,7 +60,9 @@ export const KeywordTrackingStatus: React.FC<KeywordTrackingStatusProps> = ({
           {showBadge && (
             <Badge variant={getBadgeVariant()} className={cn(
               "text-xs",
-              stats.limit === Infinity ? "text-white bg-blue-600 border-blue-600" : ""
+              stats.limit === Infinity ? "text-white bg-blue-600 border-blue-600" : "",
+              // Fix Active badge visibility with proper colors
+              getStatusText() === 'Active' ? "text-blue-400 bg-blue-900/30 border-blue-700" : ""
             )}>
               {getStatusText()}
             </Badge>

@@ -162,7 +162,7 @@ const Pricing: React.FC = () => {
             Our team is here to help you select the perfect plan for your needs.
           </p>
           <Link to="/contact-us">
-            <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800">
+            <Button variant="outline" className="border-gray-600 text-black hover:bg-gray-800 hover:text-white">
               Contact Support
             </Button>
           </Link>

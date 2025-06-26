@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, subDays, subMonths, subWeeks, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { Line } from 'react-chartjs-2';
-import { AlertCircle, CalendarIcon, Search, ArrowUp, ArrowDown, Minus, Download, Upload, Filter, ChevronLeft, ChevronRight, X, Plus, Loader2 } from 'lucide-react';
+import { AlertCircle, CalendarIcon, Search, ArrowUp, ArrowDown, Minus, Download, Filter, ChevronLeft, ChevronRight, X, Plus, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { gscService, GSCDataPoint } from '@/lib/gscService';
 import { useToast } from '@/hooks/use-toast';
@@ -283,7 +283,10 @@ export default function RankTracker() {
     try {
       setLoading(true);
       setError(null);
-      const { startDate, endDate } = getDateRange(dateRange);
+      // For monthly view, always use 12 months of data regardless of dateRange filter
+      const { startDate, endDate } = viewMode === 'monthly' 
+        ? getDateRange('12m') 
+        : getDateRange(dateRange);
       const gscProperty = getGSCProperty()!;
       const token = getGSCToken()!;
 
@@ -449,52 +452,7 @@ export default function RankTracker() {
     }
   };
 
-  // Handle CSV upload
-  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n');
-      
-      const keywordsToTrack = lines
-        .map(line => line.trim())
-        .filter(line => line) // Remove empty lines
-        .map(keyword => ({
-          keyword,
-          type: classifyKeywordType(keyword) as 'branded' | 'non-branded',
-          intent: classifyKeywordIntent(keyword) as 'tofu' | 'mofu' | 'bofu' | 'unknown'
-        }));
-
-      if (keywordsToTrack.length === 0) {
-        toast({
-          title: "No Keywords Found",
-          description: "The CSV file doesn't contain any valid keywords",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { success, failed } = await trackMultipleKeywords(keywordsToTrack);
-      
-      toast({
-        title: "CSV Import Complete",
-        description: `${success} keywords tracked successfully, ${failed} failed`,
-        variant: success > 0 ? "default" : "destructive",
-      });
-
-      if (success > 0) {
-        // Refresh keyword data silently after successful import
-        await fetchKeywordData();
-      }
-    };
-    reader.readAsText(file);
-    
-    // Clear the input so the same file can be uploaded again
-    event.target.value = '';
-  };
 
   // Export keywords to CSV
   const exportCSV = async () => {
@@ -661,7 +619,7 @@ export default function RankTracker() {
 
           {/* Filters Row */}
           <SubscriptionOverlay featureName="rank_tracker_filters">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               <Select value={dateRange} onValueChange={(value) => { setDateRange(value); setCurrentPage(1); }}>
                 <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-gray-300">
                   <SelectValue placeholder="Select date range" />
@@ -721,23 +679,6 @@ export default function RankTracker() {
               >
                 <Download className="h-4 w-4 mr-2" /> Export
               </Button>
-
-              <div className="relative">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCSVUpload}
-                  className="hidden"
-                  id="csv-upload-filter"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById('csv-upload-filter')?.click()}
-                  className="w-full bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-green-300"
-                >
-                  <Upload className="h-4 w-4 mr-2" /> Import
-                </Button>
-              </div>
             </div>
           </SubscriptionOverlay>
             
