@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { VIDEO_URLS } from '@/config/videoConfig';
 
 const TabsSection = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -40,13 +41,19 @@ const TabsSection = () => {
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
                   <video 
-                    src="/videos/(Web) DP Dashboard Final Video.mp4"
+                    src={VIDEO_URLS.dashboardFinal}
                     autoPlay
                     loop
                     muted
                     playsInline
                     className="w-full h-auto"
+                    onError={(e) => {
+                      console.error('Video failed to load:', e);
+                      // Fallback to local path
+                      e.currentTarget.src = '/videos/dashboard-final-video.mp4';
+                    }}
                   >
+                    Your browser does not support the video tag.
                   </video>
                 </div>
               </div>
@@ -56,13 +63,19 @@ const TabsSection = () => {
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
                   <video 
-                    src="/videos/dp-addon-working.mp4"
+                    src={VIDEO_URLS.dpAddonWorking}
                     autoPlay
                     loop
                     muted
                     playsInline
                     className="w-full h-auto"
+                    onError={(e) => {
+                      console.error('Video failed to load:', e);
+                      // Fallback to local path
+                      e.currentTarget.src = '/videos/dp-addon-working.mp4';
+                    }}
                   >
+                    Your browser does not support the video tag.
                   </video>
                 </div>
               </div>

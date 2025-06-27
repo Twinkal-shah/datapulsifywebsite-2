@@ -17,6 +17,7 @@ import FeatureCard from '@/components/FeatureCard';
 import PricingCalculator from '@/components/PricingCalculator';
 import ProgressBar from '@/components/ProgressBar';
 import ProductScreenshot from '@/components/ProductScreenshot';
+import { VIDEO_URLS } from '@/config/videoConfig';
 
 const LifetimeDeal = () => {
   const navigate = useNavigate();
@@ -92,19 +93,19 @@ const LifetimeDeal = () => {
   const productScreenshots = [
     {
       id: 1,
-      src: "/videos/quick-win-screenshot.gif",
+      src: VIDEO_URLS.quickWin,
       alt: "Quick-Win Analysis",
       caption: "Identify quick-win opportunities for immediate ranking improvements"
     },
     {
       id: 2,
-      src: "/videos/track-weekly-keyword-rankings.gif",
+      src: VIDEO_URLS.weeklyRankings,
       alt: "Weekly Keyword Tracking",
       caption: "Track weekly keyword rankings effortlessly with automated insights"
     },
     {
       id: 3,
-      src: "/videos/google-sheets-integration.gif",
+      src: VIDEO_URLS.googleSheetsIntegration,
       alt: "Marketing Assets & Videos",
       caption: "Comprehensive marketing assets and video demonstrations"
     }

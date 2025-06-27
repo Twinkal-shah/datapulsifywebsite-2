@@ -14,6 +14,7 @@ import {
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import LottieBackground from '@/components/LottieBackground';
+import { VIDEO_URLS } from '@/config/videoConfig';
 
 const GoogleSheetsAddon = () => {
   // Scroll animations effect
@@ -140,10 +141,15 @@ const GoogleSheetsAddon = () => {
             <div className="relative hero-visual mb-4 md:mb-6 animate-fade-in animate-delay-300">
               <div className="relative w-full aspect-[4/3] bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl overflow-hidden border border-gray-700 animate-float">
                 <img
-                  src="/videos/Final SEO Data Website Hero Section.gif"
+                  src={VIDEO_URLS.dashboardHero}
                   alt="Google Sheets Add-on Demo"
                   className="w-full h-full object-cover"
                   loading="eager"
+                  onError={(e) => {
+                    console.error('Image failed to load:', e);
+                    // Fallback to local path
+                    e.currentTarget.src = '/videos/dashboard-hero-section.gif';
+                  }}
                 />
               </div>
               {/* Decorative elements */}
