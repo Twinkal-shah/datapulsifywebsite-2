@@ -72,7 +72,7 @@ const TabsSection = () => {
                     onError={(e) => {
                       console.error('Video failed to load:', e);
                       // Fallback to local path
-                      e.currentTarget.src = '/videos//web-dp-add-on.mp4';
+                      e.currentTarget.src = '/videos/web-dp-add-on.mp4';
                     }}
                   >
                     Your browser does not support the video tag.
