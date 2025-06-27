@@ -39,11 +39,15 @@ const TabsSection = () => {
             {activeTab === 'dashboard' && (
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
-                  <img 
-                    src="/videos/track-weekly-keyword-rankings.gif"
-                    alt="Dashboard View"
+                  <video 
+                    src="/videos/(Web) DP Dashboard Final Video.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
                     className="w-full h-auto"
-                  />
+                  >
+                  </video>
                 </div>
               </div>
             )}
@@ -51,11 +55,15 @@ const TabsSection = () => {
             {activeTab === 'sheet' && (
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
-                  <img 
-                    src="/videos/google-sheets-integration.gif" 
-                    alt="Google Sheet Integration"
+                  <video 
+                    src="/videos/dp-addon-working.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
                     className="w-full h-auto"
-                  />
+                  >
+                  </video>
                 </div>
               </div>
             )}
