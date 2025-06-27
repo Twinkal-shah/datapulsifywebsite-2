@@ -42,7 +42,7 @@ export class GSCService {
   private readonly RATE_LIMIT = 10; // requests per second
   private isTestMode = false;
   private googleAuthService: GoogleAuthService;
-  
+
   constructor() {
     this.cache = new CacheManager();
     this.googleAuthService = new GoogleAuthService();
@@ -108,7 +108,7 @@ export class GSCService {
       // Validate and fix CTR
       if (validatedItem.ctr < 0 || validatedItem.ctr > 1) {
         console.warn(`Data validation warning: invalid CTR for item ${index}`);
-        validatedItem.ctr = validatedItem.impressions > 0 ? 
+        validatedItem.ctr = validatedItem.impressions > 0 ?
           validatedItem.clicks / validatedItem.impressions : 0;
       }
 
@@ -126,22 +126,22 @@ export class GSCService {
   // Add this function at the top of the class
   private formatSiteUrlForApi(siteUrl: string): string {
     if (!siteUrl) return '';
-    
+
     // Remove any protocol prefix if it exists
     let cleanUrl = siteUrl.replace(/^https?:\/\//, '');
-    
+
     // If it's in sc-domain: format
     if (cleanUrl.startsWith('sc-domain:')) {
       return cleanUrl; // Return as is, without any protocol prefix
     }
-    
+
     // For regular URLs, ensure they start with https://
     return `https://${cleanUrl}`;
   }
 
   // Add this method before fetchSearchAnalyticsData
   private generateCacheKey(params: GSCSearchAnalyticsParams): string {
-    const filterKey = params.dimensionFilterGroups ? 
+    const filterKey = params.dimensionFilterGroups ?
       `:filters:${JSON.stringify(params.dimensionFilterGroups)}` : '';
     return `gsc:${params.siteUrl}:${params.startDate}:${params.endDate}:${params.dimensions?.join(',')}${filterKey}`;
   }
@@ -150,9 +150,9 @@ export class GSCService {
   async fetchSearchAnalyticsData(params: GSCSearchAnalyticsParams): Promise<GSCDataPoint[]> {
     try {
       const cacheKey = this.generateCacheKey(params);
-      
+
       const cachedData = await this.cache.get(cacheKey) as GSCDataPoint[] | null;
-      
+
       if (cachedData) {
         return this.validateSearchAnalyticsData(cachedData);
       }
@@ -168,9 +168,9 @@ export class GSCService {
       console.log('Formatted site URL for API:', formattedSiteUrl);
 
       // Don't encode the URL for sc-domain: format
-      const apiUrl = formattedSiteUrl.startsWith('sc-domain:') 
+      const apiUrl = formattedSiteUrl.startsWith('sc-domain:')
         ? `https://www.googleapis.com/webmasters/v3/sites/${formattedSiteUrl}/searchAnalytics/query`
-        : `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(`https://${formattedSiteUrl}`)}/searchAnalytics/query`;
+        : `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(formattedSiteUrl)}/searchAnalytics/query`;
 
       console.log('Final API URL:', apiUrl);
 
@@ -227,23 +227,23 @@ export class GSCService {
 
   private async processQueue() {
     if (this.isProcessingQueue || this.requestQueue.length === 0) return;
-    
+
     this.isProcessingQueue = true;
-    
+
     while (this.requestQueue.length > 0) {
       const { request, resolve, reject } = this.requestQueue.shift()!;
-      
+
       try {
         const result = await request();
         resolve(result);
       } catch (error) {
         reject(error);
       }
-      
+
       // Rate limiting delay
       await new Promise(resolve => setTimeout(resolve, 1000 / this.RATE_LIMIT));
     }
-    
+
     this.isProcessingQueue = false;
   }
 
@@ -297,7 +297,7 @@ export class GSCService {
         dimensions: ['query'],
         rowLimit: limit
       });
-      
+
       return data.sort((a, b) => b.clicks - a.clicks).slice(0, limit);
     } catch (error) {
       console.error('Error fetching top queries:', error);
@@ -422,10 +422,10 @@ export class GSCService {
       const trendData = await this.getTrendData(targetSiteUrl, startDate, endDate);
 
       console.log(`Sync completed: ${queries.length} queries, ${pages.length} pages, ${devices.length} devices, ${countries.length} countries`);
-      
+
       // Store sync timestamp
       localStorage.setItem('last_gsc_sync', new Date().toISOString());
-      
+
     } catch (error) {
       console.error('Error syncing GSC data:', error);
       throw error;
@@ -446,7 +446,7 @@ export class GSCService {
         dimensions: ['page'],
         rowLimit: limit
       });
-      
+
       return data.sort((a, b) => b.clicks - a.clicks).slice(0, limit);
     } catch (error) {
       console.error('Error fetching top pages:', error);
@@ -473,7 +473,7 @@ export class GSCService {
         dimensions: ['query'],
         rowLimit: 25000 // Maximum allowed by GSC API
       });
-      
+
       return {
         top3: data.filter(item => item.position <= 3).length,
         top10: data.filter(item => item.position > 3 && item.position <= 10).length,
@@ -510,7 +510,7 @@ export class GSCService {
           startDate,
           endDate,
           dimensions: ['country'],
-          rowLimit: 1000, 
+          rowLimit: 1000,
         });
         console.log('[gscService] Data from first attempt (country only for impression filtering):', JSON.parse(JSON.stringify(dataForCountryList)));
       } catch (e: any) {
@@ -522,11 +522,11 @@ export class GSCService {
         .filter(item => item.country && item.impressions > 1)
         .map(item => item.country!)
         .filter(Boolean) as string[];
-      
+
       let uniqueCountryCodes = [...new Set(countriesWithSufficientImpressions)]
-        .filter(countryCode => 
-          typeof countryCode === 'string' && 
-          countryCode.length === 3 && 
+        .filter(countryCode =>
+          typeof countryCode === 'string' &&
+          countryCode.length === 3 &&
           countryCode.toLowerCase() !== 'zzz'
         )
         .sort();
@@ -542,8 +542,8 @@ export class GSCService {
             siteUrl,
             startDate,
             endDate,
-            dimensions: ['country', 'query'], 
-            rowLimit: 5000 
+            dimensions: ['country', 'query'],
+            rowLimit: 5000
           });
           console.log('[gscService] Data from second attempt (country, query for fallback):', JSON.parse(JSON.stringify(fallbackData)));
         } catch (e: any) {
@@ -555,25 +555,25 @@ export class GSCService {
           console.warn('[gscService] Both attempts yielded no country data. Returning default.');
           return [{ label: 'All Countries', value: 'all' }];
         }
-        
+
         allAvailableCountryCodes = [...new Set(fallbackData.map(item => item.country).filter(Boolean))]
-          .filter(countryCode => 
-            typeof countryCode === 'string' && 
-            countryCode.length === 3 && 
+          .filter(countryCode =>
+            typeof countryCode === 'string' &&
+            countryCode.length === 3 &&
             countryCode.toLowerCase() !== 'zzz'
           )
           .sort();
-        
+
         // Use this list if the impression-filtered list was empty
         if (allAvailableCountryCodes.length > 0 && uniqueCountryCodes.length === 0) {
-            uniqueCountryCodes = allAvailableCountryCodes;
-            console.log('[gscService] Using fallback list of all unique country codes as no countries met impression threshold:', uniqueCountryCodes);
+          uniqueCountryCodes = allAvailableCountryCodes;
+          console.log('[gscService] Using fallback list of all unique country codes as no countries met impression threshold:', uniqueCountryCodes);
         } else if (uniqueCountryCodes.length === 0 && allAvailableCountryCodes.length === 0) {
-             console.warn('[gscService] No valid unique country codes extracted even from fallback. Returning default.');
-            return [{ label: 'All Countries', value: 'all' }];
+          console.warn('[gscService] No valid unique country codes extracted even from fallback. Returning default.');
+          return [{ label: 'All Countries', value: 'all' }];
         }
       }
-      
+
       // If after all attempts, uniqueCountryCodes is still empty, then default.
       if (uniqueCountryCodes.length === 0) {
         console.warn('[gscService] No valid unique country codes to display after all checks. Returning default.');
