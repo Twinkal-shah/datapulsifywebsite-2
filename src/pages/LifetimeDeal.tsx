@@ -16,7 +16,6 @@ import TestimonialCard from '@/components/TestimonialCard';
 import FeatureCard from '@/components/FeatureCard';
 import PricingCalculator from '@/components/PricingCalculator';
 import ProgressBar from '@/components/ProgressBar';
-import ProductScreenshot from '@/components/ProductScreenshot';
 import { VIDEO_URLS } from '@/config/videoConfig';
 
 const LifetimeDeal = () => {
@@ -87,27 +86,6 @@ const LifetimeDeal = () => {
       name: "Rebecca Torres",
       position: "Freelance SEO Consultant",
       rating: 5
-    }
-  ];
-
-  const productScreenshots = [
-    {
-      id: 1,
-      src: VIDEO_URLS.quickWin,
-      alt: "Quick-Win Analysis",
-      caption: "Identify quick-win opportunities for immediate ranking improvements"
-    },
-    {
-      id: 2,
-      src: VIDEO_URLS.weeklyRankings,
-      alt: "Weekly Keyword Tracking",
-      caption: "Track weekly keyword rankings effortlessly with automated insights"
-    },
-    {
-      id: 3,
-      src: VIDEO_URLS.googleSheetsIntegration,
-      alt: "Marketing Assets & Videos",
-      caption: "Comprehensive marketing assets and video demonstrations"
     }
   ];
 
@@ -207,27 +185,6 @@ const LifetimeDeal = () => {
           </div>
         </section>
 
-        {/* Real Insights Section */}
-        <section id="real-insights" className="py-20 bg-gradient-to-br from-gray-900 to-black">
-          <div className="container-section">
-            <h2 className="section-title">What You'll Actually See</h2>
-            <p className="section-subtitle">
-              Real screenshots from actual users showing the powerful insights Datapulsify provides
-            </p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
-              {productScreenshots.map((screenshot) => (
-                <ProductScreenshot 
-                  key={screenshot.id}
-                  src={screenshot.src}
-                  alt={screenshot.alt}
-                  caption={screenshot.caption}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-        
         {/* Features Section */}
         <section id="features" className="py-20 bg-black">
           <div className="container-section">

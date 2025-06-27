@@ -63,7 +63,7 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
         console.warn('Auth loading has been stuck for 15 seconds, automatically refreshing...');
         // Automatically refresh the page to recover from stuck loading
         window.location.reload();
-      }, 1000); // 15 second timeout - only for truly stuck states
+      }, 2000); // 15 second timeout - only for truly stuck states
     } else {
       // Clear timeout if auth loading finishes
       if (authLoadingTimeoutRef.current) {
