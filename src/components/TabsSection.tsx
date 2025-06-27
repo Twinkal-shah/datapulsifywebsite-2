@@ -72,7 +72,7 @@ const TabsSection = () => {
                     onError={(e) => {
                       console.error('Video failed to load:', e);
                       // Fallback to local path
-                      e.currentTarget.src = 'https://res.cloudinary.com/dqqv3zxzp/video/upload/v1751003944/web-dp-add-on_rmolpq.mp4';
+                      e.currentTarget.src = '';
                     }}
                   >
                     Your browser does not support the video tag.
