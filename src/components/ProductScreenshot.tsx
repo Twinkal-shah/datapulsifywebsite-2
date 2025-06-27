@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React from 'react';
 
 type ProductScreenshotProps = {
   src: string;
@@ -7,18 +8,6 @@ type ProductScreenshotProps = {
 };
 
 const ProductScreenshot: React.FC<ProductScreenshotProps> = ({ src, alt, caption }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-
-  const handleImageLoad = () => {
-    setImageLoaded(true);
-  };
-
-  const handleImageError = () => {
-    setImageError(true);
-    console.error(`Failed to load image: ${src}`);
-  };
-
   return (
     <div className="flex flex-col">
       <div className="bg-black/40 backdrop-blur-sm border border-white/20 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
@@ -30,31 +19,12 @@ const ProductScreenshot: React.FC<ProductScreenshotProps> = ({ src, alt, caption
           </div>
           <div className="text-xs text-gray-400 truncate">{alt}</div>
         </div>
-        <div className="relative min-h-[200px] bg-gray-900/50">
-          {!imageLoaded && !imageError && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-gray-400 text-sm">Loading...</div>
-            </div>
-          )}
-          {imageError ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-red-400 text-sm text-center p-4">
-                Failed to load image<br />
-                <span className="text-xs text-gray-500">{src}</span>
-              </div>
-            </div>
-          ) : (
-            <img 
-              src={src} 
-              alt={alt} 
-              loading="lazy"
-              onLoad={handleImageLoad}
-              onError={handleImageError}
-              className={`w-full object-cover hover:scale-105 transition-transform duration-500 ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
-          )}
+        <div className="relative">
+          <img 
+            src={src} 
+            alt={alt} 
+            className="w-full object-cover hover:scale-105 transition-transform duration-500"
+          />
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/70 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-end">
             <div className="p-4 text-white text-sm">
               Click to enlarge
