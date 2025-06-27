@@ -40,7 +40,7 @@ const TabsSection = () => {
               <div className="animate-fade-in">
                 <div className="rounded-xl shadow-2xl overflow-hidden ">
                   <img 
-                    src="/videos/dashboard-hero-section.gif"
+                    src="/videos/track-weekly-keyword-rankings.gif"
                     alt="Dashboard View"
                     className="w-full h-auto"
                   />
