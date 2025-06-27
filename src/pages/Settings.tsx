@@ -220,20 +220,57 @@ export default function Settings() {
     const justAuthenticated = sessionStorage.getItem('gsc_auth_pending');
     if (justAuthenticated) {
       sessionStorage.removeItem('gsc_auth_pending');
+      
       // Navigate to GSC settings tab
       const searchParams = new URLSearchParams(location.search);
       if (!searchParams.has('tab')) {
         navigate('/settings/googlesearchconsole?tab=gsc', { replace: true });
       }
       
-      // Show success toast after navigation
-      setTimeout(() => {
-        toast({
-          title: "Google Search Console Connected",
-          description: "Your account has been successfully connected. Please select a property below.",
-          variant: "default",
-        });
-      }, 500);
+      // Show success toast and fetch properties
+      setTimeout(async () => {
+        const token = localStorage.getItem('gsc_token');
+        if (token) {
+          toast({
+            title: "Google Search Console Connected",
+            description: "Your account has been successfully connected. Loading your properties...",
+            variant: "default",
+          });
+          
+          // Force refresh of properties
+          try {
+            const googleAuth = new GoogleAuthService();
+            const properties = await googleAuth.fetchGSCProperties();
+            setGscProperties(properties.map(p => p.siteUrl));
+            
+            if (properties.length > 0) {
+              toast({
+                title: "Properties Loaded",
+                description: `Found ${properties.length} GSC property(ies). Please select one below.`,
+                variant: "default",
+              });
+            } else {
+              toast({
+                title: "No Properties Found",
+                description: "No GSC properties found. Make sure you have added your website to Google Search Console.",
+                variant: "destructive",
+              });
+            }
+          } catch (error) {
+            toast({
+              title: "Error Loading Properties",
+              description: error.message || "Failed to load GSC properties. Please try refreshing the page.",
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: "Authentication Issue",
+            description: "Token not found after authentication. Please try connecting again.",
+            variant: "destructive",
+          });
+        }
+      }, 1000);
     }
     
     // Load other settings from localStorage
@@ -261,8 +298,25 @@ export default function Settings() {
         }
 
         // Fetch actual GSC properties
+        console.log('🔍 Fetching GSC properties in Settings...');
         const googleAuth = new GoogleAuthService();
+        
+        // First validate the token
+        const isTokenValid = await googleAuth.validateToken(token);
+        if (!isTokenValid) {
+          console.warn('⚠️ Token validation failed, attempting refresh...');
+          const refreshedToken = await googleAuth.validateAndRefreshToken();
+          if (!refreshedToken) {
+            console.error('❌ Token refresh failed, clearing auth');
+            localStorage.removeItem('gsc_token');
+            localStorage.removeItem('gsc_refresh_token');
+            setLoading(false);
+            return;
+          }
+        }
+        
         const properties = await googleAuth.fetchGSCProperties();
+        console.log('📊 Properties fetched in Settings:', properties);
         setGscProperties(properties.map(p => p.siteUrl));
 
         // Get last sync date from localStorage
@@ -540,12 +594,36 @@ export default function Settings() {
     try {
       setLoading(true);
       const googleAuth = new GoogleAuthService();
+      
+      // Check if authentication is already in progress
+      if (googleAuth.isAuthInProgress()) {
+        toast({
+          title: 'Authentication in Progress',
+          description: 'An authentication process is already running. Please wait or refresh the page if stuck.',
+          variant: 'default'
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Clear any previous auth state to prevent conflicts
+      googleAuth.clearAuthState();
+      
+      // Show guidance to user
+      toast({
+        title: 'Connecting to Google',
+        description: 'Please complete the authentication in the popup window. Do not close this tab.',
+        variant: 'default'
+      });
+      
       await googleAuth.initiateGSCAuth();
     } catch (error) {
       console.error('Error connecting to GSC:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect to Google Search Console';
+      
       toast({
-        title: 'Error',
-        description: 'Failed to connect to Google Search Console',
+        title: 'Connection Error',
+        description: errorMessage,
         variant: 'destructive'
       });
       setLoading(false);
@@ -1247,95 +1325,76 @@ export default function Settings() {
 
             {/* Google Search Console Tab */}
             <TabsContent value="gsc" className="space-y-4">
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-white">Google Search Console Integration</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Connect your GSC account to fetch performance data
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {isConnected ? (
-                    <>
-                      <div className="flex items-center gap-2 text-green-500">
-                        <Check className="h-5 w-5" />
-                        <span>Connected to Google Search Console</span>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="property" className="text-gray-300">Select GSC Property</Label>
-                        <Select
-                          value={selectedProperty}
-                          onValueChange={handlePropertySelect}
-                        >
-                          <SelectTrigger id="property" className="bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
-                            <SelectValue placeholder="Select a property" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-gray-700 border-gray-600 text-white">
-                            {gscProperties.map((property, index) => (
-                              <SelectItem key={index} value={property} className="text-white focus:bg-gray-600 focus:text-white">
-                                {property}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="sync-frequency" className="text-gray-300">Sync Frequency</Label>
-                        <Select
-                          value={syncFrequency}
-                          onValueChange={setSyncFrequency}
-                        >
-                          <SelectTrigger id="sync-frequency" className="bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
-                            <SelectValue placeholder="Select frequency" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-gray-700 border-gray-600 text-white">
-                            <SelectItem value="hourly" className="text-white focus:bg-gray-600 focus:text-white">Hourly</SelectItem>
-                            <SelectItem value="daily" className="text-white focus:bg-gray-600 focus:text-white">Daily</SelectItem>
-                            <SelectItem value="weekly" className="text-white focus:bg-gray-600 focus:text-white">Weekly</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex items-center justify-between py-2">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="auto-sync" className="text-gray-300">Auto Sync</Label>
-                          <p className="text-sm text-gray-400">
-                            Automatically sync new GSC data
-                          </p>
-                        </div>
-                        <Switch
-                          id="auto-sync"
-                          checked={autoSync}
-                          onCheckedChange={setAutoSync}
-                        />
-                      </div>
-
-                      {lastSyncDate && (
-                        <p className="text-sm text-gray-400">
-                          Last synced: {new Date(lastSyncDate).toLocaleString()}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-center py-6">
-                      <Globe className="h-12 w-12 mx-auto mb-4 text-blue-400 opacity-80" />
-                      <h3 className="text-lg font-medium mb-2 text-white">Connect to Google Search Console</h3>
-                      <p className="text-gray-400 mb-4 max-w-md mx-auto">
-                        Connect your Google Search Console account to import your website's performance data and keyword rankings.
-                      </p>
-                      <Button
-                        onClick={handleGoogleAuth}
-                        disabled={loading}
-                        className="w-full max-w-sm bg-blue-600 hover:bg-blue-700"
-                      >
-                        {loading ? 'Connecting...' : 'Connect GSC Account'}
-                      </Button>
+              {isConnected ? (
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-white">Google Search Console Integration</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Connect your GSC account to fetch performance data
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-2 text-green-500">
+                      <Check className="h-5 w-5" />
+                      <span>Connected to Google Search Console</span>
                     </div>
-                  )}
-                </CardContent>
-                {isConnected && (
+
+                    <div className="space-y-2">
+                      <Label htmlFor="property" className="text-gray-300">Select GSC Property</Label>
+                      <Select
+                        value={selectedProperty}
+                        onValueChange={handlePropertySelect}
+                      >
+                        <SelectTrigger id="property" className="bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
+                          <SelectValue placeholder="Select a property" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-700 border-gray-600 text-white">
+                          {gscProperties.map((property, index) => (
+                            <SelectItem key={index} value={property} className="text-white focus:bg-gray-600 focus:text-white">
+                              {property}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sync-frequency" className="text-gray-300">Sync Frequency</Label>
+                      <Select
+                        value={syncFrequency}
+                        onValueChange={setSyncFrequency}
+                      >
+                        <SelectTrigger id="sync-frequency" className="bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
+                          <SelectValue placeholder="Select frequency" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-700 border-gray-600 text-white">
+                          <SelectItem value="hourly" className="text-white focus:bg-gray-600 focus:text-white">Hourly</SelectItem>
+                          <SelectItem value="daily" className="text-white focus:bg-gray-600 focus:text-white">Daily</SelectItem>
+                          <SelectItem value="weekly" className="text-white focus:bg-gray-600 focus:text-white">Weekly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between py-2">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-sync" className="text-gray-300">Auto Sync</Label>
+                        <p className="text-sm text-gray-400">
+                          Automatically sync new GSC data
+                        </p>
+                      </div>
+                      <Switch
+                        id="auto-sync"
+                        checked={autoSync}
+                        onCheckedChange={setAutoSync}
+                      />
+                    </div>
+
+                    {lastSyncDate && (
+                      <p className="text-sm text-gray-400">
+                        Last synced: {new Date(lastSyncDate).toLocaleString()}
+                      </p>
+                    )}
+                  </CardContent>
                   <CardFooter className="flex justify-between">
                     <Button
                       variant="outline"
@@ -1353,8 +1412,58 @@ export default function Settings() {
                       {syncLoading ? 'Syncing...' : 'Sync Now'}
                     </Button>
                   </CardFooter>
-                )}
-              </Card>
+                </Card>
+              ) : (
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardContent className="p-8">
+                    <div className="space-y-8">
+                      {/* Header in top-left */}
+                      <div className="space-y-2">
+                        <h1 className="text-3xl font-bold text-white">Google Search Console Integration</h1>
+                        <p className="text-gray-400 text-lg">
+                          Connect your GSC account to fetch performance data
+                        </p>
+                      </div>
+
+                      {/* Centered content */}
+                      <div className="min-h-[250px] flex items-center justify-center">
+                        <div className="max-w-md w-full text-center space-y-6">
+                          {/* Globe Icon */}
+                          <div className="flex justify-center">
+                            <div className="w-24 h-24 rounded-full bg-blue-500/20 flex items-center justify-center">
+                              <Globe className="w-12 h-12 text-blue-400" />
+                            </div>
+                          </div>
+
+                          {/* Content */}
+                          <div className="space-y-4">
+                            <h2 className="text-2xl font-semibold text-white">Connect to Google Search Console</h2>
+                            <p className="text-gray-400 text-base leading-relaxed">
+                              Connect your Google Search Console account to import your website's performance data and keyword rankings.
+                            </p>
+
+                            {/* Connect Button */}
+                            <Button
+                              onClick={handleGoogleAuth}
+                              disabled={loading}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium rounded-lg"
+                            >
+                              {loading ? (
+                                <>
+                                  <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                                  Connecting...
+                                </>
+                              ) : (
+                                'Connect GSC Account'
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Account Settings Tab */}

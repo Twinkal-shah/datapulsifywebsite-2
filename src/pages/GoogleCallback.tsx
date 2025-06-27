@@ -8,9 +8,17 @@ export const GoogleCallback: React.FC = () => {
   const [status, setStatus] = useState<string>('Connecting to Google Search Console...');
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent multiple executions (React StrictMode protection)
+      if (isProcessing) {
+        console.log('⚠️ Callback already processing, skipping...');
+        return;
+      }
+      
+      setIsProcessing(true);
       try {
         setStatus('Verifying authentication...');
         
@@ -19,13 +27,6 @@ export const GoogleCallback: React.FC = () => {
         const code = urlParams.get('code');
         const state = urlParams.get('state');
         const oauthError = urlParams.get('error');
-
-        console.log('Google callback parameters:', { 
-          code: code ? 'present' : 'missing', 
-          state: state ? state.substring(0, 10) + '...' : 'missing', 
-          error: oauthError || 'none',
-          fullUrl: window.location.href
-        });
 
         // Check for OAuth errors first
         if (oauthError) {
@@ -49,31 +50,40 @@ export const GoogleCallback: React.FC = () => {
           return;
         }
 
+        // Check if token was stored
+        const token = localStorage.getItem('gsc_token');
+        if (!token) {
+          setError('Authentication completed but no token was stored. Please try connecting again.');
+          return;
+        }
+
         setStatus('Authentication successful! Redirecting to settings...');
         
         // Set a flag to indicate recent authentication
         sessionStorage.setItem('gsc_auth_pending', 'true');
         
-        // Wait a moment to ensure tokens are properly stored
+        // Wait a moment to ensure navigation is ready
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Redirect to GSC settings page instead of dashboard
-        // This allows users to immediately select their property
+        // Redirect to GSC settings page
         navigate('/settings/googlesearchconsole');
       } catch (error) {
-        console.error('Authentication error:', error);
+        setIsProcessing(false); // Reset on error
         const errorMessage = error instanceof Error ? error.message : 'An error occurred during authentication';
         
-        // Check if this is a state validation error
-        if (errorMessage.includes('Invalid authentication state')) {
-          setError(`Authentication state validation failed. This usually happens when:
-• The authentication was started in a different browser tab
-• The browser storage was cleared during authentication
-• Multiple authentication attempts were made simultaneously
-
-Please try connecting to Google Search Console again from the settings page.`);
-        } else {
+        // Check if this is a state validation error and provide detailed guidance
+        if (errorMessage.includes('Authentication state validation failed') || 
+            errorMessage.includes('Invalid authentication state')) {
           setError(errorMessage);
+        } else {
+          // For other errors, provide basic guidance
+          setError(`${errorMessage}
+
+If this problem persists, try:
+1. Clearing your browser cache and cookies
+2. Disabling browser extensions temporarily
+3. Using an incognito/private browsing window
+4. Contacting support if the issue continues`);
         }
       }
     };
@@ -98,6 +108,17 @@ Please try connecting to Google Search Console again from the settings page.`);
                 className="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Go to Settings
+              </button>
+              <button
+                onClick={() => {
+                  // Clear authentication state and redirect to settings
+                  const authService = new GoogleAuthService();
+                  authService.clearAuthState();
+                  navigate('/settings/googlesearchconsole');
+                }}
+                className="w-full inline-flex items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md shadow-sm text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Clear Auth State & Try Again
               </button>
               <button
                 onClick={() => navigate('/dashboard')}
