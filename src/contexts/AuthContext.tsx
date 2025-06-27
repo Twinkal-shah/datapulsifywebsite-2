@@ -281,26 +281,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }
 
-      // Update Supabase
+      // Try to update Supabase (gracefully handle if columns don't exist)
       if (user?.id) {
-        const { error } = await supabase
-          .from('user_installations')
-          .update({
-            gsc_connected: false,
-            gsc_connected_at: null
-          })
-          .eq('user_id', user.id);
+        try {
+          const { error } = await supabase
+            .from('user_installations')
+            .update({
+              gsc_connected: false,
+              gsc_connected_at: null
+            })
+            .eq('user_id', user.id);
 
-        if (error) throw error;
+          if (error) {
+            // Log the error but don't throw it - GSC disconnect should still work
+            console.warn('Could not update GSC connection status in database:', error.message || error);
+          }
+        } catch (dbError) {
+          // Database operation failed, but GSC is still disconnected locally
+          console.warn('Database update failed during GSC disconnect:', dbError instanceof Error ? dbError.message : dbError);
+        }
       }
 
       // Force reload if on dashboard
-      if (location.pathname === '/dashboard') {
+      if (window.location.pathname === '/dashboard') {
         window.location.reload();
       }
     } catch (error) {
-      console.error('Error disconnecting GSC:', error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error disconnecting GSC:', errorMessage, error);
+      throw new Error(`Failed to disconnect GSC: ${errorMessage}`);
     }
   };
 

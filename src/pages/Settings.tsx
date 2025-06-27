@@ -216,6 +216,26 @@ export default function Settings() {
   useEffect(() => {
     fetchUserInstallation();
     
+    // Check if user just completed GSC authentication
+    const justAuthenticated = sessionStorage.getItem('gsc_auth_pending');
+    if (justAuthenticated) {
+      sessionStorage.removeItem('gsc_auth_pending');
+      // Navigate to GSC settings tab
+      const searchParams = new URLSearchParams(location.search);
+      if (!searchParams.has('tab')) {
+        navigate('/settings/googlesearchconsole?tab=gsc', { replace: true });
+      }
+      
+      // Show success toast after navigation
+      setTimeout(() => {
+        toast({
+          title: "Google Search Console Connected",
+          description: "Your account has been successfully connected. Please select a property below.",
+          variant: "default",
+        });
+      }, 500);
+    }
+    
     // Load other settings from localStorage
     const savedNotifications = localStorage.getItem('notification_settings');
     if (savedNotifications) {
@@ -300,7 +320,6 @@ export default function Settings() {
       // Only refresh settings data if we're currently on a settings page
       if (window.location.pathname.startsWith('/settings')) {
         setTimeout(() => {
-          console.log('Settings: Refreshing data after tab visibility');
           refreshSettingsData();
         }, 500); // Short delay to avoid interference with navigation
       }
@@ -614,10 +633,11 @@ export default function Settings() {
         description: "Successfully disconnected from Google Search Console",
       });
     } catch (error) {
-      console.error('Error disconnecting GSC:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error disconnecting GSC:', errorMessage, error);
       toast({
         title: "Error",
-        description: "Failed to disconnect from Google Search Console",
+        description: `Failed to disconnect from Google Search Console: ${errorMessage}`,
         variant: "destructive",
       });
     }

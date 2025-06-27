@@ -43,7 +43,8 @@ const createLazyComponent = (importFn: () => Promise<any>) => {
   );
 };
 
-// Lazy load the new dashboard pages with enhanced error handling
+// Lazy load the new dashboard shell and pages with enhanced error handling
+const DashboardShell = createLazyComponent(() => import('./components/DashboardShell'));
 const Dashboard = createLazyComponent(() => import('./pages/Dashboard'));
 const RankTracker = createLazyComponent(() => import('./pages/RankTracker'));
 const Settings = createLazyComponent(() => import('./pages/Settings'));
@@ -138,10 +139,11 @@ const App = () => {
                   <Route path="/account" element={<AccountDashboard />} />
                   <Route path="/account-dashboard" element={<AccountDashboard />} />
                   
-                  {/* Ensure dashboard route uses the new Dashboard component */}
+                  {/* Restore original dashboard routes temporarily */}
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/click-gap-intelligence" element={<ClickGapIntelligence />} />
                   <Route path="/rank-tracker" element={<RankTracker />} />
+                  <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
                   <Route path="/keyword-analysis" element={<Dashboard />} />
                   <Route path="/gap-analysis" element={<Dashboard />} />
                   <Route path="/keyword-clustering" element={<Dashboard />} />

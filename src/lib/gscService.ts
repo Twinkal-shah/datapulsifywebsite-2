@@ -147,15 +147,22 @@ export class GSCService {
   }
 
   // Enhanced fetch method with retries and rate limiting
-  async fetchSearchAnalyticsData(params: GSCSearchAnalyticsParams): Promise<GSCDataPoint[]> {
+  async fetchSearchAnalyticsData(
+    params: GSCSearchAnalyticsParams,
+    onProgress?: (progress: number, message?: string) => void
+  ): Promise<GSCDataPoint[]> {
     try {
+      onProgress?.(10, 'Checking cache...');
       const cacheKey = this.generateCacheKey(params);
 
       const cachedData = await this.cache.get(cacheKey) as GSCDataPoint[] | null;
 
       if (cachedData) {
+        onProgress?.(100, 'Data loaded from cache');
         return this.validateSearchAnalyticsData(cachedData);
       }
+
+      onProgress?.(20, 'Preparing API request...');
 
       const token = await this.getToken();
       if (!token) {
@@ -174,6 +181,8 @@ export class GSCService {
 
       console.log('Final API URL:', apiUrl);
 
+      onProgress?.(40, 'Fetching data from Google Search Console...');
+      
       const result = await this.queueRequest(async () => {
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -192,6 +201,8 @@ export class GSCService {
           })
         });
 
+        onProgress?.(70, 'Processing API response...');
+
         if (!response.ok) {
           const errorData = await response.json();
           console.error('GSC API Error Details:', errorData);
@@ -201,15 +212,19 @@ export class GSCService {
         const data = await response.json();
         if (!data.rows) {
           console.warn('No data returned from GSC API');
+          onProgress?.(90, 'No data found');
           return [];
         }
 
+        onProgress?.(85, 'Transforming data...');
         return this.transformSearchAnalyticsData(data.rows, params.dimensions || ['query']);
       });
 
       // Cache the result
+      onProgress?.(95, 'Caching data...');
       await this.cache.set(cacheKey, result); // Cache for 1 hour (TTL is handled by CacheManager)
 
+      onProgress?.(100, 'Data loading complete');
       return this.validateSearchAnalyticsData(result);
     } catch (error) {
       console.error('Error fetching search analytics data:', error);

@@ -34,6 +34,13 @@ interface DashboardLayoutProps {
   title: string;
   fullScreen?: boolean;
   comparisonText?: string;
+  navigationItems?: Array<{
+    title: string;
+    href: string;
+    active: boolean;
+    onClick?: () => void;
+  }>;
+  onNavigate?: (section: string) => void;
 }
 
 type SidebarItem = {
@@ -42,9 +49,10 @@ type SidebarItem = {
   href: string;
   active?: boolean;
   badge?: string;
+  onClick?: () => void;
 };
 
-export function DashboardLayout({ children, title, fullScreen = false, comparisonText }: DashboardLayoutProps) {
+export function DashboardLayout({ children, title, fullScreen = false, comparisonText, navigationItems, onNavigate }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const auth = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -137,64 +145,64 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
     return null;
   };
 
-  // Navigation items
-  const items: SidebarItem[] = [
-    {
-      title: 'Dashboard',
-      icon: <LayoutDashboard className="h-5 w-5" />,
-      href: '/dashboard',
-      active: location.pathname === '/dashboard'
-    },
-    {
-      title: 'Click Gap Intelligence',
-      icon: <Target className="h-5 w-5" />,
-      href: '/click-gap-intelligence',
-      active: location.pathname === '/click-gap-intelligence'
-    },
-    {
-      title: 'Custom AI Dashboard',
-      icon: <Sparkles className="h-5 w-5" />,
-      href: '/custom-ai-dashboard',
-      active: location.pathname === '/custom-ai-dashboard'
-      // badge: '🧪 Coming Soon'
-    },
-    {
-      title: 'Rank Tracker',
-      icon: <TrendingUp className="h-5 w-5" />,
-      href: '/rank-tracker',
-      active: location.pathname === '/rank-tracker'
-    },
-    // {
-    //   title: 'Keyword Analysis',
-    //   icon: <KeyRound className="h-5 w-5" />,
-    //   href: '/keyword-analysis',
-    //   active: location.pathname === '/keyword-analysis'
-    // },
-    // {
-    //   title: 'Gap Analysis',
-    //   icon: <Network className="h-5 w-5" />,
-    //   href: '/gap-analysis',
-    //   active: location.pathname === '/gap-analysis'
-    // },
-    // {
-    //   title: 'Keyword Clustering',
-    //   icon: <FileBarChart2 className="h-5 w-5" />,
-    //   href: '/keyword-clustering',
-    //   active: location.pathname === '/keyword-clustering'
-    // },
-    // {
-    //   title: 'Reports',
-    //   icon: <FileDown className="h-5 w-5" />,
-    //   href: '/reports',
-    //   active: location.pathname === '/reports'
-    // },
-    {
-      title: 'Settings',
-      icon: <Settings className="h-5 w-5" />,
-      href: '/settings',
-      active: location.pathname === '/settings'
+  // Navigation items - use provided items or default
+  const getIcon = (title: string) => {
+    switch (title) {
+      case 'Dashboard':
+        return <LayoutDashboard className="h-5 w-5" />;
+      case 'Click Gap Intelligence':
+        return <Target className="h-5 w-5" />;
+      case 'Custom AI Dashboard':
+        return <Sparkles className="h-5 w-5" />;
+      case 'Rank Tracker':
+        return <TrendingUp className="h-5 w-5" />;
+      case 'Settings':
+        return <Settings className="h-5 w-5" />;
+      default:
+        return <LayoutDashboard className="h-5 w-5" />;
     }
-  ];
+  };
+
+  const items: SidebarItem[] = navigationItems ? 
+    navigationItems.map(item => ({
+      title: item.title,
+      icon: getIcon(item.title),
+      href: item.href,
+      active: item.active,
+      onClick: item.onClick
+    })) : 
+    [
+      {
+        title: 'Dashboard',
+        icon: <LayoutDashboard className="h-5 w-5" />,
+        href: '/dashboard',
+        active: location.pathname === '/dashboard'
+      },
+      {
+        title: 'Click Gap Intelligence',
+        icon: <Target className="h-5 w-5" />,
+        href: '/click-gap-intelligence',
+        active: location.pathname === '/click-gap-intelligence'
+      },
+      {
+        title: 'Custom AI Dashboard',
+        icon: <Sparkles className="h-5 w-5" />,
+        href: '/custom-ai-dashboard',
+        active: location.pathname === '/custom-ai-dashboard'
+      },
+      {
+        title: 'Rank Tracker',
+        icon: <TrendingUp className="h-5 w-5" />,
+        href: '/rank-tracker',
+        active: location.pathname === '/rank-tracker'
+      },
+      {
+        title: 'Settings',
+        icon: <Settings className="h-5 w-5" />,
+        href: '/settings',
+        active: location.pathname === '/settings'
+      }
+    ];
   
   // Check if user is authenticated
   useEffect(() => {
@@ -271,7 +279,7 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
                     ? "bg-blue-900/30 text-blue-400 hover:bg-blue-800/50 hover:text-blue-300" 
                     : "text-gray-300 hover:bg-gray-700 hover:text-gray-100"
                 )}
-                onClick={() => navigate(item.href)}
+                onClick={() => item.onClick ? item.onClick() : navigate(item.href)}
               >
                 {item.icon}
                 <span className="flex-1 text-left">{item.title}</span>
@@ -357,7 +365,11 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
                           : "text-gray-300 hover:bg-gray-700 hover:text-gray-100"
                       )}
                       onClick={() => {
-                        navigate(item.href);
+                        if (item.onClick) {
+                          item.onClick();
+                        } else {
+                          navigate(item.href);
+                        }
                         setMobileOpen(false);
                       }}
                     >

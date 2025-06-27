@@ -18,20 +18,16 @@ export const useTabVisibility = (options?: UseTabVisibilityOptions) => {
 
     // If tab became visible after being hidden, refresh session and data
     if (wasHidden && nowVisible) {
-      console.log('Tab became visible, performing minimal session check...');
       try {
         // Very lightweight session check - don't trigger full refresh
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.warn('Session check error:', error);
-        } else {
-          console.log('Session check completed', session ? 'Session valid' : 'No session');
         }
         
         // Delay data refresh to avoid interfering with navigation
         setTimeout(async () => {
           if (options?.onVisible && document.visibilityState === 'visible') {
-            console.log('Executing delayed data refresh callback');
             await options.onVisible();
           }
         }, 1000); // 1 second delay to let navigation complete first

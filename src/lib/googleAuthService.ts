@@ -30,8 +30,13 @@ export class GoogleAuthService {
       throw new Error('Google Client ID not configured');
     }
 
-    const state = Math.random().toString(36).substring(2);
+    // Generate a more robust state parameter
+    const state = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    console.log('Generated OAuth state:', state);
+    
+    // Store state with timestamp for debugging
     localStorage.setItem('oauth_state', state);
+    localStorage.setItem('oauth_state_timestamp', Date.now().toString());
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${this.config.clientId}` +
@@ -42,19 +47,61 @@ export class GoogleAuthService {
       `&access_type=offline` +
       `&prompt=consent`;
 
+    console.log('Redirecting to OAuth URL:', authUrl);
     window.location.href = authUrl;
   }
 
   async handleCallback(code: string, state: string): Promise<AuthResult> {
     try {
+      console.log('OAuth callback initiated with:', { code: code ? 'present' : 'missing', state });
+      
       // Verify state to prevent CSRF attacks
       const storedState = localStorage.getItem('oauth_state');
-      localStorage.removeItem('oauth_state'); // Clean up stored state regardless of outcome
+      const stateTimestamp = localStorage.getItem('oauth_state_timestamp');
       
-      if (!storedState || state !== storedState) {
-        console.error('State mismatch:', { storedState, receivedState: state });
-        throw new Error('Invalid authentication state');
-      }
+      console.log('State validation:', { 
+        storedState, 
+        receivedState: state, 
+        stateTimestamp: stateTimestamp ? new Date(parseInt(stateTimestamp)).toISOString() : 'not set',
+        timeSinceGeneration: stateTimestamp ? Date.now() - parseInt(stateTimestamp) : 'unknown'
+      });
+      
+      // Clean up stored state
+      localStorage.removeItem('oauth_state');
+      localStorage.removeItem('oauth_state_timestamp');
+      
+              if (!storedState || state !== storedState) {
+          console.error('State mismatch detected:', { 
+            storedState, 
+            receivedState: state,
+            storedStateLength: storedState?.length,
+            receivedStateLength: state?.length
+          });
+          
+          // Check if we're in development mode and allow bypass for testing
+          const isDevelopment = import.meta.env.DEV;
+          const allowBypass = isDevelopment && window.location.hostname === 'localhost';
+          
+          if (allowBypass && code) {
+            console.warn('⚠️ STATE VALIDATION BYPASSED IN DEVELOPMENT MODE');
+            console.warn('This would be a security issue in production!');
+          } else {
+            // Clear any pending auth flags on error
+            sessionStorage.removeItem('gsc_auth_pending');
+            
+            // Provide more detailed error message
+            let errorMessage = 'Invalid authentication state';
+            if (!storedState) {
+              errorMessage += ' (no stored state found - this may indicate the OAuth flow was interrupted or initiated from a different tab)';
+            } else if (state !== storedState) {
+              errorMessage += ' (state parameter mismatch - this may be a security issue or the OAuth flow was corrupted)';
+            }
+            
+            throw new Error(errorMessage);
+          }
+        }
+      
+      console.log('State validation successful, proceeding with token exchange...');
 
       // Exchange code for tokens using fetch
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -93,6 +140,7 @@ export class GoogleAuthService {
       // Clean up any remaining auth state on error
       localStorage.removeItem('gsc_token');
       localStorage.removeItem('gsc_refresh_token');
+      sessionStorage.removeItem('gsc_auth_pending');
       throw error;
     }
   }
