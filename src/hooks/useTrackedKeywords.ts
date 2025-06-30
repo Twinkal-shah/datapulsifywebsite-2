@@ -20,6 +20,46 @@ const generateUUID = () => {
   });
 };
 
+// Retry queue for failed keyword saves
+interface PendingKeyword {
+  id: string;
+  keyword: string;
+  keyword_type: 'branded' | 'non-branded';
+  keyword_intent: 'tofu' | 'mofu' | 'bofu' | 'unknown';
+  user_email: string;
+  timestamp: number;
+}
+
+const RETRY_QUEUE_KEY = 'keyword_retry_queue';
+
+const getRetryQueue = (): PendingKeyword[] => {
+  try {
+    const queue = localStorage.getItem(RETRY_QUEUE_KEY);
+    return queue ? JSON.parse(queue) : [];
+  } catch {
+    return [];
+  }
+};
+
+const addToRetryQueue = (keyword: PendingKeyword) => {
+  const queue = getRetryQueue();
+  queue.push(keyword);
+  localStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(queue));
+  console.log('Added keyword to retry queue:', keyword.keyword);
+};
+
+const removeFromRetryQueue = (keywordId: string) => {
+  const queue = getRetryQueue();
+  const filtered = queue.filter(k => k.id !== keywordId);
+  localStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(filtered));
+  console.log('Removed keyword from retry queue:', keywordId);
+};
+
+const clearRetryQueue = () => {
+  localStorage.removeItem(RETRY_QUEUE_KEY);
+  console.log('Cleared retry queue');
+};
+
 export interface TrackedKeyword {
   id: string;
   keyword: string;
@@ -71,6 +111,87 @@ export const useTrackedKeywords = () => {
       percentageUsed
     });
   }, [trackedKeywords, keywordLimit]);
+
+  // Process retry queue - attempt to save failed keywords
+  const processRetryQueue = async () => {
+    if (!user?.email) return;
+    
+    const queue = getRetryQueue();
+    if (queue.length === 0) return;
+    
+    console.log(`Processing retry queue: ${queue.length} pending keywords`);
+    
+    const userQueue = queue.filter(k => k.user_email === user.email);
+    if (userQueue.length === 0) return;
+    
+    for (const pendingKeyword of userQueue) {
+      try {
+        console.log('Retrying save for keyword:', pendingKeyword.keyword);
+        
+        const { data, error } = await supabase
+          .from('tracked_keywords')
+          .insert({
+            id: pendingKeyword.id,
+            user_email: pendingKeyword.user_email,
+            keyword: pendingKeyword.keyword,
+            keyword_type: pendingKeyword.keyword_type,
+            keyword_intent: pendingKeyword.keyword_intent,
+            current_position: null,
+            previous_position: null,
+            clicks: 0,
+            impressions: 0,
+            ctr: 0,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Retry failed for keyword:', pendingKeyword.keyword, error);
+          // If it's been more than 1 hour, remove from queue
+          if (Date.now() - pendingKeyword.timestamp > 3600000) {
+            removeFromRetryQueue(pendingKeyword.id);
+            console.log('Removed old pending keyword from queue');
+          }
+        } else {
+          console.log('Successfully saved keyword from retry queue:', pendingKeyword.keyword);
+          removeFromRetryQueue(pendingKeyword.id);
+          
+          // Update local state with saved keyword
+          const savedKeyword: TrackedKeyword = {
+            id: data.id,
+            keyword: data.keyword,
+            keyword_type: data.keyword_type,
+            keyword_intent: data.keyword_intent,
+            current_position: data.current_position,
+            previous_position: data.previous_position,
+            clicks: data.clicks,
+            impressions: data.impressions,
+            ctr: data.ctr,
+            is_active: data.is_active,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+            last_updated: data.last_updated
+          };
+          
+          setTrackedKeywords(prev => {
+            // Check if keyword already exists to avoid duplicates
+            const exists = prev.some(k => k.id === savedKeyword.id);
+            if (exists) return prev;
+            return [savedKeyword, ...prev];
+          });
+          
+          toast({
+            title: "Keyword Saved",
+            description: `"${pendingKeyword.keyword}" has been successfully saved`,
+            variant: "default",
+          });
+        }
+      } catch (retryError) {
+        console.error('Retry attempt failed:', retryError);
+      }
+    }
+  };
 
   // Fetch tracked keywords
   const fetchTrackedKeywords = async (showErrorToast: boolean = false) => {
@@ -169,7 +290,7 @@ export const useTrackedKeywords = () => {
       return false;
     }
 
-    // IMMEDIATE UI UPDATE - Add to state first for instant feedback
+    // Create temporary keyword for UI update
     const tempKeyword: TrackedKeyword = {
       id: generateUUID(),
       keyword: keyword.trim(),
@@ -186,7 +307,7 @@ export const useTrackedKeywords = () => {
       last_updated: new Date().toISOString()
     };
 
-    // Update UI immediately
+    // IMMEDIATE UI UPDATE - Add to state first for instant feedback
     setTrackedKeywords(prev => [tempKeyword, ...prev]);
     
     // Show immediate success feedback
@@ -196,81 +317,144 @@ export const useTrackedKeywords = () => {
       variant: "default",
     });
 
-    // Save to database in the background (non-blocking)
-    setTimeout(async () => {
+    try {
+      // SYNCHRONOUS DATABASE SAVE - Don't use setTimeout, save immediately
+      console.log('Saving keyword to database:', keyword);
+      console.log('User email:', user.email);
+      console.log('Temp keyword ID:', tempKeyword.id);
+      
+      // Skip problematic session refresh - rely on existing auth context
+      console.log('Skipping session refresh, using AuthContext auth...');
+      
+      console.log('Attempting database insert...');
+      
+      // Add timeout back to prevent infinite hanging + create fresh client
+      const insertPromise = supabase
+        .from('tracked_keywords')
+        .insert({
+          id: tempKeyword.id,
+          user_email: user.email,
+          keyword: keyword.trim(),
+          keyword_type: type,
+          keyword_intent: intent,
+          current_position: null,
+          previous_position: null,
+          clicks: 0,
+          impressions: 0,
+          ctr: 0,
+          is_active: true
+        })
+        .select()
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database insert timeout - client may be hung')), 200)
+      );
+      
+      let data, error;
       try {
-        // Refresh session if needed (handles tab switching issues)
-        await supabase.auth.getSession();
+        const result = await Promise.race([insertPromise, timeoutPromise]) as any;
+        data = result.data;
+        error = result.error;
+        console.log('Database insert completed normally');
+      } catch (timeoutError) {
+        console.error('Database insert timed out - client hung after tab switch');
+        console.error('Timeout error:', timeoutError);
         
-        const { data, error } = await supabase
-          .from('tracked_keywords')
-          .insert({
-            id: tempKeyword.id,
-            user_email: user.email,
-            keyword: keyword.trim(),
-            keyword_type: type,
-            keyword_intent: intent,
-            current_position: null,
-            previous_position: null,
-            clicks: 0,
-            impressions: 0,
-            ctr: 0,
-            is_active: true
-          })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Background save error:', error);
-          
-          // If save fails, remove from UI and show error
-          setTrackedKeywords(prev => prev.filter(k => k.id !== tempKeyword.id));
-          
-          // Handle specific errors
-          if (error.message?.includes('Keyword limit reached')) {
-            toast({
-              title: "Keyword Limit Reached",
-              description: error.message,
-              variant: "destructive",
-            });
-          } else if (error.code === '23505') {
-            toast({
-              title: "Already Tracked",
-              description: "This keyword was already being tracked",
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Save Failed",
-              description: "Keyword tracking failed to save. Please try again.",
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-
-        // Update with real data from database
-        setTrackedKeywords(prev => 
-          prev.map(k => k.id === tempKeyword.id ? data : k)
-        );
+        // Add to retry queue so it gets saved later
+        const pendingKeyword: PendingKeyword = {
+          id: tempKeyword.id,
+          keyword: keyword.trim(),
+          keyword_type: type,
+          keyword_intent: intent,
+          user_email: user.email,
+          timestamp: Date.now()
+        };
         
-        console.log('Keyword tracking saved successfully:', data);
-
-      } catch (error) {
-        console.error('Background save failed:', error);
+        addToRetryQueue(pendingKeyword);
         
-        // Remove from UI on failure
+        console.log('Added keyword to retry queue - will be saved automatically');
+        
+        // Show user-friendly guidance
+        toast({
+          title: "Keyword Queued for Save",
+          description: `"${keyword}" added to UI and queued for save. It will be automatically saved when connection recovers.`,
+          variant: "default",
+          duration: 1000,
+        });
+        
+        // Return true to keep keyword in UI - it will be saved via retry queue
+        return true;
+      }
+
+      console.log('Insert error:', error);
+      console.log('Insert data:', data);
+
+      if (error) {
+        console.error('Database save error:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+        console.error('Error details:', error.details);
+        console.error('Error hint:', error.hint);
+        
+        // If save fails, remove from UI and show error
         setTrackedKeywords(prev => prev.filter(k => k.id !== tempKeyword.id));
         
-        toast({
-          title: "Save Failed",
-          description: "Failed to save keyword tracking. Please try again.",
-          variant: "destructive",
-        });
+        // Handle specific errors
+        if (error.message?.includes('Keyword limit reached')) {
+          toast({
+            title: "Keyword Limit Reached",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (error.code === '23505') {
+          toast({
+            title: "Already Tracked",
+            description: "This keyword was already being tracked",
+            variant: "default",
+          });
+        } else if (error.code === '42501') {
+          toast({
+            title: "Database Permission Error",
+            description: "RLS policy blocking insert. Check Supabase policies.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Save Failed",
+            description: `Database error: ${error.message || 'Unknown error'}`,
+            variant: "destructive",
+          });
+        }
+        return false; // Return false if database save failed
       }
-    }, 100); // Small delay to ensure UI update is visible
 
-    return true;
+      // Update with real data from database
+      setTrackedKeywords(prev => 
+        prev.map(k => k.id === tempKeyword.id ? data : k)
+      );
+      
+      console.log('Keyword tracking saved successfully:', data);
+      return true; // Only return true if database save succeeded
+
+    } catch (error) {
+      console.error('Failed to save keyword tracking:', error);
+      console.error('Error details:', {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack
+      });
+      
+      // Remove from UI on failure
+      setTrackedKeywords(prev => prev.filter(k => k.id !== tempKeyword.id));
+      
+      toast({
+        title: "Save Failed",
+        description: "Failed to save keyword tracking. Please try again.",
+        variant: "destructive",
+      });
+      return false; // Return false if database save failed
+    }
   };
 
   // Remove keyword from tracking
@@ -290,49 +474,49 @@ export const useTrackedKeywords = () => {
       variant: "default",
     });
 
-    // Update database in background (non-blocking)
-    setTimeout(async () => {
-      try {
-        // Refresh session if needed (handles tab switching issues)
-        await supabase.auth.getSession();
+    try {
+      // SYNCHRONOUS DATABASE UPDATE - Don't use setTimeout, update immediately
+      console.log('Removing keyword from database:', keywordToRemove.keyword);
+      
+      // Always refresh session before database operations to handle tab switching
+      await supabase.auth.getSession();
+      
+      const { error } = await supabase
+        .from('tracked_keywords')
+        .update({ is_active: false })
+        .eq('id', keywordId)
+        .eq('user_email', user.email);
+
+      if (error) {
+        console.error('Database untrack error:', error);
         
-        const { error } = await supabase
-          .from('tracked_keywords')
-          .update({ is_active: false })
-          .eq('id', keywordId)
-          .eq('user_email', user.email);
-
-        if (error) {
-          console.error('Background untrack error:', error);
-          
-          // If update fails, restore the keyword in UI
-          setTrackedKeywords(prev => [keywordToRemove, ...prev]);
-          
-          toast({
-            title: "Untrack Failed",
-            description: "Failed to remove keyword. Please try again.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        console.log('Keyword untracking saved successfully');
-
-      } catch (error) {
-        console.error('Background untrack failed:', error);
-        
-        // Restore keyword on failure
+        // If update fails, restore the keyword in UI
         setTrackedKeywords(prev => [keywordToRemove, ...prev]);
         
         toast({
           title: "Untrack Failed",
-          description: "Failed to remove keyword tracking. Please try again.",
+          description: "Failed to remove keyword. Please try again.",
           variant: "destructive",
         });
+        return false; // Return false if database update failed
       }
-    }, 100);
 
-    return true;
+      console.log('Keyword untracking saved successfully');
+      return true; // Only return true if database update succeeded
+
+    } catch (error) {
+      console.error('Failed to untrack keyword:', error);
+      
+      // Restore keyword on failure
+      setTrackedKeywords(prev => [keywordToRemove, ...prev]);
+      
+      toast({
+        title: "Untrack Failed",
+        description: "Failed to remove keyword tracking. Please try again.",
+        variant: "destructive",
+      });
+      return false; // Return false if database update failed
+    }
   };
 
   // Check if a keyword is being tracked
@@ -375,6 +559,8 @@ export const useTrackedKeywords = () => {
   // Initialize and refresh on tab visibility changes
   useEffect(() => {
     fetchTrackedKeywords();
+    // Also process any pending keywords from retry queue
+    setTimeout(() => processRetryQueue(), 1000); // Small delay to ensure proper initialization
   }, [user?.email]);
 
   // Refresh when tab becomes visible (handles tab switching)
@@ -383,11 +569,28 @@ export const useTrackedKeywords = () => {
       // Small delay to ensure session is properly refreshed
       const timer = setTimeout(() => {
         fetchTrackedKeywords(false); // Silent refresh
+        // Try to process retry queue when tab becomes visible
+        processRetryQueue();
       }, 500);
       
       return () => clearTimeout(timer);
     }
   }, [isVisible, user?.email]);
+
+  // Process retry queue periodically to catch any missed saves
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    const interval = setInterval(() => {
+      const queue = getRetryQueue();
+      if (queue.length > 0) {
+        console.log('Periodic retry queue check - processing pending keywords');
+        processRetryQueue();
+      }
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user?.email]);
 
   return {
     trackedKeywords,
@@ -397,6 +600,8 @@ export const useTrackedKeywords = () => {
     untrackKeyword,
     isKeywordTracked,
     trackMultipleKeywords,
-    refreshTrackedKeywords: (showErrorToast = true) => fetchTrackedKeywords(showErrorToast)
+    refreshTrackedKeywords: (showErrorToast = true) => fetchTrackedKeywords(showErrorToast),
+    processRetryQueue, // Manual retry processing
+    retryQueueLength: getRetryQueue().length // Show pending saves count
   };
 }; 

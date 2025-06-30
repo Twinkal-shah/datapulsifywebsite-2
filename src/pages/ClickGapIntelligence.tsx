@@ -266,22 +266,115 @@ export default function ClickGapIntelligence() {
     }
   };
 
+  // Retry queue for failed page saves - similar to keyword tracking fix
+  const addToRetryQueue = (pageUrl: string) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('page_retry_queue') || '[]');
+      const newEntry = {
+        url: pageUrl,
+        user_email: user?.email,
+        timestamp: Date.now(),
+        attempts: 0
+      };
+      
+      // Check if already in queue
+      const alreadyExists = existing.some((item: any) => 
+        item.url === pageUrl && item.user_email === user?.email
+      );
+      
+      if (!alreadyExists) {
+        existing.push(newEntry);
+        localStorage.setItem('page_retry_queue', JSON.stringify(existing));
+        console.log('📋 Added page to retry queue:', pageUrl);
+      }
+    } catch (error) {
+      console.error('Failed to add page to retry queue:', error);
+    }
+  };
+
+  const processRetryQueue = async () => {
+    if (!user?.email) return;
+    
+    try {
+      const queue = JSON.parse(localStorage.getItem('page_retry_queue') || '[]');
+      const userQueue = queue.filter((item: any) => item.user_email === user.email);
+      
+      if (userQueue.length === 0) return;
+      
+      console.log(`🔄 Processing ${userQueue.length} pages in retry queue...`);
+      
+      const successful: string[] = [];
+      const failed: any[] = [];
+      
+      for (const item of userQueue) {
+        try {
+          // Check if page is too old (over 1 hour)
+          const isOld = Date.now() - item.timestamp > 60 * 60 * 1000;
+          if (isOld) {
+            console.log('🗑️ Removing old page from queue:', item.url);
+            continue; // Skip old items, they'll be removed below
+          }
+          
+          // Try to save with timeout
+          const { error } = await Promise.race([
+            supabaseClient
+              .from('tracked_pages')
+              .insert({
+                user_email: item.user_email,
+                url: item.url,
+                created_at: new Date().toISOString()
+              }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Retry timeout')), 5000)
+            )
+          ]) as any;
+          
+          if (!error || error.code === '23505') { // Success or duplicate
+            successful.push(item.url);
+            console.log('✅ Page saved successfully from retry queue:', item.url);
+          } else {
+            failed.push({ ...item, attempts: (item.attempts || 0) + 1 });
+            console.log('❌ Page save failed, will retry:', item.url, error);
+          }
+        } catch (error) {
+          failed.push({ ...item, attempts: (item.attempts || 0) + 1 });
+          console.log('💥 Page save error in retry:', item.url, error);
+        }
+      }
+      
+      // Update queue - remove successful and old items, keep failed items for retry
+      const updatedQueue = queue.filter((item: any) => {
+        if (item.user_email !== user.email) return true; // Keep other users' items
+        const isOld = Date.now() - item.timestamp > 60 * 60 * 1000;
+        const wasSuccessful = successful.includes(item.url);
+        return !isOld && !wasSuccessful; // Remove old and successful items
+      }).concat(failed); // Add back failed items with updated attempt count
+      
+      localStorage.setItem('page_retry_queue', JSON.stringify(updatedQueue));
+      
+      // Show success notifications
+      if (successful.length > 0) {
+        toast({
+          title: "Page Saved",
+          description: `${successful.length} page${successful.length > 1 ? 's' : ''} saved to database`,
+          variant: "default",
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error processing page retry queue:', error);
+    }
+  };
+
   // Function to track a page
   const handleTrackPage = async (url: string) => {
-    console.log('=== TRACK BUTTON CLICKED ===');
+    console.log('=== TRACK PAGE BUTTON CLICKED ===');
     console.log('URL:', url);
-    console.log('Tab is active:', isTabActive);
     console.log('User email:', user?.email);
     console.log('Can track more pages:', canTrackMorePages());
     console.log('Current tracked pages count:', trackedPages.length);
     console.log('Page limit:', getPageLimit());
     console.log('Is page already tracked?', trackedPages.includes(url));
-    console.log('Document.hidden:', document.hidden);
-    console.log('Window focused:', document.hasFocus());
-    
-    // Skip problematic Supabase session check - we have user from AuthContext
-    console.log('Skipping Supabase session check, using AuthContext user');
-    console.log('AuthContext user email:', user?.email);
 
     if (!user?.email) {
       console.error('No user email found');
@@ -322,101 +415,110 @@ export default function ClickGapIntelligence() {
       return;
     }
 
-    // INSTANT TRACKING - Update UI immediately, save to database in background
-    console.log('Adding to tracked pages instantly (UI update)');
+    // INSTANT UI UPDATE - Page appears tracked immediately
+    console.log('✨ Adding page to UI instantly');
     setTrackedPages([...trackedPages, url]);
     
-    // Show immediate success feedback
+    // Immediate feedback
     toast({
       title: "Page Tracked",
       description: "Page added to tracking",
       variant: "default",
     });
 
-    // Smart database save - detects tab switching and handles accordingly
-    const smartDatabaseSave = async (pageUrl: string, userEmail: string) => {
-      console.log('🧠 Smart database save starting...');
-      console.log('🧠 Page URL:', pageUrl);
-      console.log('🧠 User Email:', userEmail);
-      console.log('🧠 Tab was recently inactive:', !isTabActive || document.hidden);
+    // Try to save to database with retry queue fallback
+    try {
+      console.log('💾 Attempting immediate database save...');
       
-      // If we suspect the client is in a bad state (after tab switching), try to refresh session first
-      if (!isTabActive || document.hidden) {
-        console.log('🔄 Detected potential client hang scenario - refreshing session first');
-        try {
-          // Force a quick session refresh to reset client state
-          const sessionRefresh = await Promise.race([
-            supabaseClient.auth.getUser(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Session refresh timeout')), 500))
-          ]);
-          console.log('🔄 Session refresh result:', sessionRefresh);
-        } catch (refreshError) {
-          console.log('🔄 Session refresh failed/timed out:', refreshError);
-        }
+      // Refresh session first if needed (with timeout)
+      try {
+        await Promise.race([
+          supabaseClient.auth.getSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Session timeout')), 2000))
+        ]);
+      } catch (sessionError) {
+        console.log('⚠️ Session refresh failed/timed out, continuing with save attempt');
       }
       
-      // Now try the database save with a reasonable timeout
-      try {
-        console.log('💾 Attempting database insert...');
-        const insertPromise = supabaseClient
+      // Attempt database save with timeout
+      const { error } = await Promise.race([
+        supabaseClient
           .from('tracked_pages')
           .insert({
-            user_email: userEmail,
-            url: pageUrl,
+            user_email: user.email,
+            url: url,
             created_at: new Date().toISOString()
-          });
-        
-        // Use a longer timeout for the actual save (2 seconds)
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database insert timeout after 2 seconds')), 2000)
-        );
-        
-        const result = await Promise.race([insertPromise, timeoutPromise]) as any;
-        console.log('🧠 Database save result:', result);
-        
-        if (result.error) {
-          if (result.error.code === '23505') {
-            console.log('🧠 Page already exists (duplicate) - success!');
-            return true;
-          } else {
-            console.error('🧠 Database error:', result.error);
-            return false;
-          }
-        } else {
-          console.log('🧠 Database save successful!');
-          return true;
-        }
-      } catch (error) {
-        console.error('🧠 Database save failed/timed out:', error);
-        
-        // If it failed, queue it for the next refresh cycle
-        console.log('📋 Queueing for next refresh cycle...');
-        setTimeout(async () => {
-          console.log('🔄 Attempting delayed sync via refresh...');
-          try {
-            await refreshTrackedPages();
-            console.log('🔄 Delayed refresh completed');
-          } catch (refreshError) {
-            console.error('🔄 Delayed refresh failed:', refreshError);
-          }
-        }, 3000);
-        
-        return false;
+          }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database save timeout')), 5000)
+        )
+      ]) as any;
+      
+      if (!error) {
+        console.log('✅ Page saved to database immediately!');
+      } else if (error.code === '23505') {
+        console.log('✅ Page already exists in database (duplicate) - success!');
+      } else {
+        throw error;
+      }
+      
+    } catch (error) {
+      console.log('❌ Immediate save failed, adding to retry queue:', error);
+      addToRetryQueue(url);
+    }
+  };
+
+  // Tab visibility tracking
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isNowActive = !document.hidden;
+      setIsTabActive(isNowActive);
+      
+      if (isNowActive && user?.email) {
+        console.log('🔄 Tab became active, processing page retry queue');
+        setTimeout(() => processRetryQueue(), 1000);
       }
     };
 
-    // Save to database using smart method - handles tab switching scenarios
-    console.log('🚀 Starting smart database save...');
-    smartDatabaseSave(url, user.email).then((success) => {
-      if (success) {
-        console.log('✅ Smart database save successful!');
-      } else {
-        console.log('⚠️ Database save failed - but queued for sync');
+    const handleFocus = () => {
+      setIsTabActive(true);
+      if (user?.email) {
+        console.log('🔄 Window focused, processing page retry queue');
+        setTimeout(() => processRetryQueue(), 1000);
       }
-    }).catch((error) => {
-      console.error('💥 Smart save error:', error);
-    });
-  };
+    };
+
+    const handleBlur = () => {
+      setIsTabActive(false);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [user?.email]);
+
+  // Periodic retry queue processing
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    // Process queue on mount
+    processRetryQueue();
+    
+    // Set up periodic processing
+    const interval = setInterval(() => {
+      if (user?.email) {
+        processRetryQueue();
+      }
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user?.email]);
 
   // Fetch tracked pages on component mount - optimized to prevent multiple calls
   useEffect(() => {
