@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useTrackedKeywords } from '@/hooks/useTrackedKeywords';
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Check, Copy, Globe, RefreshCw, Save, ShieldCheck, User, Activity, Crown, FileText, Settings as SettingsIcon, Calendar, Key, Plus, Trash2, Tag, CheckCircle, Star, Zap, Infinity, Bell as AlertTriangle, X } from 'lucide-react';
+import { AlertCircle, Check, Copy, Globe, RefreshCw, Save, ShieldCheck, User, Activity, Crown, FileText, Settings as SettingsIcon, Calendar, Key, Plus, Trash2, Tag, CheckCircle, Star, Zap, Infinity, Bell as AlertTriangle, X, Search, ChevronDown } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { gscService } from '@/lib/gscService';
 import { useToast } from '@/hooks/use-toast';
@@ -65,12 +65,62 @@ export default function Settings() {
   const [syncFrequency, setSyncFrequency] = useState('daily');
   const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
   const [autoSync, setAutoSync] = useState(true);
+  const [propertySearchTerm, setPropertySearchTerm] = useState('');
+  const [isPropertyDropdownOpen, setIsPropertyDropdownOpen] = useState(false);
   const [userInstallation, setUserInstallation] = useState<UserInstallation | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     business_type: '',
     business_size: ''
   });
+
+  // Filter and sort GSC properties alphabetically
+  const formatPropertyUrl = (url: string) => {
+    // Remove protocol and trailing slash for display
+    return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  };
+
+  // Memoize the filtered and sorted properties to prevent unnecessary recalculations
+  const filteredAndSortedGSCProperties = useMemo(() => {
+    if (!gscProperties.length) return [];
+    
+    const filtered = gscProperties.filter((property) =>
+      formatPropertyUrl(property).toLowerCase().includes(propertySearchTerm.toLowerCase()) ||
+      property.toLowerCase().includes(propertySearchTerm.toLowerCase())
+    );
+    
+    return filtered.sort((a, b) => 
+      formatPropertyUrl(a).localeCompare(formatPropertyUrl(b))
+    );
+  }, [gscProperties, propertySearchTerm]);
+
+  // Close dropdown when clicking outside or pressing Escape
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isPropertyDropdownOpen && !target.closest('[data-property-dropdown]')) {
+        setIsPropertyDropdownOpen(false);
+        setPropertySearchTerm('');
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isPropertyDropdownOpen) {
+        setIsPropertyDropdownOpen(false);
+        setPropertySearchTerm('');
+      }
+    };
+
+    if (isPropertyDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPropertyDropdownOpen]);
 
   // Use the tracked keywords hook
   const { stats: keywordStats } = useTrackedKeywords();
@@ -1341,21 +1391,70 @@ export default function Settings() {
 
                     <div className="space-y-2">
                       <Label htmlFor="property" className="text-gray-300">Select GSC Property</Label>
-                      <Select
-                        value={selectedProperty}
-                        onValueChange={handlePropertySelect}
-                      >
-                        <SelectTrigger id="property" className="bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500">
-                          <SelectValue placeholder="Select a property" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-gray-700 border-gray-600 text-white">
-                          {gscProperties.map((property, index) => (
-                            <SelectItem key={index} value={property} className="text-white focus:bg-gray-600 focus:text-white">
-                              {property}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="relative" data-property-dropdown>
+                        {/* Custom Dropdown Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setIsPropertyDropdownOpen(!isPropertyDropdownOpen)}
+                          className="w-full bg-gray-700 border border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500 rounded-md px-3 py-2 text-left flex items-center justify-between hover:bg-gray-600 transition-colors"
+                        >
+                          <span className="truncate">
+                            {selectedProperty || 'Select a property'}
+                          </span>
+                          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isPropertyDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Custom Dropdown Content */}
+                        {isPropertyDropdownOpen && (
+                          <div className="absolute z-50 w-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-hidden">
+                            {/* Search Input */}
+                            <div className="p-3 border-b border-gray-600">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search properties..."
+                                  value={propertySearchTerm}
+                                  onChange={(e) => setPropertySearchTerm(e.target.value)}
+                                  className="w-full pl-10 pr-3 py-2 bg-gray-600 border border-gray-500 rounded text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+
+                            {/* Properties List */}
+                            <div className="max-h-40 overflow-y-auto">
+                              {filteredAndSortedGSCProperties.length === 0 ? (
+                                <div className="p-3 text-center text-gray-400 text-sm">
+                                  {propertySearchTerm ? 'No properties match your search' : 'No properties available'}
+                                </div>
+                              ) : (
+                                filteredAndSortedGSCProperties.map((property, index) => (
+                                  <button
+                                    key={index}
+                                    type="button"
+                                    onClick={() => {
+                                      handlePropertySelect(property);
+                                      setIsPropertyDropdownOpen(false);
+                                      setPropertySearchTerm('');
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-600 focus:bg-gray-600 focus:outline-none transition-colors ${
+                                      selectedProperty === property ? 'bg-blue-900/30 text-blue-400' : 'text-white'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      {selectedProperty === property && (
+                                        <Check className="h-3 w-3 text-blue-400" />
+                                      )}
+                                      <span className="truncate">{property}</span>
+                                    </div>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2">

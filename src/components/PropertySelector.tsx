@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { GoogleAuthService } from '@/lib/googleAuthService';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
   Settings,
   Loader2,
   RefreshCw,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -36,8 +37,23 @@ export function PropertySelector() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const googleAuthService = new GoogleAuthService();
+
+  // Memoize the filtered and sorted properties to prevent unnecessary recalculations
+  const filteredAndSortedProperties = useMemo(() => {
+    if (!gscProperties.length) return [];
+    
+    const filtered = gscProperties.filter((property) =>
+      formatPropertyUrl(property.siteUrl).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.siteUrl.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    return filtered.sort((a, b) => 
+      formatPropertyUrl(a.siteUrl).localeCompare(formatPropertyUrl(b.siteUrl))
+    );
+  }, [gscProperties, searchTerm]);
 
   // Load current property and fetch available properties
   useEffect(() => {
@@ -248,34 +264,65 @@ export function PropertySelector() {
           align="start"
           className="w-64 bg-gray-800 border-gray-700"
         >
-          {gscProperties.map((property) => (
-            <DropdownMenuItem
-              key={property.siteUrl}
-              onClick={() => handlePropertySelect(property.siteUrl)}
-              disabled={isSwitching}
-              className={cn(
-                "flex items-center gap-3 p-3 cursor-pointer",
-                property.siteUrl === currentProperty
-                  ? "bg-blue-900/30 text-blue-400"
-                  : "text-gray-300 hover:bg-gray-700 focus:bg-gray-700",
-                isSwitching && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {property.siteUrl === currentProperty && (
-                  <Check className="h-3 w-3 text-blue-400 flex-shrink-0" />
+          {/* Search Input */}
+          <div className="p-3 border-b border-gray-700">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search properties..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 bg-gray-700/30 border border-gray-600/50 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                autoFocus
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.focus();
+                }}
+                onKeyDown={(e) => {
+                  // Stop all propagation to prevent DropdownMenu from interfering
+                  e.stopPropagation();
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Properties List */}
+          {filteredAndSortedProperties.length === 0 ? (
+            <div className="p-3 text-center text-gray-500 text-sm">
+              {searchTerm ? 'No properties match your search' : 'No properties available'}
+            </div>
+          ) : (
+            filteredAndSortedProperties.map((property) => (
+              <DropdownMenuItem
+                key={property.siteUrl}
+                onClick={() => handlePropertySelect(property.siteUrl)}
+                disabled={isSwitching}
+                className={cn(
+                  "flex items-center gap-3 p-3 cursor-pointer",
+                  property.siteUrl === currentProperty
+                    ? "bg-blue-900/30 text-blue-400"
+                    : "text-gray-300 hover:bg-gray-700 focus:bg-gray-700",
+                  isSwitching && "opacity-50 cursor-not-allowed"
                 )}
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium truncate">
-                    {formatPropertyUrl(property.siteUrl)}
-                  </div>
-                  <div className="text-xs text-gray-500 truncate">
-                    {property.siteUrl}
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {property.siteUrl === currentProperty && (
+                    <Check className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate">
+                      {formatPropertyUrl(property.siteUrl)}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {property.siteUrl}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </DropdownMenuItem>
-          ))}
+              </DropdownMenuItem>
+            ))
+          )}
           
           <DropdownMenuSeparator className="bg-gray-700" />
           
