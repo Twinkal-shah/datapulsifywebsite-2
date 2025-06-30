@@ -43,14 +43,16 @@ const createLazyComponent = (importFn: () => Promise<any>) => {
   );
 };
 
-// Lazy load the new dashboard shell and pages with enhanced error handling
+// Import core dashboard pages directly to prevent navigation blinking
+import Dashboard from './pages/Dashboard';
+import ClickGapIntelligence from './pages/ClickGapIntelligence';
+import RankTracker from './pages/RankTracker';
+import Settings from './pages/Settings';
+import CustomAIDashboard from './pages/CustomAIDashboard';
+
+// Keep lazy loading for less frequently used pages
 const DashboardShell = createLazyComponent(() => import('./components/DashboardShell'));
-const Dashboard = createLazyComponent(() => import('./pages/Dashboard'));
-const RankTracker = createLazyComponent(() => import('./pages/RankTracker'));
-const Settings = createLazyComponent(() => import('./pages/Settings'));
 const SharedReportPage = createLazyComponent(() => import('./pages/SharedReportPage'));
-const ClickGapIntelligence = createLazyComponent(() => import('./pages/ClickGapIntelligence'));
-const CustomAIDashboard = createLazyComponent(() => import('./pages/CustomAIDashboard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {

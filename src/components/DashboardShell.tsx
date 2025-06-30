@@ -67,7 +67,6 @@ export function DashboardShell({ initialSection = 'overview' }: DashboardShellPr
   };
 
   const [activeSection, setActiveSection] = useState<DashboardSectionKey>(getCurrentSection());
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Update active section when URL changes
   useEffect(() => {
@@ -77,21 +76,16 @@ export function DashboardShell({ initialSection = 'overview' }: DashboardShellPr
     }
   }, [urlSection, activeSection]);
 
-  // Handle section navigation
+  // Handle section navigation - optimized for instant transitions
   const handleSectionChange = async (sectionKey: DashboardSectionKey) => {
     if (sectionKey === activeSection) return;
 
-    setIsTransitioning(true);
-    
     // Update URL without full page reload
     const sectionConfig = DASHBOARD_SECTIONS[sectionKey];
     navigate(sectionConfig.path, { replace: false });
     
-    // Small delay for smooth transition
-    setTimeout(() => {
-      setActiveSection(sectionKey);
-      setIsTransitioning(false);
-    }, 100);
+    // Update state immediately for instant navigation
+    setActiveSection(sectionKey);
   };
 
   // Get current section configuration
@@ -124,20 +118,6 @@ export function DashboardShell({ initialSection = 'overview' }: DashboardShellPr
     onClick: () => handleSectionChange(section.key)
   }));
 
-  // Show loading state during transitions
-  if (isTransitioning) {
-    return (
-      <DashboardLayout title="Loading..." fullScreen={false}>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
-            <p className="text-gray-400">Switching to {currentSectionConfig.title}...</p>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
   return (
     <DashboardLayout 
       title={currentSectionConfig.title}
@@ -156,7 +136,7 @@ export function DashboardShell({ initialSection = 'overview' }: DashboardShellPr
         }
       >
         <CurrentComponent 
-          isActive={!isTransitioning}
+          isActive={true}
           onNavigate={handleSectionChange}
         />
       </React.Suspense>

@@ -1,5 +1,5 @@
-import { ReactNode, useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { ReactNode, useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UpgradeOverlay } from './UpgradeOverlay';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
@@ -50,10 +50,12 @@ type SidebarItem = {
   active?: boolean;
   badge?: string;
   onClick?: () => void;
+  key?: string;
 };
 
 export function DashboardLayout({ children, title, fullScreen = false, comparisonText, navigationItems, onNavigate }: DashboardLayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isExpired, daysLeft, isLoading } = useTrialStatus();
@@ -163,46 +165,56 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
     }
   };
 
-  const items: SidebarItem[] = navigationItems ? 
-    navigationItems.map(item => ({
-      title: item.title,
-      icon: getIcon(item.title),
-      href: item.href,
-      active: item.active,
-      onClick: item.onClick
-    })) : 
-    [
+  // Memoize navigation items to prevent blinking during page transitions
+  const items: SidebarItem[] = useMemo(() => {
+    if (navigationItems) {
+      return navigationItems.map(item => ({
+        title: item.title,
+        icon: getIcon(item.title),
+        href: item.href,
+        active: item.active,
+        onClick: item.onClick
+      }));
+    }
+    
+    return [
       {
         title: 'Dashboard',
         icon: <LayoutDashboard className="h-5 w-5" />,
         href: '/dashboard',
-        active: location.pathname === '/dashboard'
+        active: location.pathname === '/dashboard',
+        key: 'nav-dashboard'
       },
       {
         title: 'Click Gap Intelligence',
         icon: <Target className="h-5 w-5" />,
         href: '/click-gap-intelligence',
-        active: location.pathname === '/click-gap-intelligence'
+        active: location.pathname === '/click-gap-intelligence',
+        key: 'nav-click-gap'
       },
       {
         title: 'Custom AI Dashboard',
         icon: <Sparkles className="h-5 w-5" />,
         href: '/custom-ai-dashboard',
-        active: location.pathname === '/custom-ai-dashboard'
+        active: location.pathname === '/custom-ai-dashboard',
+        key: 'nav-custom-ai'
       },
       {
         title: 'Rank Tracker',
         icon: <TrendingUp className="h-5 w-5" />,
         href: '/rank-tracker',
-        active: location.pathname === '/rank-tracker'
+        active: location.pathname === '/rank-tracker',
+        key: 'nav-rank-tracker'
       },
       {
         title: 'Settings',
         icon: <Settings className="h-5 w-5" />,
         href: '/settings',
-        active: location.pathname === '/settings'
+        active: location.pathname === '/settings' || location.pathname.startsWith('/settings/'),
+        key: 'nav-settings'
       }
     ];
+  }, [location.pathname, navigationItems]);
   
   // Check if user is authenticated
   useEffect(() => {
@@ -230,8 +242,9 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
     }
   };
   
-  // If still loading or no user, show loading or login prompt
-  if (auth.loading) {
+  // If still loading or no user, show loading or login prompt (but only for initial loading, not during navigation)
+  // Prevent loading state from showing during navigation by checking if we already have a user
+  if (auth.loading && !auth.user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900 flex items-center justify-center">
         <div className="text-white text-xl flex items-center gap-3">
@@ -270,11 +283,11 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
         
         <nav className="space-y-1 px-4">
           {items.map((item, index) => (
-            <div key={index} className="relative">
+            <div key={item.key || `nav-${index}`} className="relative">
               <Button
                 variant={item.active ? "default" : "ghost"}
                 className={cn(
-                  "w-full justify-start gap-2 mb-1 font-normal",
+                  "w-full justify-start gap-2 mb-1 font-normal transition-colors duration-150",
                   item.active 
                     ? "bg-blue-900/30 text-blue-400 hover:bg-blue-800/50 hover:text-blue-300" 
                     : "text-gray-300 hover:bg-gray-700 hover:text-gray-100"
@@ -355,11 +368,11 @@ export function DashboardLayout({ children, title, fullScreen = false, compariso
               
               <nav className="space-y-1 px-4">
                 {items.map((item, index) => (
-                  <div key={index} className="relative">
+                  <div key={item.key || `mobile-nav-${index}`} className="relative">
                     <Button
                       variant={item.active ? "default" : "ghost"}
                       className={cn(
-                        "w-full justify-start gap-2 mb-1 font-normal",
+                        "w-full justify-start gap-2 mb-1 font-normal transition-colors duration-150",
                         item.active 
                           ? "bg-blue-900/30 text-blue-400 hover:bg-blue-800/50 hover:text-blue-300" 
                           : "text-gray-300 hover:bg-gray-700 hover:text-gray-100"

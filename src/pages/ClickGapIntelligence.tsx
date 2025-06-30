@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -155,6 +155,9 @@ export default function ClickGapIntelligence() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [trackedPages, setTrackedPages] = useState<string[]>([]);
   const [isTabActive, setIsTabActive] = useState(true);
+  
+  // Ref to prevent duplicate fetches
+  const fetchingTrackedPagesRef = useRef(false);
 
   // Constants for page limits
   const PAGE_LIMITS = {
@@ -176,7 +179,7 @@ export default function ClickGapIntelligence() {
     return limit === Infinity || trackedPages.length < limit;
   };
 
-  // Manual refresh function for testing
+  // Manual refresh function for testing - optimized to prevent duplicate calls
   const refreshTrackedPages = async () => {
     console.log('=== MANUAL REFRESH TRIGGERED ===');
     console.log('User email for refresh:', user?.email);
@@ -186,7 +189,15 @@ export default function ClickGapIntelligence() {
       return;
     }
 
+    // Prevent duplicate calls
+    if (fetchingTrackedPagesRef.current) {
+      console.log('Already fetching tracked pages, skipping duplicate call');
+      return;
+    }
+
     try {
+      fetchingTrackedPagesRef.current = true;
+      
       // First, let's test a simple count query
       console.log('Testing simple count query...');
       const { count, error: countError } = await supabaseClient
@@ -250,6 +261,8 @@ export default function ClickGapIntelligence() {
         description: `Refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
+    } finally {
+      fetchingTrackedPagesRef.current = false;
     }
   };
 
@@ -405,11 +418,10 @@ export default function ClickGapIntelligence() {
     });
   };
 
-  // Fetch tracked pages on component mount
+  // Fetch tracked pages on component mount - optimized to prevent multiple calls
   useEffect(() => {
     const fetchTrackedPages = async () => {
       console.log('=== FETCHING TRACKED PAGES ===');
-      console.log('User object:', user);
       console.log('User email:', user?.email);
       
       if (!user?.email) {
@@ -417,7 +429,14 @@ export default function ClickGapIntelligence() {
         return;
       }
 
+      // Prevent duplicate calls
+      if (fetchingTrackedPagesRef.current) {
+        console.log('Already fetching tracked pages, skipping duplicate call');
+        return;
+      }
+
       try {
+        fetchingTrackedPagesRef.current = true;
         console.log('Querying tracked_pages table...');
         console.log('Query params:', { user_email: user.email, is_active: true });
         
@@ -454,6 +473,8 @@ export default function ClickGapIntelligence() {
           description: `Failed to load tracked pages: ${error instanceof Error ? error.message : 'Unknown error'}`,
           variant: "destructive",
         });
+      } finally {
+        fetchingTrackedPagesRef.current = false;
       }
     };
 
@@ -461,27 +482,27 @@ export default function ClickGapIntelligence() {
     if (user?.email) {
       setTimeout(fetchTrackedPages, 100);
     }
-  }, [user]);
+  }, [user?.email]); // Only depend on user.email, not the entire user object
 
-  // Add tab visibility change detection
+  // Add tab visibility change detection - optimized to prevent multiple re-renders
   useEffect(() => {
+    const userEmail = user?.email;
+    
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
       setIsTabActive(isVisible);
       
       console.log('=== TAB VISIBILITY CHANGED ===');
       console.log('Tab is now:', isVisible ? 'ACTIVE' : 'INACTIVE');
-      console.log('User email:', user?.email);
+      console.log('User email:', userEmail);
       console.log('Tracked pages count:', trackedPages.length);
       
-      if (isVisible) {
+      if (isVisible && userEmail) {
         console.log('Tab became active - checking auth and refreshing data');
         // When tab becomes active, refresh tracked pages and check auth
         setTimeout(() => {
           console.log('Delayed refresh after tab activation');
-          if (user?.email) {
-            refreshTrackedPages();
-          }
+          refreshTrackedPages();
         }, 500);
       }
     };
@@ -489,7 +510,7 @@ export default function ClickGapIntelligence() {
     const handleFocus = () => {
       console.log('=== WINDOW FOCUS ===');
       console.log('Window gained focus');
-      if (user?.email) {
+      if (userEmail) {
         setTimeout(() => refreshTrackedPages(), 300);
       }
     };
@@ -509,9 +530,9 @@ export default function ClickGapIntelligence() {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [user, trackedPages.length, refreshTrackedPages]);
+  }, [user?.email, trackedPages.length, refreshTrackedPages]);
 
-  // Monitor auth state changes
+  // Monitor auth state changes - prevent multiple subscriptions
   useEffect(() => {
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event, session) => {
       console.log('=== AUTH STATE CHANGE ===');
@@ -531,7 +552,7 @@ export default function ClickGapIntelligence() {
     });
 
     return () => subscription.unsubscribe();
-  }, [refreshTrackedPages]);
+  }, []); // Empty dependency array to prevent multiple subscriptions
 
   // Derived values from auth
   const isConnected = !!getGSCToken();
