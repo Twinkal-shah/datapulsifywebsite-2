@@ -17,7 +17,9 @@ import {
   Search,
   ArrowUpDown,
   Eye,
-  X
+  X,
+  Copy,
+  Maximize2
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { gscService, GSCDataPoint } from '@/lib/gscService';
@@ -136,6 +138,17 @@ const detectCategory = (url: string): string => {
   return 'Others';
 };
 
+// Add clipboard function before the component
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+    return false;
+  }
+};
+
 export default function ClickGapIntelligence() {
   const { user, getGSCToken, getGSCProperty } = useAuth();
   const { subscriptionType, isSubscriptionActive } = useSubscription();
@@ -155,6 +168,7 @@ export default function ClickGapIntelligence() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [trackedPages, setTrackedPages] = useState<string[]>([]);
   const [isTabActive, setIsTabActive] = useState(true);
+  const [expandedUrls, setExpandedUrls] = useState<Set<string>>(new Set());
   
   // Ref to prevent duplicate fetches
   const fetchingTrackedPagesRef = useRef(false);
@@ -1023,6 +1037,34 @@ export default function ClickGapIntelligence() {
     }
   };
 
+  const handleCopyUrl = async (url: string) => {
+    const success = await copyToClipboard(url);
+    if (success) {
+      toast({
+        title: "URL Copied",
+        description: "The URL has been copied to your clipboard",
+      });
+    } else {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy URL to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleUrlExpansion = (url: string) => {
+    setExpandedUrls(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(url)) {
+        newSet.delete(url);
+      } else {
+        newSet.add(url);
+      }
+      return newSet;
+    });
+  };
+
   // Show property switching overlay
   if (isPropertySwitching) {
     return (
@@ -1250,8 +1292,47 @@ export default function ClickGapIntelligence() {
                       {filteredAnalyses.map((page, index) => (
                         <TableRow key={index} className="hover:bg-gray-700/50 border-gray-700">
                           <TableCell className="sticky left-0 z-10 bg-gray-800 hover:bg-gray-700/50 min-w-[200px] max-w-[300px] text-white border-r border-gray-700 shadow-lg">
-                            <div className="truncate pr-2" title={page.url}>
-                              {page.url}
+                            <div className="flex items-center gap-2 relative">
+                              <div 
+                                className={`${expandedUrls.has(page.url) ? 'break-all' : 'truncate'} pr-2 flex-1`}
+                                style={{
+                                  maxWidth: expandedUrls.has(page.url) ? '100%' : undefined,
+                                  wordBreak: expandedUrls.has(page.url) ? 'break-word' : undefined
+                                }}
+                                title={expandedUrls.has(page.url) ? undefined : page.url}
+                              >
+                                {page.url}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0 ml-auto">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleUrlExpansion(page.url);
+                                  }}
+                                  className="h-7 w-7 p-0 hover:bg-gray-700"
+                                  title={expandedUrls.has(page.url) ? 'Collapse URL' : 'Expand URL'}
+                                >
+                                  {expandedUrls.has(page.url) ? (
+                                    <X className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Maximize2 className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyUrl(page.url);
+                                  }}
+                                  className="h-7 w-7 p-0 hover:bg-gray-700"
+                                  title="Copy URL"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="min-w-[100px]">
@@ -1297,7 +1378,7 @@ export default function ClickGapIntelligence() {
                                 className="text-sm leading-tight pr-2"
                                 style={{
                                   display: '-webkit-box',
-                                  WebkitLineClamp: 2,
+                                  WebkitLineClamp: expandedUrls.has(page.url) ? 'none' : 2,
                                   WebkitBoxOrient: 'vertical',
                                   overflow: 'hidden',
                                   wordBreak: 'break-word',

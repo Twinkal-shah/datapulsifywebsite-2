@@ -10,11 +10,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, subDays, subMonths, subWeeks, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { Line } from 'react-chartjs-2';
-import { AlertCircle, CalendarIcon, Search, ArrowUp, ArrowDown, Minus, Download, Filter, ChevronLeft, ChevronRight, X, Plus, Loader2 } from 'lucide-react';
+import { AlertCircle, CalendarIcon, Search, ArrowUp, ArrowDown, Minus, Download, Filter, ChevronLeft, ChevronRight, X, Plus, Loader2, Copy, Maximize2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { gscService, GSCDataPoint } from '@/lib/gscService';
+import { gscService, GSCDataPoint, GSCSearchAnalyticsParams } from '@/lib/gscService';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn, getCountryName } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -104,6 +104,17 @@ const COUNTRY_FILTER_OPTIONS = [
   // { label: 'United Kingdom', value: 'GBR' },
 ];
 
+// Add clipboard function before the component
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+    return false;
+  }
+};
+
 export default function RankTracker() {
   const { user, getGSCToken, getGSCProperty } = useAuth();
   const { subscriptionType, canTrackMoreKeywords, keywordLimit } = useSubscription();
@@ -151,6 +162,8 @@ export default function RankTracker() {
     return Math.ceil(filteredKeywords.length / itemsPerPage);
   };
   
+  // Add expanded keywords state
+  const [expandedKeywords, setExpandedKeywords] = useState<Set<string>>(new Set());
 
   
   // Get branded keyword rules from localStorage
@@ -276,10 +289,10 @@ export default function RankTracker() {
   const fetchKeywordData = async () => {
     if (!getGSCProperty() || !getGSCToken()) {
       setError('Google Search Console not connected');
-          setLoading(false);
-          return;
-        }
-        
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -294,7 +307,17 @@ export default function RankTracker() {
       try {
         const countries = await gscService.getAvailableCountries(gscProperty, startDate, endDate);
         if (countries && countries.length > 0) {
-          setAvailableCountries([{ label: 'All Countries', value: 'all' }, ...countries.filter(c => c.value !== 'all')]);
+          // Transform country codes to full names
+          const transformedCountries = [
+            { label: 'All Countries', value: 'all' },
+            ...countries
+              .filter(c => c.value !== 'all')
+              .map(country => ({
+                label: getCountryName(country.value),
+                value: country.value
+              }))
+          ];
+          setAvailableCountries(transformedCountries);
         } else {
           setAvailableCountries([{ label: 'All Countries', value: 'all' }]);
         }
@@ -307,22 +330,24 @@ export default function RankTracker() {
       const endDateObj = new Date(endDate);
 
       // Common parameters for GSC API calls
-      const gscApiParamsBase: any = {
+      const gscApiParamsBase: GSCSearchAnalyticsParams = {
         siteUrl: gscProperty,
         dimensions: ['query'],
         rowLimit: 25000,
+        keywordType: keywordType === 'all' ? undefined : keywordType as 'branded' | 'non-branded',
+        startDate: startDate,
+        endDate: endDate
       };
 
       if (countryFilter !== 'all') {
-        gscApiParamsBase.searchType = 'web' as 'web'; 
-        gscApiParamsBase.dataState = 'all';
+        gscApiParamsBase.searchType = 'web';
         gscApiParamsBase.dimensionFilterGroups = [
           {
             filters: [
               {
                 dimension: 'country',
                 operator: 'equals',
-                expression: countryFilter.toUpperCase(), // Use toUpperCase() as in Dashboard
+                expression: countryFilter.toUpperCase(),
               },
             ],
           },
@@ -353,11 +378,19 @@ export default function RankTracker() {
           monthData.forEach(item => {
             if (!item.query) return;
 
+            const type = (item.type || classifyKeywordType(item.query)) as 'branded' | 'non-branded';
+            const intent = classifyKeywordIntent(item.query) as 'tofu' | 'mofu' | 'bofu';
+
+            // Apply intent filter only (type filter is now handled by GSC service)
+            if (keywordIntent !== 'all' && intent !== keywordIntent) {
+              return;
+            }
+
             if (!keywordMap.has(item.query)) {
               keywordMap.set(item.query, {
                 query: item.query,
-                type: classifyKeywordType(item.query) as 'branded' | 'non-branded',
-                intent: classifyKeywordIntent(item.query) as 'tofu' | 'mofu' | 'bofu',
+                type,
+                intent,
                 monthlyPositions: {},
                 lastUpdated: format(new Date(), 'yyyy-MM-dd')
               });
@@ -405,11 +438,19 @@ export default function RankTracker() {
           weekData.forEach(item => {
             if (!item.query) return;
 
+            const type = (item.type || classifyKeywordType(item.query)) as 'branded' | 'non-branded';
+            const intent = classifyKeywordIntent(item.query) as 'tofu' | 'mofu' | 'bofu';
+
+            // Apply intent filter only (type filter is now handled by GSC service)
+            if (keywordIntent !== 'all' && intent !== keywordIntent) {
+              return;
+            }
+
             if (!keywordMap.has(item.query)) {
               keywordMap.set(item.query, {
                 query: item.query,
-                type: classifyKeywordType(item.query) as 'branded' | 'non-branded',
-                intent: classifyKeywordIntent(item.query) as 'tofu' | 'mofu' | 'bofu',
+                type,
+                intent,
                 weeklyPositions: {},
                 lastUpdated: format(new Date(), 'yyyy-MM-dd')
               });
@@ -558,12 +599,6 @@ export default function RankTracker() {
 
   // Filter keywords based on selected filters
   const filteredKeywords = keywords.filter(keyword => {
-    // Type filter
-    if (keywordType !== 'all' && keyword.type !== keywordType) return false;
-    
-    // Intent filter
-    if (keywordIntent !== 'all' && keyword.intent !== keywordIntent) return false;
-    
     // Search term filter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -576,7 +611,7 @@ export default function RankTracker() {
   // Initial data fetch
   useEffect(() => {
     fetchKeywordData();
-  }, [dateRange, countryFilter, viewMode]);
+  }, [dateRange, countryFilter, viewMode, keywordType, keywordIntent]);
   
   const handleUpgradeClick = async () => {
     if (!user?.email) {
@@ -599,6 +634,34 @@ export default function RankTracker() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleCopyKeyword = async (keyword: string) => {
+    const success = await copyToClipboard(keyword);
+    if (success) {
+      toast({
+        title: "Keyword Copied",
+        description: "The keyword has been copied to your clipboard",
+      });
+    } else {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy keyword to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleKeywordExpansion = (keyword: string) => {
+    setExpandedKeywords(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(keyword)) {
+        newSet.delete(keyword);
+      } else {
+        newSet.add(keyword);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -748,7 +811,7 @@ export default function RankTracker() {
                       variant="outline"
                       className="bg-indigo-900/30 text-indigo-400 border-indigo-700 pl-2 pr-1 py-1 flex items-center gap-1"
                     >
-                      {availableCountries.find(opt => opt.value === countryFilter)?.label || countryFilter.toUpperCase()}
+                      {availableCountries.find(opt => opt.value === countryFilter)?.label || getCountryName(countryFilter)}
                       <button
                         onClick={() => { setCountryFilter('all'); setCurrentPage(1); }}
                         className="hover:bg-indigo-800/50 rounded p-0.5 transition-colors"
@@ -1021,10 +1084,48 @@ export default function RankTracker() {
                                         <TableCell 
                                           className="bg-gray-800 font-medium text-white sticky left-0 z-20 border-r border-gray-700 shadow-[2px_0_4px_rgba(0,0,0,0.3)] max-w-[250px] w-[250px] min-w-[250px]"
                                           style={{ position: 'sticky', left: 0 }}
-                                          title={keyword.query}
                                         >
-                                          <div className="truncate pr-2">
-                                            {keyword.query}
+                                          <div className="flex items-center gap-2">
+                                            <div 
+                                              className={`${expandedKeywords.has(keyword.query) ? 'break-all' : 'truncate'} pr-2 flex-1`}
+                                              style={{
+                                                maxWidth: expandedKeywords.has(keyword.query) ? '100%' : undefined,
+                                                wordBreak: expandedKeywords.has(keyword.query) ? 'break-word' : undefined
+                                              }}
+                                              title={expandedKeywords.has(keyword.query) ? undefined : keyword.query}
+                                            >
+                                              {keyword.query}
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0 ml-auto">
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  toggleKeywordExpansion(keyword.query);
+                                                }}
+                                                className="h-7 w-7 p-0 hover:bg-gray-700"
+                                                title={expandedKeywords.has(keyword.query) ? 'Collapse keyword' : 'Expand keyword'}
+                                              >
+                                                {expandedKeywords.has(keyword.query) ? (
+                                                  <X className="h-3.5 w-3.5" />
+                                                ) : (
+                                                  <Maximize2 className="h-3.5 w-3.5" />
+                                                )}
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleCopyKeyword(keyword.query);
+                                                }}
+                                                className="h-7 w-7 p-0 hover:bg-gray-700"
+                                                title="Copy keyword"
+                                              >
+                                                <Copy className="h-3.5 w-3.5" />
+                                              </Button>
+                                            </div>
                                           </div>
                                         </TableCell>
                                         <TableCell className="bg-gray-900 w-[100px] min-w-[100px]">

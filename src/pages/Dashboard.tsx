@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { gscService, GSCDataPoint } from '@/lib/gscService';
-import { cn } from '@/lib/utils';
+import { cn, getCountryName } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
@@ -154,7 +154,16 @@ const DEVICE_OPTIONS = [
 ];
 
 // Process GSC data for keyword ranking distribution
-const processGSCDataForKeywordRanking = (data: GSCDataPoint[], timeView: '6m' | '12m') => {
+const processGSCDataForKeywordRanking = (data: GSCDataPoint[], timeView: '6m' | '12m', categoryFilter?: string) => {
+  // Apply category filter to data if specified
+  const filteredData = categoryFilter && categoryFilter !== 'all' 
+    ? data.filter(item => {
+        if (!item.query) return true; // Keep non-query data
+        const intent = classifyKeywordCategory(item.query);
+        return intent === categoryFilter;
+      })
+    : data;
+
   // Initialize result objects
   const positionRanges = [
     { name: 'Top 3', min: 1, max: 3, value: 0 },
@@ -166,7 +175,7 @@ const processGSCDataForKeywordRanking = (data: GSCDataPoint[], timeView: '6m' | 
 
   // Group data by month using sortable format for keys
   const monthlyData: Record<string, { data: GSCDataPoint[], displayName: string }> = {};
-  data.forEach(item => {
+  filteredData.forEach(item => {
     if (!item.date) return;
     const date = parseISO(item.date);
     const monthKey = format(date, 'yyyy-MM'); // Sortable format for key
@@ -396,7 +405,8 @@ const getPerformanceTrendDateRangeInternal = (granularity: string) => {
 const processGSCDataForPerformanceTrends = (
   rawData: GSCDataPoint[], 
   granularity: string, 
-  metric: string
+  metric: string,
+  categoryFilter?: string
 ): Array<ProcessedDataReturn> => {
   if (!rawData || rawData.length === 0) {
     console.warn('No raw data provided to process');
@@ -407,8 +417,17 @@ const processGSCDataForPerformanceTrends = (
 
   const aggregatedData: Record<string, AggregatedDataPoint> = {};
   
+  // Apply category filter to raw data if specified
+  const filteredRawData = categoryFilter && categoryFilter !== 'all' 
+    ? rawData.filter(item => {
+        if (!item.query) return true; // Keep non-query data
+        const intent = classifyKeywordCategory(item.query);
+        return intent === categoryFilter;
+      })
+    : rawData;
+  
   // First, aggregate the data by date
-  rawData.forEach(item => {
+  filteredRawData.forEach(item => {
     if (!item.date) {
       console.warn('Item missing date:', item);
       return;
@@ -437,11 +456,21 @@ const processGSCDataForPerformanceTrends = (
       };
     }
     
-    aggregatedData[key].sum.clicks += item.clicks || 0;
-    aggregatedData[key].sum.impressions += item.impressions || 0;
-    aggregatedData[key].sum.ctr += item.ctr || 0;
-    aggregatedData[key].sum.position += item.position || 0;
-    aggregatedData[key].count++;
+    // Handle both single-dimension (date only) and multi-dimension (date + query) data
+    if (item.query) {
+      // Multi-dimension data: aggregate by date
+      aggregatedData[key].sum.clicks += item.clicks || 0;
+      aggregatedData[key].sum.impressions += item.impressions || 0;
+      // For CTR and position, we need to recalculate from the aggregated data
+      aggregatedData[key].count++;
+    } else {
+      // Single-dimension data: use as-is
+      aggregatedData[key].sum.clicks += item.clicks || 0;
+      aggregatedData[key].sum.impressions += item.impressions || 0;
+      aggregatedData[key].sum.ctr += item.ctr || 0;
+      aggregatedData[key].sum.position += item.position || 0;
+      aggregatedData[key].count++;
+    }
   });
 
   console.log('Aggregated data points:', Object.keys(aggregatedData).length);
@@ -457,21 +486,36 @@ const processGSCDataForPerformanceTrends = (
         dateObject: values.dateObject
       };
 
+      // Calculate final metrics
+      const finalClicks = values.sum.clicks;
+      const finalImpressions = values.sum.impressions;
+      const finalCtr = finalImpressions > 0 ? finalClicks / finalImpressions : 0;
+      const finalPosition = values.sum.position / Math.max(values.count, 1);
+
       if (metric === 'all') {
         return {
           ...baseData,
-          clicks: values.sum.clicks,
-          impressions: values.sum.impressions,
-          ctr: values.count > 0 ? (values.sum.ctr / values.count) * 100 : 0,
-          position: values.count > 0 ? values.sum.position / values.count : 0
+          clicks: finalClicks,
+          impressions: finalImpressions,
+          ctr: finalCtr * 100,
+          position: finalPosition
         };
       } else {
-        const metricKey = metric as keyof AggregatedMetrics;
-        let value = values.sum[metricKey];
-        if (metric === 'ctr' || metric === 'position') {
-          value = values.count > 0 ? value / values.count : 0;
+        let value = 0;
+        switch (metric) {
+          case 'clicks':
+            value = finalClicks;
+            break;
+          case 'impressions':
+            value = finalImpressions;
+            break;
+          case 'ctr':
+            value = finalCtr * 100;
+            break;
+          case 'position':
+            value = finalPosition;
+            break;
         }
-        if (metric === 'ctr') value *= 100;
         return {
           ...baseData,
           [metric]: value
@@ -792,11 +836,16 @@ export default function Dashboard() {
         const countries = await gscService.getAvailableCountries(gscProperty, dateRange.startDate, dateRange.endDate);
         console.log('[Dashboard] Fetched countries raw response from gscService:', JSON.parse(JSON.stringify(countries)));
         if (countries && countries.length > 0) {
-          setAvailableCountries(countries);
+          // Transform country codes to full names
+          const transformedCountries = countries.map(country => ({
+            label: country.value === 'all' ? country.label : getCountryName(country.value),
+            value: country.value
+          }));
+          setAvailableCountries(transformedCountries);
           console.log('[Dashboard] Successfully updated availableCountries state.');
         } else {
           setAvailableCountries([{ label: 'All Countries', value: 'all' }]);
-          console.warn('[Dashboard] Fetched countries list from gscService was empty or invalid. Defaulting to \"All Countries\".');
+          console.warn('[Dashboard] Fetched countries list from gscService was empty or invalid. Defaulting to "All Countries".');
         }
       }
       // Continue with the rest of the data fetching logic
@@ -833,6 +882,8 @@ export default function Dashboard() {
 
       // Fetch all data in parallel with proper date ranges
       const [
+        metricsForCurrentPeriod,
+        metricsForComparisonPeriod,
         queryDataForCurrentPeriod,
         queryDataForComparisonPeriod,
         trendData,
@@ -840,13 +891,34 @@ export default function Dashboard() {
         pageDataForCurrentPeriod,
         pageDataForComparisonPeriod
       ] = await Promise.all([
+        // Separate calls for total metrics without dimensions
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          dimensions: (keywordTypeFilter !== 'all' || keywordCategoryFilter !== 'all') ? ['query'] : [], // Add query dimension when filtering by keyword type or category
+          rowLimit: 25000,
+          dimensionFilterGroups,
+          keywordType: keywordTypeFilter === 'all' ? undefined : keywordTypeFilter as 'branded' | 'non-branded'
+        }),
+        gscService.fetchSearchAnalyticsData({
+          siteUrl: gscProperty,
+          startDate: comparisonRange.startDate,
+          endDate: comparisonRange.endDate,
+          dimensions: (keywordTypeFilter !== 'all' || keywordCategoryFilter !== 'all') ? ['query'] : [], // Add query dimension when filtering by keyword type or category
+          rowLimit: 25000,
+          dimensionFilterGroups,
+          keywordType: keywordTypeFilter === 'all' ? undefined : keywordTypeFilter as 'branded' | 'non-branded'
+        }),
+        // Detailed data with dimensions for tables and charts
         gscService.fetchSearchAnalyticsData({
           siteUrl: gscProperty,
           startDate: dateRange.startDate,
           endDate: dateRange.endDate,
           dimensions: ['query', 'page'],
           rowLimit: 25000,
-          dimensionFilterGroups
+          dimensionFilterGroups,
+          keywordType: keywordTypeFilter === 'all' ? undefined : keywordTypeFilter as 'branded' | 'non-branded'
         }),
         gscService.fetchSearchAnalyticsData({
           siteUrl: gscProperty,
@@ -854,21 +926,24 @@ export default function Dashboard() {
           endDate: comparisonRange.endDate,
           dimensions: ['query', 'page'],
           rowLimit: 25000,
-          dimensionFilterGroups
+          dimensionFilterGroups,
+          keywordType: keywordTypeFilter === 'all' ? undefined : keywordTypeFilter as 'branded' | 'non-branded'
         }),
         gscService.fetchSearchAnalyticsData({
           siteUrl: gscProperty,
           ...getPerformanceTrendDateRangeInternal(performanceTrendGranularity),
-          dimensions: ['date'],
+          dimensions: (keywordTypeFilter !== 'all' || keywordCategoryFilter !== 'all') ? ['date', 'query'] : ['date'], // Add query dimension when filtering
           rowLimit: 25000,
-          dimensionFilterGroups // Apply global filters
+          dimensionFilterGroups, // Apply global filters
+          keywordType: keywordTypeFilter === 'all' ? undefined : keywordTypeFilter as 'branded' | 'non-branded'
         }),
         gscService.fetchSearchAnalyticsData({
           siteUrl: gscProperty,
           ...getRankingDistributionDateRangeInternal(rankingTimeView),
           dimensions: ['query', 'date', 'page', 'country', 'device'],
           rowLimit: 25000,
-          dimensionFilterGroups // Apply global filters
+          dimensionFilterGroups, // Apply global filters
+          keywordType: keywordTypeFilter === 'all' ? undefined : keywordTypeFilter as 'branded' | 'non-branded'
         }),
         gscService.fetchSearchAnalyticsData({
           siteUrl: gscProperty,
@@ -897,9 +972,9 @@ export default function Dashboard() {
             intent: classifyKeywordCategory(item.query || '')
           }))
           .filter(item => {
-            const matchesType = keywordTypeFilter === 'all' || item.type === keywordTypeFilter;
+            // Only apply category filter since keyword type is now handled by GSC service
             const matchesCategory = keywordCategoryFilter === 'all' || item.intent === keywordCategoryFilter;
-            return matchesType && matchesCategory;
+            return matchesCategory;
           });
       };
 
@@ -940,23 +1015,39 @@ export default function Dashboard() {
         console.log("Using PAGE-LEVEL data for metrics due to selectedUrlFilter:", { currentMetricsForDisplay, comparisonMetricsForDisplay });
 
       } else {
-        const aggregatedCurrentQueries = processAndFilterQueries(queryDataForCurrentPeriod);
-        currentMetricsForDisplay = {
-          clicks: aggregatedCurrentQueries.reduce((sum, item) => sum + (item.clicks || 0), 0),
-          impressions: aggregatedCurrentQueries.reduce((sum, item) => sum + (item.impressions || 0), 0),
-          ctr: aggregatedCurrentQueries.length > 0 ? aggregatedCurrentQueries.reduce((sum, item) => sum + (item.ctr || 0), 0) / aggregatedCurrentQueries.length : 0,
-          position: aggregatedCurrentQueries.length > 0 ? aggregatedCurrentQueries.reduce((sum, item) => sum + (item.position || 0), 0) / aggregatedCurrentQueries.length : 0
+        // Use the metrics from the dimensionless API call for accurate totals
+        currentMetricsForDisplay = metricsForCurrentPeriod[0] || defaultMetrics;
+        comparisonMetricsForDisplay = metricsForComparisonPeriod[0] || defaultMetrics;
+      }
+
+      // If we're filtering by keyword type or category, we need to aggregate the query-level data
+      if (keywordTypeFilter !== 'all' || keywordCategoryFilter !== 'all') {
+        // Calculate aggregated metrics from query-level data
+        const calculateAggregatedMetrics = (data: any[]) => {
+          // Apply category filter to the data
+          const filteredData = keywordCategoryFilter === 'all' 
+            ? data 
+            : data.filter(item => {
+                const intent = classifyKeywordCategory(item.query || '');
+                return intent === keywordCategoryFilter;
+              });
+
+          const totalClicks = filteredData.reduce((sum, item) => sum + (item.clicks || 0), 0);
+          const totalImpressions = filteredData.reduce((sum, item) => sum + (item.impressions || 0), 0);
+          const avgCtr = totalImpressions > 0 ? totalClicks / totalImpressions : 0;
+          const avgPosition = totalImpressions > 0 
+            ? filteredData.reduce((sum, item) => sum + ((item.position || 0) * (item.impressions || 0)), 0) / totalImpressions
+            : 0;
+          
+          return { clicks: totalClicks, impressions: totalImpressions, ctr: avgCtr, position: avgPosition };
         };
 
-        const aggregatedComparisonQueries = processAndFilterQueries(queryDataForComparisonPeriod);
-        comparisonMetricsForDisplay = {
-          clicks: aggregatedComparisonQueries.reduce((sum, item) => sum + (item.clicks || 0), 0),
-          impressions: aggregatedComparisonQueries.reduce((sum, item) => sum + (item.impressions || 0), 0),
-          ctr: aggregatedComparisonQueries.length > 0 ? aggregatedComparisonQueries.reduce((sum, item) => sum + (item.ctr || 0), 0) / aggregatedComparisonQueries.length : 0,
-          position: aggregatedComparisonQueries.length > 0 ? aggregatedComparisonQueries.reduce((sum, item) => sum + (item.position || 0), 0) / aggregatedComparisonQueries.length : 0
-        };
-
-        console.log("Using QUERY-LEVEL aggregated data for metrics:", { currentMetricsForDisplay, comparisonMetricsForDisplay });
+        currentMetricsForDisplay = calculateAggregatedMetrics(metricsForCurrentPeriod);
+        comparisonMetricsForDisplay = calculateAggregatedMetrics(metricsForComparisonPeriod);
+      } else {
+        // Use the metrics from the dimensionless API call for accurate totals
+        currentMetricsForDisplay = metricsForCurrentPeriod[0] || defaultMetrics;
+        comparisonMetricsForDisplay = metricsForComparisonPeriod[0] || defaultMetrics;
       }
 
       const metricsForDisplay = {
@@ -973,10 +1064,10 @@ export default function Dashboard() {
       console.log("Final calculated metrics for display:", metricsForDisplay);
       setMetrics(metricsForDisplay);
 
-      const processedTrendData = processGSCDataForPerformanceTrends(trendData, performanceTrendGranularity, chartMetric);
+      const processedTrendData = processGSCDataForPerformanceTrends(trendData, performanceTrendGranularity, chartMetric, keywordCategoryFilter);
       setPerformanceTrendData(processedTrendData);
 
-      const { overall, breakdown } = processGSCDataForKeywordRanking(rankingData, rankingTimeView);
+      const { overall, breakdown } = processGSCDataForKeywordRanking(rankingData, rankingTimeView, keywordCategoryFilter);
       setOverallRankingData(overall);
       setPositionBreakdownData(breakdown);
 
@@ -1534,7 +1625,7 @@ export default function Dashboard() {
               )}
 
               {countryFilter !== 'all' && (() => {
-                const countryLabel = availableCountries.find(opt => opt.value === countryFilter)?.label || countryFilter.toUpperCase();
+                const countryLabel = availableCountries.find(opt => opt.value === countryFilter)?.label || getCountryName(countryFilter);
                 return (
                   <Badge 
                     variant="secondary" 

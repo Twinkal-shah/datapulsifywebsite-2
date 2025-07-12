@@ -1,32 +1,23 @@
 {
-    "mcpServers": {
-      "supabase": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "@supabase/mcp-server-supabase@latest",
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlldmtmb3hvZWZzc2Rnc29kdHpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxNjI2OTcsImV4cCI6MjA2MTczODY5N30.keDBOjH3vV9xzn3QKIu9vSilyoro-Zvjyw3FwjpP6Gc",
-          "sbp_be733141f239c2d5a4375942548e89ac14bd622e"
-        ]
-      }
-    }
-  }
-
-
-
-  {
-    "mcpServers": {
-      "paypal": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "@paypal/mcp",
-          "--tools=all"
-        ],
-        "env": {
-          "PAYPAL_ACCESS_TOKEN": "A21AAIIvfyLuQsFJw5BUnkZ-F9O_mLYvYX7ilsWgBYc7uWM9iUAGit-jign9gKf_qj2Q9J_Xj-GnJaQtGcWkBZmvfSyEMykIQ",
-          "PAYPAL_ENVIRONMENT": "SANDBOX"
-        }
-      }
-    }
- }
+	"mcpServers": {
+		"supabase": {
+			"command": "npx",
+			"args": ["-y", "@supabase/mcp-server-supabase@latest", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlldmtmb3hvZWZzc2Rnc29kdHpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxNjI2OTcsImV4cCI6MjA2MTczODY5N30.keDBOjH3vV9xzn3QKIu9vSilyoro-Zvjyw3FwjpP6Gc"]
+		},
+		"task-master-ai": {
+			"command": "npx",
+			"args": ["-y", "--package=task-master-ai", "task-master-ai"],
+			"env": {
+				"ANTHROPIC_API_KEY": "ANTHROPIC_API_KEY_HERE",
+				"PERPLEXITY_API_KEY": "PERPLEXITY_API_KEY_HERE",
+				"OPENAI_API_KEY": "OPENAI_API_KEY_HERE",
+				"GOOGLE_API_KEY": "GOOGLE_API_KEY_HERE",
+				"XAI_API_KEY": "XAI_API_KEY_HERE",
+				"OPENROUTER_API_KEY": "OPENROUTER_API_KEY_HERE",
+				"MISTRAL_API_KEY": "MISTRAL_API_KEY_HERE",
+				"AZURE_OPENAI_API_KEY": "AZURE_OPENAI_API_KEY_HERE",
+				"OLLAMA_API_KEY": "OLLAMA_API_KEY_HERE"
+			}
+		}
+	}
+}

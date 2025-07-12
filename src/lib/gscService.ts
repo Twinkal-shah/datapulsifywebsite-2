@@ -2,7 +2,7 @@ import { CacheManager } from './cacheManager';
 import { GoogleAuthService } from './googleAuthService';
 
 // Types
-interface GSCSearchAnalyticsParams {
+export interface GSCSearchAnalyticsParams {
   startDate: string;
   endDate: string;
   dimensions?: string[];
@@ -11,6 +11,7 @@ interface GSCSearchAnalyticsParams {
   searchType?: 'web' | 'image' | 'video' | 'news' | 'discover' | 'googleNews';
   dimensionFilterGroups?: any[];
   startRow?: number;
+  keywordType?: 'all' | 'branded' | 'non-branded';
 }
 
 interface GSCDataRow {
@@ -99,24 +100,28 @@ export class GSCService {
       // Create a new object to avoid mutating the original
       const validatedItem = { ...item };
 
-      // Validate and fix impressions/clicks
-      if (validatedItem.impressions < validatedItem.clicks) {
-        console.warn(`Data validation warning: clicks exceed impressions for item ${index}`);
-        validatedItem.impressions = Math.max(validatedItem.clicks, validatedItem.impressions);
+      // Only fix data if it's clearly invalid
+      if (typeof validatedItem.clicks !== 'number' || validatedItem.clicks < 0) {
+        console.warn(`Data validation warning: invalid clicks value for item ${index}`);
+        validatedItem.clicks = 0;
       }
 
-      // Validate and fix CTR
-      if (validatedItem.ctr < 0 || validatedItem.ctr > 1) {
+      if (typeof validatedItem.impressions !== 'number' || validatedItem.impressions < 0) {
+        console.warn(`Data validation warning: invalid impressions value for item ${index}`);
+        validatedItem.impressions = 0;
+      }
+
+      // Recalculate CTR only if clearly invalid
+      if (typeof validatedItem.ctr !== 'number' || validatedItem.ctr < 0) {
         console.warn(`Data validation warning: invalid CTR for item ${index}`);
         validatedItem.ctr = validatedItem.impressions > 0 ?
           validatedItem.clicks / validatedItem.impressions : 0;
       }
 
-      // Validate and fix position
-      if (validatedItem.position < 1 || validatedItem.position > 100 || !Number.isFinite(validatedItem.position)) {
+      // Only fix position if it's clearly invalid
+      if (typeof validatedItem.position !== 'number' || !Number.isFinite(validatedItem.position) || validatedItem.position < 1) {
         console.warn(`Data validation warning: invalid position for item ${index}`);
-        // Set to a reasonable default (100 is the worst possible position)
-        validatedItem.position = 100;
+        validatedItem.position = 100; // Default to worst position
       }
 
       return validatedItem;
@@ -143,7 +148,8 @@ export class GSCService {
   private generateCacheKey(params: GSCSearchAnalyticsParams): string {
     const filterKey = params.dimensionFilterGroups ?
       `:filters:${JSON.stringify(params.dimensionFilterGroups)}` : '';
-    return `gsc:${params.siteUrl}:${params.startDate}:${params.endDate}:${params.dimensions?.join(',')}${filterKey}`;
+    const keywordTypeKey = params.keywordType ? `:keywordType:${params.keywordType}` : '';
+    return `gsc:${params.siteUrl}:${params.startDate}:${params.endDate}:${params.dimensions?.join(',')}${filterKey}${keywordTypeKey}`;
   }
 
   // Enhanced fetch method with retries and rate limiting
@@ -153,13 +159,26 @@ export class GSCService {
   ): Promise<GSCDataPoint[]> {
     try {
       onProgress?.(10, 'Checking cache...');
-      const cacheKey = this.generateCacheKey(params);
-
-      const cachedData = await this.cache.get(cacheKey) as GSCDataPoint[] | null;
+      
+      // Create cache key without keywordType for raw data caching
+      const baseCacheKey = `gsc:${params.siteUrl}:${params.startDate}:${params.endDate}:${params.dimensions?.join(',')}${params.dimensionFilterGroups ? `:filters:${JSON.stringify(params.dimensionFilterGroups)}` : ''}`;
+      
+      const cachedData = await this.cache.get(baseCacheKey) as GSCDataPoint[] | null;
 
       if (cachedData) {
         onProgress?.(100, 'Data loaded from cache');
-        return this.validateSearchAnalyticsData(cachedData);
+        // Apply keyword type filter to cached data
+        const filteredData = params.keywordType && params.keywordType !== 'all'
+          ? cachedData.filter(item => {
+              const matches = item.type === params.keywordType;
+              if (!matches) {
+                console.log(`[GSC Service] Filtering out keyword "${item.query}" (type: ${item.type}, wanted: ${params.keywordType})`);
+              }
+              return matches;
+            })
+          : cachedData;
+        
+        return this.validateSearchAnalyticsData(filteredData);
       }
 
       onProgress?.(20, 'Preparing API request...');
@@ -171,15 +190,11 @@ export class GSCService {
 
       // Format the site URL correctly for the API
       const formattedSiteUrl = this.formatSiteUrlForApi(params.siteUrl);
-      console.log('Raw site URL:', params.siteUrl);
-      console.log('Formatted site URL for API:', formattedSiteUrl);
-
+      
       // Don't encode the URL for sc-domain: format
       const apiUrl = formattedSiteUrl.startsWith('sc-domain:')
         ? `https://www.googleapis.com/webmasters/v3/sites/${formattedSiteUrl}/searchAnalytics/query`
         : `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(formattedSiteUrl)}/searchAnalytics/query`;
-
-      console.log('Final API URL:', apiUrl);
 
       onProgress?.(40, 'Fetching data from Google Search Console...');
       
@@ -217,15 +232,28 @@ export class GSCService {
         }
 
         onProgress?.(85, 'Transforming data...');
-        return this.transformSearchAnalyticsData(data.rows, params.dimensions || ['query']);
+        const transformedData = this.transformSearchAnalyticsData(data.rows, params.dimensions || ['query']);
+        
+        return transformedData;
       });
 
-      // Cache the result
+      // Cache the unfiltered result for reuse with different keyword type filters
       onProgress?.(95, 'Caching data...');
-      await this.cache.set(cacheKey, result); // Cache for 1 hour (TTL is handled by CacheManager)
+      await this.cache.set(baseCacheKey, result);
+
+      // Apply keyword type filter to the result
+      const filteredResult = params.keywordType && params.keywordType !== 'all'
+        ? result.filter(item => {
+            const matches = item.type === params.keywordType;
+            if (!matches) {
+              console.log(`[GSC Service] Filtering out keyword "${item.query}" (type: ${item.type}, wanted: ${params.keywordType})`);
+            }
+            return matches;
+          })
+        : result;
 
       onProgress?.(100, 'Data loading complete');
-      return this.validateSearchAnalyticsData(result);
+      return this.validateSearchAnalyticsData(filteredResult);
     } catch (error) {
       console.error('Error fetching search analytics data:', error);
       throw error;
@@ -277,6 +305,7 @@ export class GSCService {
         switch (dimension) {
           case 'query':
             dataPoint.query = row.keys[index];
+            dataPoint.type = this.classifyKeywordType(row.keys[index]); // Add type classification
             break;
           case 'page':
             dataPoint.page = row.keys[index];
@@ -295,6 +324,47 @@ export class GSCService {
 
       return dataPoint;
     });
+  }
+
+  // Add keyword classification method
+  private classifyKeywordType(keyword: string): 'branded' | 'non-branded' {
+    const rules = this.getBrandedKeywordRules();
+    const lowerKeyword = keyword.toLowerCase();
+
+    for (const rule of rules) {
+      const value = rule.value.toLowerCase();
+      switch (rule.type) {
+        case 'contains':
+          if (lowerKeyword.includes(value)) {
+            return 'branded';
+          }
+          break;
+        case 'starts_with':
+          if (lowerKeyword.startsWith(value)) {
+            return 'branded';
+          }
+          break;
+        case 'exact_match':
+          if (lowerKeyword === value) {
+            return 'branded';
+          }
+          break;
+        case 'ends_with':
+          if (lowerKeyword.endsWith(value)) {
+            return 'branded';
+          }
+          break;
+      }
+    }
+    return 'non-branded';
+  }
+
+  private getBrandedKeywordRules() {
+    const rules = localStorage.getItem('branded_keyword_rules');
+    if (rules) {
+      return JSON.parse(rules);
+    }
+    return [];
   }
 
   // Remove Supabase-related methods
@@ -340,9 +410,19 @@ export class GSCService {
       const metrics = {
         totalClicks: data.reduce((sum, item) => sum + item.clicks, 0),
         totalImpressions: data.reduce((sum, item) => sum + item.impressions, 0),
-        avgCtr: data.reduce((sum, item) => sum + item.ctr, 0) / data.length,
-        avgPosition: data.reduce((sum, item) => sum + item.position, 0) / data.length
+        avgCtr: 0,
+        avgPosition: 0
       };
+
+      // Calculate CTR correctly: total clicks / total impressions
+      metrics.avgCtr = metrics.totalImpressions > 0 ? 
+        metrics.totalClicks / metrics.totalImpressions : 0;
+
+      // Calculate weighted average position
+      const totalImpressions = metrics.totalImpressions;
+      metrics.avgPosition = totalImpressions > 0 ?
+        data.reduce((sum, item) => sum + (item.position * item.impressions), 0) / totalImpressions :
+        0;
 
       return this.validateMetrics(metrics);
     } catch (error) {
@@ -398,8 +478,6 @@ export class GSCService {
         throw new Error('No GSC property specified for sync');
       }
 
-      console.log(`Starting GSC data sync for ${targetSiteUrl} from ${startDate} to ${endDate}`);
-
       // Fetch comprehensive data with multiple dimensions
       const queries = await this.fetchSearchAnalyticsData({
         siteUrl: targetSiteUrl,
@@ -435,8 +513,6 @@ export class GSCService {
 
       // Fetch daily trend data
       const trendData = await this.getTrendData(targetSiteUrl, startDate, endDate);
-
-      console.log(`Sync completed: ${queries.length} queries, ${pages.length} pages, ${devices.length} devices, ${countries.length} countries`);
 
       // Store sync timestamp
       localStorage.setItem('last_gsc_sync', new Date().toISOString());
@@ -507,7 +583,6 @@ export class GSCService {
     startDate: string,
     endDate: string
   ): Promise<Array<{ label: string; value: string }>> {
-    console.log('[gscService] getAvailableCountries called with:', { siteUrl, startDate, endDate });
     if (!siteUrl || !startDate || !endDate) {
       console.warn('[gscService] Missing siteUrl, startDate, or endDate for getAvailableCountries. Returning default.');
       return [{ label: 'All Countries', value: 'all' }];
@@ -519,7 +594,6 @@ export class GSCService {
       let allAvailableCountryCodes: string[] = []; // Fallback if no countries with >1 impression found
 
       try {
-        console.log('[gscService] Attempting to fetch countries with dimension: [\'country\'] for impression filtering');
         dataForCountryList = await this.fetchSearchAnalyticsData({
           siteUrl,
           startDate,
@@ -527,7 +601,6 @@ export class GSCService {
           dimensions: ['country'],
           rowLimit: 1000,
         });
-        console.log('[gscService] Data from first attempt (country only for impression filtering):', JSON.parse(JSON.stringify(dataForCountryList)));
       } catch (e: any) {
         console.warn('[gscService] Error during first attempt to fetch countries (country only for impression filtering):', e.message);
       }
@@ -546,11 +619,8 @@ export class GSCService {
         )
         .sort();
 
-      console.log('[gscService] Unique valid country codes with >1 impression:', uniqueCountryCodes);
-
       // If no countries with >1 impression found, or if the first fetch failed badly, try the broader fetch
       if (uniqueCountryCodes.length === 0) {
-        console.log('[gscService] No countries with >1 impression found or first fetch failed. Trying broader fetch for all available country codes.');
         let fallbackData: GSCDataPoint[] = [];
         try {
           fallbackData = await this.fetchSearchAnalyticsData({
@@ -560,7 +630,6 @@ export class GSCService {
             dimensions: ['country', 'query'],
             rowLimit: 5000
           });
-          console.log('[gscService] Data from second attempt (country, query for fallback):', JSON.parse(JSON.stringify(fallbackData)));
         } catch (e: any) {
           console.error('[gscService] Error during second attempt to fetch countries (country, query for fallback):', e.message);
           return [{ label: 'All Countries', value: 'all' }];
@@ -582,7 +651,6 @@ export class GSCService {
         // Use this list if the impression-filtered list was empty
         if (allAvailableCountryCodes.length > 0 && uniqueCountryCodes.length === 0) {
           uniqueCountryCodes = allAvailableCountryCodes;
-          console.log('[gscService] Using fallback list of all unique country codes as no countries met impression threshold:', uniqueCountryCodes);
         } else if (uniqueCountryCodes.length === 0 && allAvailableCountryCodes.length === 0) {
           console.warn('[gscService] No valid unique country codes extracted even from fallback. Returning default.');
           return [{ label: 'All Countries', value: 'all' }];
@@ -620,7 +688,6 @@ export class GSCService {
         })
       ];
 
-      console.log('[gscService] Final country options to be returned:', countryOptions);
       return countryOptions;
 
     } catch (error: any) {

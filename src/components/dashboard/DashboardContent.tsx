@@ -15,6 +15,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, TrendingDown, Eye, MousePointer, Target, Search, Calendar, Download, Share2, Users, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
 
+// Keyword classification helper
+function classifyKeywordCategory(query: string): string {
+  const lowerQuery = query.toLowerCase();
+  
+  // Product-related keywords
+  if (
+    lowerQuery.includes('buy') ||
+    lowerQuery.includes('price') ||
+    lowerQuery.includes('cost') ||
+    lowerQuery.includes('purchase') ||
+    lowerQuery.includes('shop') ||
+    lowerQuery.includes('order')
+  ) {
+    return 'product';
+  }
+  
+  // Transactional keywords
+  if (
+    lowerQuery.includes('how to') ||
+    lowerQuery.includes('vs') ||
+    lowerQuery.includes('versus') ||
+    lowerQuery.includes('compare') ||
+    lowerQuery.includes('best')
+  ) {
+    return 'transactional';
+  }
+  
+  // Default to informational
+  return 'informational';
+}
+
 interface DashboardContentProps {
   isActive: boolean;
   onNavigate?: (section: string) => void;
@@ -29,6 +60,8 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [keywordType, setKeywordType] = useState<'all' | 'branded' | 'non-branded'>('all');
+  const [category, setCategory] = useState<string>('all');
 
   // Progressive loading setup
   const progressiveLoading = useProgressiveLoading({
@@ -98,13 +131,46 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
           const startDate = new Date();
           startDate.setMonth(startDate.getMonth() - 3);
           
-          const data = await gscService.getAggregatedMetrics(
-            gscProperty,
-            startDate.toISOString().split('T')[0],
-            endDate.toISOString().split('T')[0]
-          );
+          console.log(`[Dashboard] Current keywordType state: "${keywordType}"`);
+          console.log(`[Dashboard] keywordType parameter being passed: ${keywordType === 'all' ? undefined : keywordType}`);
+          
+          // Fetch all data with query dimension to apply filters
+          const data = await gscService.fetchSearchAnalyticsData({
+            siteUrl: gscProperty,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            dimensions: ['query'], // Need query dimension to filter by type
+            keywordType: keywordType === 'all' ? undefined : keywordType,
+            rowLimit: 25000
+          });
+
+          console.log(`[Dashboard] Data received from GSC service: ${data.length} items`);
+          
+          // Filter by category if needed
+          const filteredData = category === 'all' 
+            ? data 
+            : data.filter(item => classifyKeywordCategory(item.query) === category);
+
+          console.log(`[Dashboard] Data after category filtering: ${filteredData.length} items`);
+          
+          // Calculate metrics from filtered data
+          const metrics = {
+            totalClicks: filteredData.reduce((sum, item) => sum + item.clicks, 0),
+            totalImpressions: filteredData.reduce((sum, item) => sum + item.impressions, 0),
+            avgCtr: 0,
+            avgPosition: 0
+          };
+
+          metrics.avgCtr = metrics.totalImpressions > 0 ? 
+            metrics.totalClicks / metrics.totalImpressions : 0;
+
+          const totalImpressions = metrics.totalImpressions;
+          metrics.avgPosition = totalImpressions > 0 ?
+            filteredData.reduce((sum, item) => sum + (item.position * item.impressions), 0) / totalImpressions :
+            0;
+
           updateProgress(100, 'Metrics loaded');
-          return data;
+          return metrics;
         },
         trends: async (updateProgress: (progress: number, message?: string) => void) => {
           updateProgress(0, 'Fetching trend data...');
@@ -112,13 +178,66 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
           const startDate = new Date();
           startDate.setMonth(startDate.getMonth() - 6);
           
-          const data = await gscService.getTrendData(
-            gscProperty,
-            startDate.toISOString().split('T')[0],
-            endDate.toISOString().split('T')[0]
-          );
+          console.log(`[Dashboard] Trends - keywordType parameter: ${keywordType === 'all' ? undefined : keywordType}`);
+          
+          // Fetch data with both date and query dimensions
+          const data = await gscService.fetchSearchAnalyticsData({
+            siteUrl: gscProperty,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            dimensions: ['date', 'query'], // Need both to filter and group by date
+            keywordType: keywordType === 'all' ? undefined : keywordType,
+            rowLimit: 25000
+          });
+
+          console.log(`[Dashboard] Trends - Data received: ${data.length} items`);
+
+          // Filter by category if needed
+          const filteredData = category === 'all'
+            ? data
+            : data.filter(item => classifyKeywordCategory(item.query) === category);
+
+          console.log(`[Dashboard] Trends - Data after category filtering: ${filteredData.length} items`);
+
+          // Group by date and aggregate metrics
+          const dateGroups = new Map();
+          filteredData.forEach(item => {
+            const date = item.date || '';
+            const group = dateGroups.get(date) || {
+              date,
+              clicks: 0,
+              impressions: 0,
+              ctr: 0,
+              position: 0,
+              count: 0
+            };
+            
+            group.clicks += item.clicks;
+            group.impressions += item.impressions;
+            group.position += item.position * item.impressions; // Weighted position
+            group.count += item.impressions;
+            dateGroups.set(date, group);
+          });
+
+          // Convert to array and calculate averages
+          const trendData = Array.from(dateGroups.values())
+            .map(group => ({
+              date: group.date,
+              clicks: group.clicks,
+              impressions: group.impressions,
+              ctr: group.impressions > 0 ? group.clicks / group.impressions : 0,
+              position: group.count > 0 ? group.position / group.count : 0
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
           updateProgress(100, 'Trends loaded');
-          return data;
+          return {
+            labels: trendData.map(item => item.date),
+            clicks: trendData.map(item => item.clicks),
+            impressions: trendData.map(item => item.impressions),
+            ctr: trendData.map(item => item.ctr),
+            position: trendData.map(item => item.position)
+          };
         },
         rankings: async (updateProgress: (progress: number, message?: string) => void) => {
           updateProgress(0, 'Fetching ranking data...');
@@ -126,13 +245,38 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
           const startDate = new Date();
           startDate.setMonth(startDate.getMonth() - 3);
           
-          const data = await gscService.getRankingDistribution(
-            gscProperty,
-            startDate.toISOString().split('T')[0],
-            endDate.toISOString().split('T')[0]
-          );
+          console.log(`[Dashboard] Rankings - keywordType parameter: ${keywordType === 'all' ? undefined : keywordType}`);
+          
+          // Fetch data with query dimension for filtering
+          const data = await gscService.fetchSearchAnalyticsData({
+            siteUrl: gscProperty,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            dimensions: ['query'],
+            keywordType: keywordType === 'all' ? undefined : keywordType,
+            rowLimit: 25000
+          });
+
+          console.log(`[Dashboard] Rankings - Data received: ${data.length} items`);
+
+          // Filter by category if needed
+          const filteredData = category === 'all'
+            ? data
+            : data.filter(item => classifyKeywordCategory(item.query) === category);
+
+          console.log(`[Dashboard] Rankings - Data after category filtering: ${filteredData.length} items`);
+
+          // Calculate distribution from filtered data
+          const rankings = {
+            top3: filteredData.filter(item => item.position <= 3).length,
+            top10: filteredData.filter(item => item.position > 3 && item.position <= 10).length,
+            top20: filteredData.filter(item => item.position > 10 && item.position <= 20).length,
+            top50: filteredData.filter(item => item.position > 20 && item.position <= 50).length,
+            below50: filteredData.filter(item => item.position > 50).length
+          };
+
           updateProgress(100, 'Rankings loaded');
-          return data;
+          return rankings;
         },
         pages: async (updateProgress: (progress: number, message?: string) => void) => {
           updateProgress(0, 'Fetching top pages...');
@@ -140,6 +284,7 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
           const startDate = new Date();
           startDate.setMonth(startDate.getMonth() - 1);
           
+          // Don't filter pages by keyword type or category
           const data = await gscService.getTopPages(
             gscProperty,
             startDate.toISOString().split('T')[0],
@@ -168,12 +313,46 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
     }
   };
 
-  // Load data when component becomes active
+  // Load data when component becomes active or filters change
   useEffect(() => {
-    if (isActive && !dashboardData) {
+    if (isActive) {
       loadDashboardData();
     }
-  }, [isActive]);
+  }, [isActive, keywordType, category]);
+
+  // Add filter UI
+  const renderFilters = () => (
+    <div className="flex gap-4 mb-6">
+      <Select
+        value={keywordType}
+        onValueChange={(value: 'all' | 'branded' | 'non-branded') => setKeywordType(value)}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Keyword Type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Keywords</SelectItem>
+          <SelectItem value="branded">Branded</SelectItem>
+          <SelectItem value="non-branded">Non-Branded</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={category}
+        onValueChange={setCategory}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Category" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Categories</SelectItem>
+          <SelectItem value="product">Product</SelectItem>
+          <SelectItem value="informational">Informational</SelectItem>
+          <SelectItem value="transactional">Transactional</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   // Show loading overlay
   if (loading) {
@@ -223,6 +402,7 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
 
   return (
     <div className="w-full p-6 space-y-6">
+      {renderFilters()}
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-gray-800 border-gray-700">
