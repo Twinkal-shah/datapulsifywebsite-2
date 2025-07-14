@@ -50,6 +50,7 @@ import RankTracker from './pages/RankTracker';
 import Settings from './pages/Settings';
 import CustomAIDashboard from './pages/CustomAIDashboard';
 
+
 // Keep lazy loading for less frequently used pages
 const DashboardShell = createLazyComponent(() => import('./components/DashboardShell'));
 const SharedReportPage = createLazyComponent(() => import('./pages/SharedReportPage'));
@@ -146,6 +147,7 @@ const App = () => {
                   <Route path="/click-gap-intelligence" element={<ClickGapIntelligence />} />
                   <Route path="/rank-tracker" element={<RankTracker />} />
                   <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
+        
                   <Route path="/keyword-analysis" element={<Dashboard />} />
                   <Route path="/gap-analysis" element={<Dashboard />} />
                   <Route path="/keyword-clustering" element={<Dashboard />} />

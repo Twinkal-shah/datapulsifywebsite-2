@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Sparkles, 
   TrendingUp, 
@@ -20,15 +21,31 @@ import {
   Bell,
   Lightbulb,
   BarChart3,
-  ArrowRight
+  ArrowRight,
+  Download,
+  FileText,
+  RefreshCw,
+  Clock,
+  CheckCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { createReportService } from '@/lib/reportService';
+import { createExportService } from '@/lib/exportService';
+import { 
+  Report, 
+  ReportType, 
+  ReportUsage,
+  LLMSimulation 
+} from '@/types/aiReports';
+import { toast } from 'sonner';
 
-// Mock data for suggested reports
-const SUGGESTED_REPORTS = [
+// Report configurations matching the existing design
+const REPORT_CONFIGS = [
   {
-    id: 'top-gainers',
+    id: 'top_gainers' as ReportType,
     title: 'Top Gainers Report',
     description: 'Pages with highest increase in clicks and CTR over last 3 months',
     icon: <TrendingUp className="h-5 w-5 text-green-400" />,
@@ -36,7 +53,7 @@ const SUGGESTED_REPORTS = [
     estimatedTime: '2-3 min'
   },
   {
-    id: 'underperforming-pages',
+    id: 'underperforming_pages' as ReportType,
     title: 'Underperforming Pages',
     description: 'Pages with high impressions but low CTR and poor position trend',
     icon: <TrendingDown className="h-5 w-5 text-red-400" />,
@@ -44,7 +61,7 @@ const SUGGESTED_REPORTS = [
     estimatedTime: '3-4 min'
   },
   {
-    id: 'emerging-keywords',
+    id: 'emerging_keywords' as ReportType,
     title: 'Emerging Keywords Insight',
     description: 'Keywords that started getting impressions in last 3 months',
     icon: <Search className="h-5 w-5 text-blue-400" />,
@@ -52,7 +69,7 @@ const SUGGESTED_REPORTS = [
     estimatedTime: '2-3 min'
   },
   {
-    id: 'bofu-traffic-drop',
+    id: 'bofu_pages' as ReportType,
     title: 'BoFu Pages with Traffic Drop',
     description: 'Bottom-funnel pages experiencing significant traffic decline',
     icon: <Target className="h-5 w-5 text-orange-400" />,
@@ -60,7 +77,7 @@ const SUGGESTED_REPORTS = [
     estimatedTime: '3-5 min'
   },
   {
-    id: 'ranking-volatility',
+    id: 'ranking_volatility' as ReportType,
     title: 'Ranking Position Volatility',
     description: 'Pages with unstable ranking positions requiring attention',
     icon: <BarChart3 className="h-5 w-5 text-purple-400" />,
@@ -68,7 +85,7 @@ const SUGGESTED_REPORTS = [
     estimatedTime: '4-5 min'
   },
   {
-    id: 'quick-wins',
+    id: 'quick_wins' as ReportType,
     title: 'Quick Wins Report',
     description: 'Low-effort, high-impact optimization opportunities',
     icon: <Zap className="h-5 w-5 text-yellow-400" />,
@@ -77,121 +94,626 @@ const SUGGESTED_REPORTS = [
   }
 ];
 
-// Mock data for report preview
-const MOCK_REPORT_DATA = [
-  {
-    url: '/blog/guide-to-seo',
-    clicks: 110,
-    ctr: 3.4,
-    position: 14.2,
-    action: 'Optimize meta description',
-    priority: 'High'
-  },
-  {
-    url: '/product/pricing',
-    clicks: 80,
-    ctr: 2.1,
-    position: 11.7,
-    action: 'Review page copy',
-    priority: 'Medium'
-  },
-  {
-    url: '/case-study/example',
-    clicks: 63,
-    ctr: 4.0,
-    position: 19.8,
-    action: 'Add internal links',
-    priority: 'Medium'
-  },
-  {
-    url: '/resources/templates',
-    clicks: 45,
-    ctr: 1.8,
-    position: 8.3,
-    action: 'Improve title tag',
-    priority: 'High'
-  },
-  {
-    url: '/blog/best-practices',
-    clicks: 38,
-    ctr: 2.9,
-    position: 16.5,
-    action: 'Update content',
-    priority: 'Low'
-  }
-];
-
 export default function CustomAIDashboard() {
+  const { user, getGSCProperty } = useAuth();
+  const { subscriptionType } = useSubscription();
+  
+  // State management
   const [promptInput, setPromptInput] = useState('');
-  const [selectedReport, setSelectedReport] = useState<string | null>(null);
-  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [currentReport, setCurrentReport] = useState<Report | null>(null);
+  const [usageStats, setUsageStats] = useState<ReportUsage | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [activeTab, setActiveTab] = useState('selector');
+  const [reportHistory, setReportHistory] = useState<Report[]>([]);
+  const [isLoadingUsage, setIsLoadingUsage] = useState(true);
+  const [hasLoadedInitialStats, setHasLoadedInitialStats] = useState(false);
+  const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
+  
+  // Service instances - memoized to prevent recreation on every render
+  const reportService = useMemo(() => {
+    return user?.id ? createReportService(user.id, subscriptionType || 'free') : null;
+  }, [user?.id, subscriptionType]);
+  
+  const exportService = useMemo(() => {
+    return user?.id ? createExportService(user.id, subscriptionType || 'free') : null;
+  }, [user?.id, subscriptionType]);
 
-  const handleUseReport = (reportId: string) => {
-    setSelectedReport(reportId);
-    // Show tooltip or modal indicating coming soon
+  // Plan limits utility
+  const getPlanLimits = (planType: string) => {
+    const limits = {
+      free: { monthlyReports: 0, monthlyExports: 0 },
+      lifetime: { monthlyReports: 2, monthlyExports: 2 },
+      monthly_pro: { monthlyReports: 5, monthlyExports: 5 }
+    };
+    return limits[planType as keyof typeof limits] || limits.free;
   };
 
-  const handleGenerateReport = () => {
-    // Show tooltip indicating coming soon
+  // Load usage stats and report history on mount - only once
+  useEffect(() => {
+    if (user?.id && reportService && !hasLoadedInitialStats) {
+      console.log('Loading initial stats for user:', user.id);
+      loadUsageStats();
+      loadReportHistory();
+    } else if (!user?.id || !reportService) {
+      console.log('No user or service available:', { userId: user?.id, hasService: !!reportService });
+      setIsLoadingUsage(false);
+      setHasLoadedInitialStats(false);
+    }
+  }, [user?.id, reportService, hasLoadedInitialStats]);
+
+  // Ref to track if we're already loading stats to prevent multiple simultaneous requests
+  const loadingStatsRef = useRef(false);
+  
+  const loadUsageStats = async () => {
+    if (!reportService) {
+      setIsLoadingUsage(false);
+      return;
+    }
+    
+    // Prevent multiple simultaneous requests
+    if (loadingStatsRef.current) {
+      console.log('Already loading usage stats, skipping...');
+      return;
+    }
+    
+    loadingStatsRef.current = true;
+    setIsLoadingUsage(true);
+    
+    try {
+      console.log('Loading usage stats...');
+      const stats = await reportService.getReportUsage();
+      console.log('Loaded usage stats:', stats);
+      
+      if (stats) {
+        setUsageStats(stats);
+      } else {
+        // Fallback to default stats if service returns null
+        console.warn('Report service returned null, using default stats');
+        setUsageStats({
+          userId: user?.id || '',
+          reportsThisMonth: 0,
+          exportsThisMonth: 0,
+          lastReportDate: '',
+          lastExportDate: '',
+          resetDate: new Date().toISOString()
+        });
+      }
+      setHasLoadedInitialStats(true);
+    } catch (error) {
+      console.error('Error loading usage stats:', error);
+      // Set default stats on error to prevent UI blocking
+      setUsageStats({
+        userId: user?.id || '',
+        reportsThisMonth: 0,
+        exportsThisMonth: 0,
+        lastReportDate: '',
+        lastExportDate: '',
+        resetDate: new Date().toISOString()
+      });
+      setHasLoadedInitialStats(true);
+    } finally {
+      setIsLoadingUsage(false);
+      loadingStatsRef.current = false;
+    }
   };
 
-  const handleNotifyMe = () => {
-    setShowNotifyModal(true);
-    // In real implementation, this would collect email for beta waitlist
+  // Ref to track if we're already loading history to prevent multiple simultaneous requests
+  const loadingHistoryRef = useRef(false);
+  
+  const loadReportHistory = async () => {
+    if (!reportService) return;
+    
+    // Prevent multiple simultaneous requests
+    if (loadingHistoryRef.current) {
+      console.log('Already loading report history, skipping...');
+      return;
+    }
+    
+    loadingHistoryRef.current = true;
+    try {
+      console.log('Loading report history...');
+      const reports = await reportService.getReports();
+      setReportHistory(reports);
+      console.log('Loaded report history:', reports.length, 'reports');
+    } catch (error) {
+      console.error('Error loading report history:', error);
+    } finally {
+      loadingHistoryRef.current = false;
+    }
   };
+
+  const handleUseReport = async (reportType: ReportType) => {
+    if (!user?.id) {
+      toast.error('Please log in to generate reports');
+      return;
+    }
+
+    // Check if user is connected to Google Search Console
+    const gscProperty = getGSCProperty();
+    if (!gscProperty) {
+      toast.error('Please connect to Google Search Console in Settings to generate reports');
+      return;
+    }
+
+    // If usage stats are not loaded yet, try to load them
+    if (!usageStats) {
+      console.log('Usage stats not loaded, attempting to load...');
+      await loadUsageStats();
+      
+      // If still no stats after loading, proceed with default values
+      if (!usageStats) {
+        console.warn('Still no usage stats after loading, proceeding with default values');
+        toast.error('Unable to verify usage limits. Please refresh the page and try again.');
+        return;
+      }
+    }
+
+    const planLimits = getPlanLimits(subscriptionType || 'free');
+    if (usageStats.reportsThisMonth >= planLimits.monthlyReports) {
+      toast.error(`Monthly limit of ${planLimits.monthlyReports} reports reached`);
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationProgress(0);
+    setActiveTab('report');
+
+    try {
+      // Progress simulation
+      const progressInterval = setInterval(() => {
+        setGenerationProgress(prev => Math.min(prev + 10, 90));
+      }, 500);
+
+      // Get the actual GSC property from user's authentication
+      const gscProperty = getGSCProperty();
+      if (!gscProperty) {
+        throw new Error('No Google Search Console property selected. Please connect to GSC in Settings.');
+      }
+
+      const report = await reportService.generateReport(
+        reportType, 
+        { startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] }, 
+        gscProperty
+      );
+      
+      clearInterval(progressInterval);
+      setGenerationProgress(100);
+      
+      setCurrentReport(report);
+      setSelectedReport(report);
+      
+      // Refresh usage stats and history
+      await loadUsageStats();
+      await loadReportHistory();
+      
+      toast.success('Report generated successfully!');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error('Failed to generate report. Please try again.');
+      setActiveTab('selector');
+    } finally {
+      setIsGenerating(false);
+      setGenerationProgress(0);
+    }
+  };
+
+  const handleCustomPrompt = async () => {
+    if (!promptInput.trim()) {
+      toast.error('Please enter a custom prompt');
+      return;
+    }
+
+    // Check if user is connected to Google Search Console
+    const gscProperty = getGSCProperty();
+    if (!gscProperty) {
+      toast.error('Please connect to Google Search Console in Settings to generate reports');
+      return;
+    }
+
+    // For now, treat custom prompts as quick-wins reports
+    // In the future, this could be expanded to handle custom analysis
+    await handleUseReport('quick_wins');
+  };
+
+  const handleExportReport = async (format: 'csv' | 'sheets') => {
+    if (!currentReport || !user?.id || !exportService) return;
+
+    try {
+      if (format === 'csv') {
+        const csvContent = await exportService.exportToCSV(currentReport);
+        // Create download
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${currentReport.reportType}_report.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success('Report exported to CSV');
+      } else {
+        const sheetUrl = await exportService.exportToGoogleSheets(currentReport);
+        window.open(sheetUrl, '_blank');
+        toast.success('Report exported to Google Sheets');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error(`Failed to export to ${format.toUpperCase()}`);
+    }
+  };
+
+  const handleViewHistoryReport = (report: Report) => {
+    setCurrentReport(report);
+    setSelectedReport(report);
+    setActiveTab('report');
+  };
+
+  const handlePageSelection = (pageUrl: string, isSelected: boolean) => {
+    const newSelectedPages = new Set(selectedPages);
+    if (isSelected) {
+      newSelectedPages.add(pageUrl);
+    } else {
+      newSelectedPages.delete(pageUrl);
+    }
+    setSelectedPages(newSelectedPages);
+  };
+
+  const renderReportData = () => {
+    if (!currentReport) return null;
+
+    // Helper to get report rows based on report type
+    const getReportRows = () => {
+      if (currentReport.reportType === 'top_gainers') {
+        return currentReport.data.top_pages;
+      } else if (currentReport.reportType === 'underperforming_pages') {
+        return currentReport.data.pages;
+      }
+      return currentReport.data;
+    };
+
+    // Helper to get summary based on report type
+    const getReportSummary = () => {
+      if (currentReport.reportType === 'top_gainers') {
+        return currentReport.data.summary_heading;
+      }
+      return currentReport.aiSummary;
+    };
+
+    // Helper to check if report supports enhanced format
+    const isEnhancedReport = () => {
+      return currentReport.reportType === 'top_gainers' || currentReport.reportType === 'underperforming_pages';
+    };
+
+    // Helper to get URL from row based on report type
+    const getRowUrl = (row: any) => {
+      return row.url || row.mappedUrl || '';
+    };
+
+    // Helper to get metrics from row based on report type
+    const getRowMetrics = (row: any) => {
+      if (currentReport.reportType === 'top_gainers' || currentReport.reportType === 'underperforming_pages') {
+        return {
+          clicks: row.clicks,
+          impressions: row.impressions,
+          ctr: row.ctr,
+          position: row.position
+        };
+      }
+      return {
+        clicks: row.clicks || 0,
+        impressions: row.impressions || 0,
+        ctr: row.ctr || 0,
+        position: row.position || 0
+      };
+    };
+
+    // Helper to get recommendations from row
+    const getRowRecommendations = (row: any) => {
+      if (currentReport.reportType === 'top_gainers' || currentReport.reportType === 'underperforming_pages') {
+        return {
+          seo: row.seo_recommendation || 'Optimize title and meta description for better CTR.',
+          aeo: row.aeo_recommendation || 'Add direct answers and structured content for AI visibility.'
+        };
+      }
+      return {
+        seo: row.recommendation || row.suggestedFix || 'Optimize title and meta description for better CTR.',
+        aeo: 'Add direct answers and structured content for AI visibility.'
+      };
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Report Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+              {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.icon}
+              {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.title}
+            </h3>
+            <p className="text-gray-400 text-sm mt-1">
+              Generated on {new Date(currentReport.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExportReport('csv')}
+              className="bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExportReport('sheets')}
+              className="bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Export to Sheets
+            </Button>
+          </div>
+        </div>
+
+        {/* Report Summary */}
+        {getReportSummary() && (
+          <Card className="bg-gray-700 border-gray-600">
+            <CardContent className="p-4">
+              <h4 className="font-medium text-white mb-2">AI Analysis Summary</h4>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                {getReportSummary()}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Report Data - Enhanced format for supported reports */}
+        {isEnhancedReport() ? (
+          <div className="space-y-6">
+            {/* Metrics Table */}
+            <Card className="bg-gray-700 border-gray-600">
+              <CardContent className="p-4">
+                <h4 className="font-medium text-white mb-4">Page Performance Metrics</h4>
+                <div className="rounded-md border border-gray-600 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-gray-600 hover:bg-gray-600/50">
+                        <TableHead className="text-gray-300">Select</TableHead>
+                        <TableHead className="text-gray-300">URL</TableHead>
+                        <TableHead className="text-gray-300 text-right">Clicks</TableHead>
+                        <TableHead className="text-gray-300 text-right">Impressions</TableHead>
+                        <TableHead className="text-gray-300 text-right">CTR</TableHead>
+                        <TableHead className="text-gray-300 text-right">Avg Position</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getReportRows()?.map((row, index) => {
+                        const url = getRowUrl(row);
+                        const metrics = getRowMetrics(row);
+                        return (
+                          <TableRow key={index} className="border-gray-600 hover:bg-gray-600/50">
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={selectedPages.has(url)}
+                                onChange={(e) => handlePageSelection(url, e.target.checked)}
+                                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium text-white max-w-xs truncate">
+                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                                {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                              </a>
+                            </TableCell>
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.clicks?.toLocaleString() || '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.impressions?.toLocaleString() || '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.ctr ? `${(metrics.ctr * 100).toFixed(2)}%` : '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.position?.toFixed(1) || '-'}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recommendations Cards - Show only for selected pages */}
+            {selectedPages.size > 0 && (
+              <div className="space-y-4">
+                <h4 className="font-medium text-white text-lg">Recommendations for Selected Pages</h4>
+                {getReportRows()?.filter(row => selectedPages.has(getRowUrl(row))).map((row, index) => {
+                  const url = getRowUrl(row);
+                  const metrics = getRowMetrics(row);
+                  const recommendations = getRowRecommendations(row);
+                  return (
+                    <Card key={index} className="bg-gray-700 border-gray-600 ring-2 ring-blue-500">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-white text-lg">
+                            {index + 1}. <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                              {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                            </a>
+                          </h4>
+                          <span className="text-blue-400 text-sm font-medium">✓ Selected</span>
+                        </div>
+                        
+                        <div className="mb-3">
+                          <p className="text-gray-300 text-sm">
+                            📈 <strong>Clicks:</strong> {metrics.clicks?.toLocaleString()} | <strong>Impressions:</strong> {metrics.impressions?.toLocaleString()} | <strong>CTR:</strong> {metrics.ctr ? `${(metrics.ctr * 100).toFixed(2)}%` : '-'} | <strong>Position:</strong> {metrics.position?.toFixed(1)}
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm mt-1">🔧</span>
+                            <div className="flex-1">
+                              <strong className="text-white text-sm">SEO Recommendation:</strong>
+                              <p className="text-gray-300 text-sm mt-1">{recommendations.seo}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm mt-1">🤖</span>
+                            <div className="flex-1">
+                              <strong className="text-white text-sm">AEO Recommendation:</strong>
+                              <p className="text-gray-300 text-sm mt-1">{recommendations.aeo}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Selected Pages Summary */}
+            {selectedPages.size > 0 && (
+              <Card className="bg-blue-900/20 border-blue-600">
+                <CardContent className="p-4">
+                  <h4 className="font-medium text-blue-100 mb-2">Selected Pages Summary</h4>
+                  <p className="text-blue-200 text-sm mb-3">
+                    You have selected {selectedPages.size} page{selectedPages.size !== 1 ? 's' : ''} for optimization.
+                  </p>
+                  <div className="space-y-2">
+                    {Array.from(selectedPages).map((url, index) => (
+                      <div key={index} className="text-blue-300 text-sm">
+                        • {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : (
+          /* Original table format for other report types */
+          <div className="rounded-md border border-gray-700 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-gray-700 hover:bg-gray-700/50">
+                  <TableHead className="text-gray-300">URL</TableHead>
+                  <TableHead className="text-gray-300 text-right">Clicks</TableHead>
+                  <TableHead className="text-gray-300 text-right">Impressions</TableHead>
+                  <TableHead className="text-gray-300 text-right">CTR</TableHead>
+                  <TableHead className="text-gray-300 text-right">Position</TableHead>
+                  <TableHead className="text-gray-300">Recommendation</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getReportRows()?.map((row, index) => (
+                  <TableRow key={index} className="border-gray-700 hover:bg-gray-700/50">
+                    <TableCell className="font-medium text-white max-w-xs truncate">
+                      {row.url}
+                    </TableCell>
+                    <TableCell className="text-right text-gray-300">
+                      {row.clicks?.toLocaleString() || '-'}
+                    </TableCell>
+                    <TableCell className="text-right text-gray-300">
+                      {row.impressions?.toLocaleString() || '-'}
+                    </TableCell>
+                    <TableCell className="text-right text-gray-300">
+                      {row.ctr ? `${(row.ctr * 100).toFixed(1)}%` : '-'}
+                    </TableCell>
+                    <TableCell className="text-right text-gray-300">
+                      {row.position?.toFixed(1) || '-'}
+                    </TableCell>
+                    <TableCell className="text-gray-300 max-w-xs truncate">
+                      {row.recommendation || row.suggestedFix || '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const usagePercentage = usageStats ? 
+    (usageStats.reportsThisMonth / getPlanLimits(subscriptionType || 'free').monthlyReports) * 100 : 0;
 
   return (
     <DashboardLayout title="Custom AI Dashboard" fullScreen={true}>
       <RenewalOverlay>
         <div className="w-full p-6 space-y-6">
-          {/* Coming Soon Banner */}
-          <Card className=" from-blue-900/20 to-purple-900/20 border-blue-700/50 bg-[#1f2937]">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-4 ">
-                <div className="p-2 bg-blue-600/20 rounded-lg">
-                  <Sparkles className="h-6 w-6 text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-white mb-2">
-                    Custom AI Dashboard is coming soon! 🚀
-                  </h2>
-                  <p className="text-gray-300 mb-4">
-                    Use built-in prompts or describe your own insights—powered by AI. 
-                    2 reports per month, tailored to your GSC data.
-                  </p>
-                  <div className="flex gap-3">
-                    <Button 
-                      onClick={handleNotifyMe}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Bell className="h-4 w-4 mr-2" />
-                      Join Beta Waitlist
-                    </Button>
-                    <Badge variant="outline" className="border-yellow-600 text-yellow-400 bg-yellow-900/20">
-                      🧪 Coming Soon
-                    </Badge>
+          {/* GSC Connection Warning */}
+          {!getGSCProperty() && (
+            <Card className="bg-yellow-900/20 border-yellow-600">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-yellow-500" />
+                  <div>
+                    <h3 className="text-lg font-medium text-yellow-100">Google Search Console Required</h3>
+                    <p className="text-sm text-yellow-200 mt-1">
+                      Connect your Google Search Console account to generate AI reports. 
+                      <a href="/settings/googlesearchconsole" className="text-yellow-400 hover:text-yellow-300 underline ml-1">
+                        Go to Settings
+                      </a>
+                    </p>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Usage Limit Indicator */}
           <Card className="bg-gray-800 border-gray-700">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-medium text-white">Monthly Usage</h3>
+                {isLoadingUsage ? (
+                  <Badge variant="outline" className="border-gray-600 text-gray-400">
+                    Loading...
+                  </Badge>
+                ) : (
                 <Badge variant="outline" className="border-gray-600 text-gray-400">
-                  0 of 2 reports used
+                    {usageStats?.reportsThisMonth || 0} of {getPlanLimits(subscriptionType || 'free').monthlyReports} reports used
                 </Badge>
+                )}
               </div>
-              <Progress value={0} className="h-2 mb-2" />
-              <p className="text-sm text-gray-400">
-                AI-generated reports are limited to 2 per month to ensure quality insights.
-              </p>
+              <Progress value={isLoadingUsage ? 0 : usagePercentage} className="h-2 mb-2" />
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-400">
+                  {isLoadingUsage ? 'Loading usage information...' : 'AI-generated reports are limited per month to ensure quality insights.'}
+                </p>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${getGSCProperty() ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className="text-xs text-gray-400">
+                    {getGSCProperty() ? 'GSC Connected' : 'GSC Not Connected'}
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
+          {/* Main Content Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3 bg-gray-700">
+              <TabsTrigger value="selector" className="text-gray-300 data-[state=active]:bg-gray-600 data-[state=active]:text-white">
+                Generate Reports
+              </TabsTrigger>
+              <TabsTrigger value="report" className="text-gray-300 data-[state=active]:bg-gray-600 data-[state=active]:text-white" disabled={!currentReport}>
+                Current Report
+              </TabsTrigger>
+              <TabsTrigger value="history" className="text-gray-300 data-[state=active]:bg-gray-600 data-[state=active]:text-white">
+                Report History
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="selector" className="mt-6 space-y-6">
           {/* Suggested AI Reports */}
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
@@ -205,11 +727,10 @@ export default function CustomAIDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {SUGGESTED_REPORTS.map((report) => (
+                    {REPORT_CONFIGS.map((report) => (
                   <Card 
                     key={report.id} 
                     className="bg-gray-700 border-gray-600 hover:border-gray-500 transition-colors cursor-pointer group"
-                    onClick={() => handleUseReport(report.id)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3 mb-3">
@@ -236,18 +757,14 @@ export default function CustomAIDashboard() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          className="bg-gray-600 border-gray-500 text-gray-300 hover:bg-gray-500 hover:text-white opacity-50 cursor-not-allowed"
-                          disabled
+                              onClick={() => handleUseReport(report.id)}
+                              disabled={isLoadingUsage || isGenerating || (usageStats && usageStats.reportsThisMonth >= getPlanLimits(subscriptionType || 'free').monthlyReports)}
+                              className="bg-gray-600 border-gray-500 text-gray-300 hover:bg-gray-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Zap className="h-3 w-3 mr-1" />
-                          Use Report
+                              {isLoadingUsage ? 'Loading...' : 'Use Report'}
                         </Button>
                       </div>
-                      {selectedReport === report.id && (
-                        <div className="mt-2 p-2 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-400">
-                          Coming soon! This feature is in development.
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -272,212 +789,129 @@ export default function CustomAIDashboard() {
                 value={promptInput}
                 onChange={(e) => setPromptInput(e.target.value)}
                 className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 min-h-[100px] resize-none"
-                disabled
+                    disabled={isGenerating}
               />
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">
                   Tip: Be specific about metrics, timeframes, and page types
                 </span>
                 <Button 
-                  onClick={handleGenerateReport}
-                  disabled
-                  className="bg-purple-600 hover:bg-purple-700 text-white opacity-50 cursor-not-allowed"
+                      onClick={handleCustomPrompt}
+                      disabled={isLoadingUsage || isGenerating || !promptInput.trim() || (usageStats && usageStats.reportsThisMonth >= getPlanLimits(subscriptionType || 'free').monthlyReports)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Generate Report
+                      {isLoadingUsage ? 'Loading...' : 'Generate Report'}
                 </Button>
-              </div>
-              <div className="p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
-                <div className="flex items-center gap-2 text-yellow-400 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Custom prompts coming soon! Join the beta waitlist to be notified.</span>
-                </div>
               </div>
             </CardContent>
           </Card>
+            </TabsContent>
 
-          {/* Mock Report Preview */}
+            <TabsContent value="report" className="mt-6">
+              {isGenerating ? (
           <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
+                  <CardContent className="pt-6">
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center">
+                        <RefreshCw className="h-8 w-8 text-blue-400 animate-spin" />
+                </div>
+                      <h3 className="text-lg font-medium text-white">Generating AI Report...</h3>
+                      <p className="text-gray-400">Analyzing your GSC data and generating insights</p>
+                      <div className="w-full max-w-md mx-auto">
+                        <Progress value={generationProgress} className="h-3" />
+                        <p className="text-sm text-gray-400 mt-2">{generationProgress}% complete</p>
+                </div>
+              </div>
+                  </CardContent>
+                </Card>
+              ) : currentReport ? (
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardContent className="pt-6">
+                    {renderReportData()}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardContent className="pt-6">
+                    <div className="text-center space-y-4">
+                      <FileText className="h-12 w-12 text-gray-400 mx-auto" />
+                      <h3 className="text-lg font-medium text-white">No Report Selected</h3>
+                      <p className="text-gray-400">Generate a report from the first tab to view it here</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-6">
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
-                    <Eye className="h-5 w-5 text-green-400" />
-                    Preview: Quick Wins Report
+                    <Clock className="h-5 w-5 text-blue-400" />
+                    Report History
                   </CardTitle>
                   <CardDescription className="text-gray-400">
-                    Sample AI-generated report showing optimization opportunities
+                    View and re-access your previously generated reports
                   </CardDescription>
-                </div>
-                <Badge variant="outline" className="border-green-600 text-green-400 bg-green-900/20">
-                  Sample Report
-                </Badge>
+                </CardHeader>
+                <CardContent>
+                  {reportHistory.length > 0 ? (
+                    <div className="space-y-3">
+                      {reportHistory.map((report) => (
+                        <div
+                          key={report.id}
+                          className="flex items-center justify-between p-4 bg-gray-700 rounded-lg border border-gray-600 hover:border-gray-500 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            {REPORT_CONFIGS.find(r => r.id === report.reportType)?.icon}
+                            <div>
+                              <h4 className="font-medium text-white">
+                                {REPORT_CONFIGS.find(r => r.id === report.reportType)?.title}
+                              </h4>
+                              <p className="text-sm text-gray-400">
+                                Generated on {new Date(report.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Mock Filters */}
-              <div className="flex flex-wrap gap-3 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400">Filters:</span>
-                  <Badge variant="outline" className="border-gray-500 text-gray-300 opacity-50">
-                    Last 30 days
-                  </Badge>
-                  <Badge variant="outline" className="border-gray-500 text-gray-300 opacity-50">
-                    All Keywords
-                  </Badge>
-                  <Badge variant="outline" className="border-gray-500 text-gray-300 opacity-50">
-                    All Categories
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Mock Report Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <Card className="bg-gray-700 border-gray-600">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-green-400 mb-1">12</div>
-                    <div className="text-sm text-gray-400">Quick Win Opportunities</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gray-700 border-gray-600">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-400 mb-1">+847</div>
-                    <div className="text-sm text-gray-400">Potential Monthly Clicks</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gray-700 border-gray-600">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-purple-400 mb-1">2.3x</div>
-                    <div className="text-sm text-gray-400">Avg. CTR Improvement</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Mock Data Table */}
-              <div className="rounded-md border border-gray-700 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-gray-700 hover:bg-gray-700/50">
-                      <TableHead className="text-gray-300">URL</TableHead>
-                      <TableHead className="text-gray-300 text-right">Clicks</TableHead>
-                      <TableHead className="text-gray-300 text-right">CTR</TableHead>
-                      <TableHead className="text-gray-300 text-right">Position</TableHead>
-                      <TableHead className="text-gray-300">Action</TableHead>
-                      <TableHead className="text-gray-300">Priority</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {MOCK_REPORT_DATA.map((row, index) => (
-                      <TableRow key={index} className="border-gray-700 hover:bg-gray-700/50">
-                        <TableCell className="font-medium text-white max-w-xs truncate">
-                          {row.url}
-                        </TableCell>
-                        <TableCell className="text-right text-gray-300">
-                          {row.clicks}
-                        </TableCell>
-                        <TableCell className="text-right text-gray-300">
-                          {row.ctr}%
-                        </TableCell>
-                        <TableCell className="text-right text-gray-300">
-                          {row.position}
-                        </TableCell>
-                        <TableCell className="text-gray-300">
-                          {row.action}
-                        </TableCell>
-                        <TableCell>
+                          <div className="flex items-center gap-2">
                           <Badge 
                             variant="outline" 
                             className={cn(
                               "text-xs",
-                              row.priority === 'High' && "border-red-600 text-red-400 bg-red-900/20",
-                              row.priority === 'Medium' && "border-yellow-600 text-yellow-400 bg-yellow-900/20",
-                              row.priority === 'Low' && "border-green-600 text-green-400 bg-green-900/20"
+                                report.status === 'completed' && "border-green-600 text-green-400 bg-green-900/20",
+                                report.status === 'error' && "border-red-600 text-red-400 bg-red-900/20"
                             )}
                           >
-                            {row.priority}
+                              {report.status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
+                              {report.status}
                           </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mock Action Buttons */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-                <div className="text-sm text-gray-400">
-                  AI Analysis completed in 2.3 seconds
-                </div>
-                <div className="flex gap-3">
                   <Button 
+                              size="sm"
                     variant="outline" 
-                    disabled
-                    className="bg-gray-700 border-gray-600 text-gray-300 opacity-50 cursor-not-allowed"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Export Report
-                  </Button>
-                  <Button 
-                    disabled
-                    className="bg-blue-600 hover:bg-blue-700 text-white opacity-50 cursor-not-allowed"
-                  >
-                    View Full Report
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                              onClick={() => handleViewHistoryReport(report)}
+                              className="bg-gray-600 border-gray-500 text-gray-300 hover:bg-gray-500 hover:text-white"
+                            >
+                              View Report
+                              <ArrowRight className="h-3 w-3 ml-1" />
                   </Button>
                 </div>
               </div>
-
-              {/* Coming Soon Notice */}
-              <div className="p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="h-5 w-5 text-blue-400" />
-                  <div>
-                    <p className="text-blue-400 font-medium">This is a preview of what's coming!</p>
-                    <p className="text-sm text-gray-300 mt-1">
-                      Real AI-powered reports will analyze your actual GSC data and provide personalized insights.
-                    </p>
+                      ))}
                   </div>
+                  ) : (
+                    <div className="text-center space-y-4 py-8">
+                      <FileText className="h-12 w-12 text-gray-400 mx-auto" />
+                      <h3 className="text-lg font-medium text-white">No Reports Yet</h3>
+                      <p className="text-gray-400">Generate your first AI report to see it here</p>
                 </div>
-              </div>
+                  )}
             </CardContent>
           </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </RenewalOverlay>
-
-      {/* Beta Waitlist Modal (simplified) */}
-      {showNotifyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="bg-gray-800 border-gray-700 w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle className="text-white">Join Beta Waitlist</CardTitle>
-              <CardDescription className="text-gray-400">
-                Be the first to know when Custom AI Dashboard launches
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input 
-                placeholder="Enter your email address"
-                className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-              />
-              <div className="flex gap-3">
-                <Button 
-                  onClick={() => setShowNotifyModal(false)}
-                  variant="outline"
-                  className="flex-1 bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => setShowNotifyModal(false)}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Notify Me
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </DashboardLayout>
   );
 } 
