@@ -33,21 +33,22 @@ export class OpenAIService {
   private windowStart = Date.now();
 
   constructor() {
-    // First initialize config without maxInputTokens
+    // Initialize config
     this.config = {
       apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-      model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-4',
+      model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-4-turbo',  // Updated default model
       maxTokensPerPrompt: parseInt(import.meta.env.VITE_OPENAI_MAX_TOKENS || '4000'),
       rateLimit: parseInt(import.meta.env.VITE_OPENAI_RATE_LIMIT || '60'),
       temperature: 0.7,
-      maxInputTokens: 4000 // Default value
+      maxInputTokens: 4000 // Default value, will be updated below
     };
 
-    // Then update maxInputTokens after config is initialized
-    this.config.maxInputTokens = this.getModelTokenLimit();
+    // Update maxInputTokens based on model
+    this.config.maxInputTokens = this.getModelTokenLimit(this.config.model);
 
+    // Initialize chunking config with optimized values for larger context
     this.chunkingConfig = {
-      maxTokensPerChunk: Math.floor(this.config.maxInputTokens * 0.7), // 70% of max to leave room for system prompt
+      maxTokensPerChunk: Math.floor(this.config.maxInputTokens * 0.9), // Increased from 0.7 to 0.9
       overlapTokens: 200,
       preserveContext: true
     };
@@ -59,15 +60,18 @@ export class OpenAIService {
     }
   }
 
-  private getModelTokenLimit(): number {
-    const model = this.config.model.toLowerCase();
-    
-    if (model.includes('gpt-4-32k')) return 32000;
-    if (model.includes('gpt-4')) return 8000;
-    if (model.includes('gpt-3.5-turbo-16k')) return 16000;
-    if (model.includes('gpt-3.5')) return 4000;
-    
-    return 4000; // Default fallback
+  private getModelTokenLimit(model: string): number {
+    switch (model) {
+      case 'gpt-4-turbo':
+      case 'gpt-4-0125-preview':
+        return 128000;  // 128K tokens for GPT-4 Turbo
+      case 'gpt-4':
+        return 8192;
+      case 'gpt-3.5-turbo':
+        return 4096;
+      default:
+        return 4096;
+    }
   }
 
   private estimateTokens(text: string): number {
