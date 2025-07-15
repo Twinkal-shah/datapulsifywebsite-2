@@ -8,10 +8,24 @@ interface OpenAIConfig {
   maxTokensPerPrompt: number;
   rateLimit: number;
   temperature: number;
+  maxInputTokens: number;
+}
+
+interface ChunkingConfig {
+  maxTokensPerChunk: number;
+  overlapTokens: number;
+  preserveContext: boolean;
+}
+
+interface ChunkResult {
+  index: number;
+  content: string;
+  tokens: number;
 }
 
 export class OpenAIService {
   private config: OpenAIConfig;
+  private chunkingConfig: ChunkingConfig;
   private cache: CacheManager;
   private requestQueue: Array<{ request: () => Promise<any>; resolve: (value: any) => void; reject: (error: any) => void }> = [];
   private isProcessingQueue = false;
@@ -19,12 +33,23 @@ export class OpenAIService {
   private windowStart = Date.now();
 
   constructor() {
+    // First initialize config without maxInputTokens
     this.config = {
       apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
       model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-4',
       maxTokensPerPrompt: parseInt(import.meta.env.VITE_OPENAI_MAX_TOKENS || '4000'),
       rateLimit: parseInt(import.meta.env.VITE_OPENAI_RATE_LIMIT || '60'),
-      temperature: 0.7
+      temperature: 0.7,
+      maxInputTokens: 4000 // Default value
+    };
+
+    // Then update maxInputTokens after config is initialized
+    this.config.maxInputTokens = this.getModelTokenLimit();
+
+    this.chunkingConfig = {
+      maxTokensPerChunk: Math.floor(this.config.maxInputTokens * 0.7), // 70% of max to leave room for system prompt
+      overlapTokens: 200,
+      preserveContext: true
     };
 
     this.cache = new CacheManager();
@@ -32,6 +57,306 @@ export class OpenAIService {
     if (!this.config.apiKey) {
       throw new Error('OpenAI API key is required. Please set VITE_OPENAI_API_KEY environment variable.');
     }
+  }
+
+  private getModelTokenLimit(): number {
+    const model = this.config.model.toLowerCase();
+    
+    if (model.includes('gpt-4-32k')) return 32000;
+    if (model.includes('gpt-4')) return 8000;
+    if (model.includes('gpt-3.5-turbo-16k')) return 16000;
+    if (model.includes('gpt-3.5')) return 4000;
+    
+    return 4000; // Default fallback
+  }
+
+  private estimateTokens(text: string): number {
+    // More accurate token estimation
+    // GPT models typically use ~4 characters per token for English text
+    // Adjust for special characters and formatting
+    const baseTokens = Math.ceil(text.length / 4);
+    const jsonPenalty = text.includes('{') || text.includes('[') ? 1.2 : 1;
+    return Math.ceil(baseTokens * jsonPenalty);
+  }
+
+  private splitTextIntoChunks(text: string, contextPrefix: string = ''): string[] {
+    const chunks: string[] = [];
+    let currentChunk = contextPrefix;
+    let currentTokens = this.estimateTokens(currentChunk);
+    
+    // Try different splitting strategies
+    const splitters = [
+      /(?<=[.!?])\s+/g,  // Sentences
+      /\n\n/g,           // Paragraphs
+      /\n/g,             // Lines
+      /\s+/g             // Words (last resort)
+    ];
+
+    let segments = [text];
+    
+    for (const splitter of splitters) {
+      const newSegments = [];
+      let needsSplitting = false;
+      
+      for (const segment of segments) {
+        if (this.estimateTokens(segment) > this.chunkingConfig.maxTokensPerChunk) {
+          newSegments.push(...segment.split(splitter));
+          needsSplitting = true;
+        } else {
+          newSegments.push(segment);
+        }
+      }
+      
+      segments = newSegments;
+      if (!needsSplitting) break;
+    }
+
+    // Build chunks
+    for (const segment of segments) {
+      const segmentTokens = this.estimateTokens(segment);
+      
+      if (currentTokens + segmentTokens > this.chunkingConfig.maxTokensPerChunk) {
+        // Save current chunk if it has content
+        if (currentTokens > this.estimateTokens(contextPrefix)) {
+          chunks.push(currentChunk);
+        }
+        
+        // Start new chunk
+        currentChunk = contextPrefix + segment;
+        currentTokens = this.estimateTokens(currentChunk);
+      } else {
+        // Add to current chunk
+        currentChunk += (currentChunk === contextPrefix ? '' : ' ') + segment;
+        currentTokens += segmentTokens;
+      }
+    }
+    
+    // Add final chunk
+    if (currentTokens > this.estimateTokens(contextPrefix)) {
+      chunks.push(currentChunk);
+    }
+    
+    return chunks;
+  }
+
+  private splitJSONDataIntoChunks(data: any[], contextPrefix: string = ''): string[] {
+    const chunks: string[] = [];
+    let currentBatch: any[] = [];
+    let currentTokens = this.estimateTokens(contextPrefix);
+    
+    for (const item of data) {
+      const itemTokens = this.estimateTokens(JSON.stringify(item));
+      
+      if (currentTokens + itemTokens > this.chunkingConfig.maxTokensPerChunk && currentBatch.length > 0) {
+        // Save current batch
+        chunks.push(contextPrefix + JSON.stringify(currentBatch, null, 2));
+        currentBatch = [item];
+        currentTokens = this.estimateTokens(contextPrefix) + itemTokens;
+      } else {
+        currentBatch.push(item);
+        currentTokens += itemTokens;
+      }
+    }
+    
+    // Add final batch
+    if (currentBatch.length > 0) {
+      chunks.push(contextPrefix + JSON.stringify(currentBatch, null, 2));
+    }
+    
+    return chunks;
+  }
+
+  private async processChunkedRequest(
+    chunks: string[],
+    systemPrompt: string,
+    reportType: ReportType,
+    useCache: boolean = true
+  ): Promise<string> {
+    console.log(`Processing ${chunks.length} chunks for ${reportType} report`);
+    
+    const chunkResults: ChunkResult[] = [];
+    
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const chunkSystemPrompt = this.buildChunkSystemPrompt(systemPrompt, i + 1, chunks.length, reportType);
+      
+      try {
+        const result = await this.makeOpenAIRequestInternal(chunk, chunkSystemPrompt, useCache);
+        chunkResults.push({
+          index: i,
+          content: result,
+          tokens: this.estimateTokens(result)
+        });
+      } catch (error) {
+        console.error(`Error processing chunk ${i + 1}:`, error);
+        // Continue with other chunks, handle partial results
+        chunkResults.push({
+          index: i,
+          content: `Error processing chunk ${i + 1}: ${error}`,
+          tokens: 0
+        });
+      }
+    }
+    
+    return this.combineChunkResults(chunkResults, reportType);
+  }
+
+  private buildChunkSystemPrompt(
+    originalSystemPrompt: string,
+    chunkIndex: number,
+    totalChunks: number,
+    reportType: ReportType
+  ): string {
+    let chunkPrompt = originalSystemPrompt;
+    
+    if (totalChunks > 1) {
+      chunkPrompt += `\n\nIMPORTANT: This is chunk ${chunkIndex} of ${totalChunks}. `;
+      
+      if (chunkIndex === 1) {
+        chunkPrompt += "Focus on the beginning of the analysis. ";
+      } else if (chunkIndex === totalChunks) {
+        chunkPrompt += "Focus on completing the analysis and provide summary insights. ";
+      } else {
+        chunkPrompt += "Continue the analysis from previous chunks. ";
+      }
+      
+      // Add report-specific chunking instructions
+      switch (reportType) {
+        case 'top_gainers':
+        case 'underperforming_pages':
+        case 'bofu_pages':
+          chunkPrompt += "Analyze the pages in this chunk and provide individual recommendations for each.";
+          break;
+        case 'emerging_keywords':
+          chunkPrompt += "Focus on the keywords in this chunk and their trends.";
+          break;
+        case 'ranking_volatility':
+          chunkPrompt += "Analyze ranking changes for the pages in this chunk.";
+          break;
+        case 'quick_wins':
+          chunkPrompt += "Identify optimization opportunities for the pages in this chunk.";
+          break;
+      }
+    }
+    
+    return chunkPrompt;
+  }
+
+  private combineChunkResults(chunkResults: ChunkResult[], reportType: ReportType): string {
+    const validResults = chunkResults.filter(result => !result.content.includes('Error processing chunk'));
+    
+    if (validResults.length === 0) {
+      throw new Error('All chunks failed to process');
+    }
+    
+    // Try to parse as JSON first
+    const jsonResults = validResults.map(result => {
+      try {
+        return JSON.parse(result.content);
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+    
+    if (jsonResults.length === validResults.length) {
+      // All results are valid JSON, combine them
+      return this.combineJSONResults(jsonResults, reportType);
+    } else {
+      // Fallback to text combination
+      return this.combineTextResults(validResults.map(r => r.content));
+    }
+  }
+
+  private combineJSONResults(results: any[], reportType: ReportType): string {
+    try {
+      switch (reportType) {
+        case 'top_gainers':
+        case 'underperforming_pages':
+        case 'bofu_pages':
+          return this.combinePageResults(results);
+        
+        case 'emerging_keywords':
+        case 'ranking_volatility':
+        case 'quick_wins':
+          return this.combineAnalysisResults(results);
+        
+        default:
+          return this.combineGenericResults(results);
+      }
+    } catch (error) {
+      console.error('Error combining JSON results:', error);
+      return this.combineTextResults(results.map(r => JSON.stringify(r)));
+    }
+  }
+
+  private combinePageResults(results: any[]): string {
+    const combined = {
+      summary_heading: results[0]?.summary_heading || "Combined Analysis Results:",
+      top_pages: [],
+      pages: []
+    };
+    
+    for (const result of results) {
+      if (result.top_pages) {
+        combined.top_pages.push(...result.top_pages);
+      }
+      if (result.pages) {
+        combined.pages.push(...result.pages);
+      }
+    }
+    
+    // Remove duplicates based on URL
+    const seenUrls = new Set();
+    combined.top_pages = combined.top_pages.filter(page => {
+      if (seenUrls.has(page.url)) return false;
+      seenUrls.add(page.url);
+      return true;
+    });
+    
+    combined.pages = combined.pages.filter(page => {
+      if (seenUrls.has(page.url)) return false;
+      seenUrls.add(page.url);
+      return true;
+    });
+    
+    // Clean up empty arrays
+    if (combined.top_pages.length === 0) delete combined.top_pages;
+    if (combined.pages.length === 0) delete combined.pages;
+    
+    return JSON.stringify(combined, null, 2);
+  }
+
+  private combineAnalysisResults(results: any[]): string {
+    // For analysis results, concatenate insights
+    const combined = {
+      insights: [],
+      recommendations: [],
+      summary: "Combined analysis from multiple data chunks"
+    };
+    
+    for (const result of results) {
+      if (result.insights) {
+        combined.insights.push(...(Array.isArray(result.insights) ? result.insights : [result.insights]));
+      }
+      if (result.recommendations) {
+        combined.recommendations.push(...(Array.isArray(result.recommendations) ? result.recommendations : [result.recommendations]));
+      }
+    }
+    
+    return JSON.stringify(combined, null, 2);
+  }
+
+  private combineGenericResults(results: any[]): string {
+    // Generic combination for other result types
+    if (Array.isArray(results[0])) {
+      return JSON.stringify(results.flat(), null, 2);
+    } else {
+      return JSON.stringify(results, null, 2);
+    }
+  }
+
+  private combineTextResults(results: string[]): string {
+    return results.join('\n\n---\n\n');
   }
 
   private async queueRequest<T>(request: () => Promise<T>): Promise<T> {
@@ -79,6 +404,59 @@ export class OpenAIService {
   }
 
   private async makeOpenAIRequest(
+    prompt: string,
+    systemPrompt: string,
+    useCache: boolean = true
+  ): Promise<string> {
+    const totalTokens = this.estimateTokens(prompt + systemPrompt);
+    
+    if (totalTokens > this.config.maxInputTokens) {
+      console.log(`Large prompt detected (${totalTokens} estimated tokens). Using chunking...`);
+      
+      // Determine chunking strategy based on content
+      let chunks: string[];
+      
+      if (prompt.includes('GSC Data from') && prompt.includes('[')) {
+        // This looks like GSC data, try to extract and chunk the JSON part
+        const jsonMatch = prompt.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          try {
+            const data = JSON.parse(jsonMatch[0]);
+            const contextPrefix = prompt.substring(0, prompt.indexOf(jsonMatch[0])) + '\n';
+            chunks = this.splitJSONDataIntoChunks(data, contextPrefix);
+          } catch {
+            chunks = this.splitTextIntoChunks(prompt);
+          }
+        } else {
+          chunks = this.splitTextIntoChunks(prompt);
+        }
+      } else {
+        chunks = this.splitTextIntoChunks(prompt);
+      }
+      
+      // Determine report type from system prompt
+      const reportType = this.detectReportType(systemPrompt, prompt);
+      
+      return this.processChunkedRequest(chunks, systemPrompt, reportType, useCache);
+    }
+
+    return this.makeOpenAIRequestInternal(prompt, systemPrompt, useCache);
+  }
+
+  private detectReportType(systemPrompt: string, prompt: string): ReportType {
+    const combined = (systemPrompt + ' ' + prompt).toLowerCase();
+    
+    if (combined.includes('top_gainers') || combined.includes('pages winning')) return 'top_gainers';
+    if (combined.includes('underperforming') || combined.includes('low ctr')) return 'underperforming_pages';
+    if (combined.includes('bofu') || combined.includes('bottom-of-funnel')) return 'bofu_pages';
+    if (combined.includes('emerging') || combined.includes('new keywords')) return 'emerging_keywords';
+    if (combined.includes('volatility') || combined.includes('unstable')) return 'ranking_volatility';
+    if (combined.includes('quick wins') || combined.includes('optimization opportunities')) return 'quick_wins';
+    
+    return 'top_gainers'; // Default fallback
+  }
+
+  private async makeOpenAIRequestInternal(
     prompt: string,
     systemPrompt: string,
     useCache: boolean = true
