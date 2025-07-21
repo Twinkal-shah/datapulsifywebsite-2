@@ -631,16 +631,16 @@ export class ReportService {
     } as Report;
   }
 
-  async getReports(): Promise<Report[]> {
+  async getReports(timeoutMs: number = 15000): Promise<Report[]> {
     try {
       // Enforce rate limiting
       await this.enforceRateLimit();
       
       console.log('Fetching reports for user:', this.userId);
       
-      // Add timeout to prevent hanging requests
+      // Add timeout to prevent hanging requests - configurable timeout
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
+        setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
       });
       
       const requestPromise = supabase

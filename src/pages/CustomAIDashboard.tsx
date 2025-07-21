@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useTabVisibility } from '@/hooks/useTabVisibility';
 import { createReportService } from '@/lib/reportService';
 import { createExportService } from '@/lib/exportService';
 import { 
@@ -97,6 +98,7 @@ const REPORT_CONFIGS = [
 export default function CustomAIDashboard() {
   const { user, getGSCProperty } = useAuth();
   const { subscriptionType } = useSubscription();
+  const { isVisible, wasRecentlyHidden } = useTabVisibility();
   
   // State management
   const [promptInput, setPromptInput] = useState('');
@@ -111,6 +113,11 @@ export default function CustomAIDashboard() {
   const [hasLoadedInitialStats, setHasLoadedInitialStats] = useState(false);
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
   
+  // Tab visibility state for report generation handling
+  const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
+  const [currentReportType, setCurrentReportType] = useState<ReportType | null>(null);
+  const [isCheckingStuckReport, setIsCheckingStuckReport] = useState(false);
+  
   // Service instances - memoized to prevent recreation on every render
   const reportService = useMemo(() => {
     return user?.id ? createReportService(user.id, subscriptionType || 'free') : null;
@@ -119,6 +126,10 @@ export default function CustomAIDashboard() {
   const exportService = useMemo(() => {
     return user?.id ? createExportService(user.id, subscriptionType || 'free') : null;
   }, [user?.id, subscriptionType]);
+
+  // Refs to track generation state and intervals
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reportGenerationPromiseRef = useRef<Promise<Report> | null>(null);
 
   // Plan limits utility
   const getPlanLimits = (planType: string) => {
@@ -142,6 +153,195 @@ export default function CustomAIDashboard() {
       setHasLoadedInitialStats(false);
     }
   }, [user?.id, reportService, hasLoadedInitialStats]);
+
+  // Handle tab visibility changes during report generation
+  useEffect(() => {
+    if (isVisible && wasRecentlyHidden && isGenerating && generationStartTime) {
+      console.log('Tab became visible during report generation - checking status');
+      
+      // Check if report generation has been running for too long
+      const generationTime = Date.now() - generationStartTime;
+      const maxGenerationTime = 5 * 60 * 1000; // 5 minutes
+      
+      if (generationTime > maxGenerationTime) {
+        console.warn('Report generation appears to have timed out');
+        setIsGenerating(false);
+        setGenerationProgress(0);
+        setGenerationStartTime(null);
+        setCurrentReportType(null);
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+        toast.error('Report generation timed out. Please try again.');
+        setActiveTab('selector');
+        return;
+      }
+      
+      // If we have a report generation promise, check its status
+      if (reportGenerationPromiseRef.current) {
+        console.log('Checking report generation promise status');
+        
+        // Set a timeout to check if the promise resolves soon
+        const checkTimeout = setTimeout(() => {
+          if (isGenerating && generationProgress >= 90) {
+            console.log('Report appears to be stuck at 90% - attempting to recover');
+            setIsCheckingStuckReport(true);
+            
+            // Try to check if there are any new reports with enhanced error handling
+            if (reportService) {
+                             // Create a more lenient timeout for recovery scenarios
+               const createReportsRequest = async (): Promise<Report[]> => {
+                 const timeoutPromise = new Promise<Report[]>((_, reject) => {
+                   setTimeout(() => reject(new Error('Recovery request timeout')), 20000); // 20 second timeout for recovery
+                 });
+                 
+                 const requestPromise = reportService.getReports(25000); // 25 second timeout for recovery
+                 
+                 return Promise.race([requestPromise, timeoutPromise]);
+               };
+
+              createReportsRequest().then(reports => {
+                // Check if there's a new report that matches our current generation
+                const recentReport = reports.find(report => 
+                  report.reportType === currentReportType &&
+                  new Date(report.createdAt).getTime() > (generationStartTime || 0)
+                );
+                
+                if (recentReport) {
+                  console.log('Found completed report that was generated while tab was inactive');
+                  // Clear the generation state
+                  if (progressIntervalRef.current) {
+                    clearInterval(progressIntervalRef.current);
+                    progressIntervalRef.current = null;
+                  }
+                  setGenerationProgress(100);
+                  setTimeout(() => {
+                    setCurrentReport(recentReport);
+                    setSelectedReport(recentReport);
+                    setIsGenerating(false);
+                    setGenerationProgress(0);
+                    setGenerationStartTime(null);
+                    setCurrentReportType(null);
+                    reportGenerationPromiseRef.current = null;
+                    setIsCheckingStuckReport(false);
+                    // Refresh usage stats and history
+                    loadUsageStats();
+                    loadReportHistory();
+                    toast.success('Report completed successfully!');
+                  }, 500);
+                } else {
+                  console.log('No matching completed report found - checking if original promise resolved');
+                  // Try to wait for the original promise to resolve
+                  if (reportGenerationPromiseRef.current) {
+                    reportGenerationPromiseRef.current.then(report => {
+                      console.log('Original report generation completed');
+                      // Clear the generation state
+                      if (progressIntervalRef.current) {
+                        clearInterval(progressIntervalRef.current);
+                        progressIntervalRef.current = null;
+                      }
+                      setGenerationProgress(100);
+                      setTimeout(() => {
+                        setCurrentReport(report);
+                        setSelectedReport(report);
+                        setIsGenerating(false);
+                        setGenerationProgress(0);
+                        setGenerationStartTime(null);
+                        setCurrentReportType(null);
+                        reportGenerationPromiseRef.current = null;
+                        setIsCheckingStuckReport(false);
+                        // Refresh usage stats and history
+                        loadUsageStats();
+                        loadReportHistory();
+                        toast.success('Report completed successfully!');
+                      }, 500);
+                    }).catch(error => {
+                      console.error('Original report generation also failed:', error);
+                      setIsCheckingStuckReport(false);
+                    });
+                  } else {
+                    setIsCheckingStuckReport(false);
+                  }
+                }
+              }).catch(error => {
+                console.error('Error checking for completed reports:', error);
+                // If we can't check reports due to network issues, wait for original promise
+                if (reportGenerationPromiseRef.current) {
+                  console.log('Network issue detected - waiting for original promise to resolve');
+                  reportGenerationPromiseRef.current.then(report => {
+                    console.log('Original report generation completed despite network issues');
+                    // Clear the generation state
+                    if (progressIntervalRef.current) {
+                      clearInterval(progressIntervalRef.current);
+                      progressIntervalRef.current = null;
+                    }
+                    setGenerationProgress(100);
+                    setTimeout(() => {
+                      setCurrentReport(report);
+                      setSelectedReport(report);
+                      setIsGenerating(false);
+                      setGenerationProgress(0);
+                      setGenerationStartTime(null);
+                      setCurrentReportType(null);
+                      reportGenerationPromiseRef.current = null;
+                      setIsCheckingStuckReport(false);
+                      // Refresh usage stats and history
+                      loadUsageStats();
+                      loadReportHistory();
+                      toast.success('Report completed successfully!');
+                    }, 500);
+                  }).catch(originalError => {
+                    console.error('Both recovery and original generation failed:', originalError);
+                    setIsCheckingStuckReport(false);
+                    // Reset generation state on complete failure
+                    if (progressIntervalRef.current) {
+                      clearInterval(progressIntervalRef.current);
+                      progressIntervalRef.current = null;
+                    }
+                    setIsGenerating(false);
+                    setGenerationProgress(0);
+                    setGenerationStartTime(null);
+                    setCurrentReportType(null);
+                    reportGenerationPromiseRef.current = null;
+                    toast.error('Report generation failed. Please try again.');
+                    setActiveTab('selector');
+                  });
+                } else {
+                  setIsCheckingStuckReport(false);
+                  // Reset generation state if no promise to wait for
+                  if (progressIntervalRef.current) {
+                    clearInterval(progressIntervalRef.current);
+                    progressIntervalRef.current = null;
+                  }
+                  setIsGenerating(false);
+                  setGenerationProgress(0);
+                  setGenerationStartTime(null);
+                  setCurrentReportType(null);
+                  toast.error('Unable to verify report status. Please try again.');
+                  setActiveTab('selector');
+                }
+              });
+            } else {
+              setIsCheckingStuckReport(false);
+            }
+          }
+        }, 2000); // Wait 2 seconds before checking
+        
+        return () => clearTimeout(checkTimeout);
+      }
+    }
+  }, [isVisible, wasRecentlyHidden, isGenerating, generationStartTime, generationProgress, currentReportType, reportService]);
+
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Ref to track if we're already loading stats to prevent multiple simultaneous requests
   const loadingStatsRef = useRef(false);
@@ -256,13 +456,21 @@ export default function CustomAIDashboard() {
       return;
     }
 
+    // Clear any existing intervals
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+
     setIsGenerating(true);
     setGenerationProgress(0);
+    setGenerationStartTime(Date.now());
+    setCurrentReportType(reportType);
     setActiveTab('report');
 
     try {
-      // Progress simulation
-      const progressInterval = setInterval(() => {
+      // Progress simulation with ref tracking
+      progressIntervalRef.current = setInterval(() => {
         setGenerationProgress(prev => Math.min(prev + 10, 90));
       }, 500);
 
@@ -272,13 +480,21 @@ export default function CustomAIDashboard() {
         throw new Error('No Google Search Console property selected. Please connect to GSC in Settings.');
       }
 
-      const report = await reportService.generateReport(
+      // Store the report generation promise for tab visibility tracking
+      const reportPromise = reportService.generateReport(
         reportType, 
         { startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] }, 
         gscProperty
       );
       
-      clearInterval(progressInterval);
+      reportGenerationPromiseRef.current = reportPromise;
+      const report = await reportPromise;
+      
+      // Clear the interval and update progress
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       setGenerationProgress(100);
       
       setCurrentReport(report);
@@ -294,8 +510,16 @@ export default function CustomAIDashboard() {
       toast.error('Failed to generate report. Please try again.');
       setActiveTab('selector');
     } finally {
+      // Clean up generation state
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      reportGenerationPromiseRef.current = null;
       setIsGenerating(false);
       setGenerationProgress(0);
+      setGenerationStartTime(null);
+      setCurrentReportType(null);
     }
   };
 
@@ -816,11 +1040,25 @@ export default function CustomAIDashboard() {
                       <div className="flex items-center justify-center">
                         <RefreshCw className="h-8 w-8 text-blue-400 animate-spin" />
                 </div>
-                      <h3 className="text-lg font-medium text-white">Generating AI Report...</h3>
-                      <p className="text-gray-400">Analyzing your GSC data and generating insights</p>
+                      <h3 className="text-lg font-medium text-white">
+                        {isCheckingStuckReport ? 'Checking Report Status...' : 'Generating AI Report...'}
+                      </h3>
+                      <p className="text-gray-400">
+                        {isCheckingStuckReport 
+                          ? 'Verifying report completion after tab switch' 
+                          : 'Analyzing your GSC data and generating insights'}
+                      </p>
                       <div className="w-full max-w-md mx-auto">
                         <Progress value={generationProgress} className="h-3" />
-                        <p className="text-sm text-gray-400 mt-2">{generationProgress}% complete</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          {generationProgress}% complete
+                          {isCheckingStuckReport && generationProgress >= 90 && ' - Checking status...'}
+                        </p>
+                        {isCheckingStuckReport && (
+                          <p className="text-xs text-blue-400 mt-1">
+                            This may take a moment if there are network delays...
+                          </p>
+                        )}
                 </div>
               </div>
                   </CardContent>
