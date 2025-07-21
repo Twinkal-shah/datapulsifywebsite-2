@@ -47,6 +47,12 @@ export function DashboardLayoutEnhanced({
       onClick: () => handleNavigation('/click-gap-intelligence')
     },
     {
+      title: 'Top Gainers Report',
+      href: '/top-gainers-report',
+      active: location.pathname === '/top-gainers-report',
+      onClick: () => handleNavigation('/top-gainers-report')
+    },
+    {
       title: 'Custom AI Dashboard',
       href: '/custom-ai-dashboard',
       active: location.pathname === '/custom-ai-dashboard',

@@ -49,6 +49,7 @@ import ClickGapIntelligence from './pages/ClickGapIntelligence';
 import RankTracker from './pages/RankTracker';
 import Settings from './pages/Settings';
 import CustomAIDashboard from './pages/CustomAIDashboard';
+import TopGainersReport from './pages/TopGainersReport';
 
 
 // Keep lazy loading for less frequently used pages
@@ -147,6 +148,7 @@ const App = () => {
                   <Route path="/click-gap-intelligence" element={<ClickGapIntelligence />} />
                   <Route path="/rank-tracker" element={<RankTracker />} />
                   <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
+                  <Route path="/top-gainers-report" element={<TopGainersReport />} />
         
                   <Route path="/keyword-analysis" element={<Dashboard />} />
                   <Route path="/gap-analysis" element={<Dashboard />} />

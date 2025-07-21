@@ -540,7 +540,7 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-gray-800 border-gray-700 cursor-pointer hover:bg-gray-700/50 transition-colors"
               onClick={() => onNavigate?.('click-gap-intelligence')}>
           <CardHeader>
@@ -552,6 +552,21 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
           <CardContent>
             <p className="text-gray-400 text-sm">
               Identify pages with high impressions but low clicks to optimize your content strategy.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800 border-gray-700 cursor-pointer hover:bg-gray-700/50 transition-colors"
+              onClick={() => window.location.href = '/top-gainers-report'}>
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-emerald-400" />
+              Top Gainers Report
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-400 text-sm">
+              Discover pages with significant click growth and get AI-powered optimization recommendations.
             </p>
           </CardContent>
         </Card>
