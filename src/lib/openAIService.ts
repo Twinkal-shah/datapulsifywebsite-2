@@ -739,6 +739,21 @@ Return only valid JSON, no additional text.`;
       return false;
     }
   }
+
+  /**
+   * Generic text generation method
+   * @param prompt The user prompt for text generation
+   * @param systemPrompt Optional system prompt to guide the generation
+   * @param useCache Whether to use caching for this request
+   * @returns Generated text response
+   */
+  async generateText(
+    prompt: string, 
+    systemPrompt: string = 'You are a helpful AI assistant. Provide accurate and useful responses.',
+    useCache: boolean = true
+  ): Promise<string> {
+    return this.makeOpenAIRequest(prompt, systemPrompt, useCache);
+  }
 }
 
 export const openAIService = new OpenAIService(); 

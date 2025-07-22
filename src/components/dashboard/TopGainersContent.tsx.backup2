@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { GSCService, GSCDataPoint } from '@/lib/gscService';
 import { OpenAIService } from '@/lib/openAIService';
 import { ExportService } from '@/lib/exportService';
-import { createReportService } from "@/lib/reportService";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +87,7 @@ interface AISuccessPatterns {
 
 interface TopGainersContentProps {
   isActive: boolean;
-  onReportSaved?: () => void;
+  onNavigate?: (section: string) => void;
 }
 
 // Page type classification patterns (enhanced from existing ClickGap component)
@@ -151,21 +150,15 @@ const calculateDateRanges = () => {
   };
 };
 
-export function TopGainersContent({ isActive, onReportSaved }: TopGainersContentProps) {
+export function TopGainersContent({ isActive, onNavigate }: TopGainersContentProps) {
   const { user, getGSCToken, getGSCProperty } = useAuth();
   const { subscriptionType } = useSubscription();
   const { trackExport } = useDataExports();
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [progressState, setProgressState] = useState({
-    overall: 0,
-    currentStage: null,
-    stages: [],
-    isLoading: false,
-    hasError: false,
-    canCancel: false
-  });
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const [topGainerPages, setTopGainerPages] = useState<TopGainerPage[]>([]);
   const [summary, setSummary] = useState<TopGainersSummary | null>(null);
   const [aiPatterns, setAiPatterns] = useState<AISuccessPatterns>({ patterns: [], nextSteps: [], loading: false });
@@ -179,39 +172,11 @@ export function TopGainersContent({ isActive, onReportSaved }: TopGainersContent
   const topPages = useMemo(() => topGainerPages.slice(0, 5), [topGainerPages]);
 
   // Main data loading function implementing all 6 steps
-  
-  // Save Top Gainers report to Supabase for usage tracking and history
-  const saveReportToSupabase = async (
-    gainerPagesData: TopGainerPage[], 
-    summaryData: TopGainersSummary,
-    ranges: any,
-    patterns?: AISuccessPatterns
-  ) => {
-    if (!user?.id || !subscriptionType) return;
-
-    try {
-      const reportService = createReportService(user.id, subscriptionType);
-      
-      // Use the public saveTopGainersReport method with AI patterns included
-      await reportService.saveTopGainersReport({
-        summary: summaryData,
-        pages: gainerPagesData,
-        dateRanges: ranges,
-        aiPatterns: patterns // Include AI patterns in saved data
-      }, `Enhanced Top Gainers Report generated with ${gainerPagesData.length} gaining pages. Total clicks gained: ${summaryData.netClicksGained.toLocaleString()}, Average CTR improvement: ${(summaryData.avgCtrImprovement * 100).toFixed(2)}%.`);
-      
-      console.log('Top Gainers report saved to Supabase successfully');
-    } catch (error) {
-      console.error('Error saving Top Gainers report to Supabase:', error);
-      throw error;
-    }
-  };
-
-const loadTopGainersData = async () => {
+  const loadTopGainersData = async () => {
     setLoading(true);
     setError(null);
-    setProgressState(prev => ({ ...prev, overall: 0, isLoading: true }));
-    setProgressState(prev => ({ ...prev, currentStage: { id: "init", name: "Initializing", progress: prev.overall, status: "loading" as const, message: "Initializing Top Gainers analysis..." } }));
+    setProgress(0);
+    setProgressMessage('Initializing Top Gainers analysis...');
     
     try {
       const gscProperty = getGSCProperty();
@@ -224,8 +189,8 @@ const loadTopGainersData = async () => {
       const dateRanges = calculateDateRanges();
       
       // Step 1: Fetch GSC Data
-      setProgressState(prev => ({ ...prev, overall: 10, isLoading: true }));
-      setProgressState(prev => ({ ...prev, currentStage: { id: "fetch", name: "Fetching GSC Data", progress: prev.overall, status: "loading" as const, message: "Step 1: Fetching GSC data for both time periods..." } }));
+      setProgress(10);
+      setProgressMessage('Step 1: Fetching GSC data for both time periods...');
       
       const [currentData, previousData] = await Promise.all([
         // Current period: last 3 months
@@ -246,8 +211,8 @@ const loadTopGainersData = async () => {
         })
       ]);
 
-      setProgressState(prev => ({ ...prev, overall: 30, isLoading: true }));
-      setProgressState(prev => ({ ...prev, currentStage: { id: "process", name: "Processing Data", progress: prev.overall, status: "loading" as const, message: "Step 2: Processing data and calculating deltas..." } }));
+      setProgress(30);
+      setProgressMessage('Step 2: Processing data and calculating deltas...');
 
       // Step 2: Calculate Deltas and process page data
       const pageDataCurrent = groupDataByPage(currentData);
@@ -284,8 +249,8 @@ const loadTopGainersData = async () => {
       // Sort by clicks delta descending
       gainerPagesData.sort((a, b) => b.clicksGained - a.clicksGained);
 
-      setProgressState(prev => ({ ...prev, overall: 50, isLoading: true }));
-      setProgressState(prev => ({ ...prev, currentStage: { id: "queries", name: "Getting Top Queries", progress: prev.overall, status: "loading" as const, message: "Step 3: Getting top query for each gainer page..." } }));
+      setProgress(50);
+      setProgressMessage('Step 3: Getting top query for each gainer page...');
 
       // Step 3: Get Top Query Per Page
       for (let i = 0; i < Math.min(gainerPagesData.length, 20); i++) {
@@ -294,8 +259,8 @@ const loadTopGainersData = async () => {
         page.topQuery = topQuery;
       }
 
-      setProgressState(prev => ({ ...prev, overall: 70, isLoading: true }));
-      setProgressState(prev => ({ ...prev, currentStage: { id: "trends", name: "Generating Trends", progress: prev.overall, status: "loading" as const, message: "Step 4: Generating weekly performance trend data..." } }));
+      setProgress(70);
+      setProgressMessage('Step 4: Generating weekly performance trend data...');
 
       // Step 4: Generate Weekly Performance Trend Data
       const top5Pages = gainerPagesData.slice(0, 5);
@@ -318,27 +283,16 @@ const loadTopGainersData = async () => {
       
       setSummary(summaryData);
 
-      setProgressState(prev => ({ ...prev, overall: 90, isLoading: true }));
-      setProgressState(prev => ({ ...prev, currentStage: { id: "ai", name: "AI Analysis", progress: prev.overall, status: "loading" as const, message: "Step 5: Generating AI-powered success patterns..." } }));
+      setProgress(90);
+      setProgressMessage('Step 5: Generating AI-powered success patterns...');
 
       // Step 5: Generate AI-Powered Success Patterns
-      let generatedPatterns = { patterns: [], nextSteps: [], loading: false };
       if (gainerPagesData.length >= 3) {
-        generatedPatterns = await generateAISuccessPatterns(gainerPagesData.slice(0, Math.min(20, gainerPagesData.length)));
+        await generateAISuccessPatterns(gainerPagesData.slice(0, Math.min(20, gainerPagesData.length)));
       }
 
-      setProgressState(prev => ({ ...prev, overall: 100, isLoading: false }));
-      setProgressState(prev => ({ ...prev, currentStage: { id: "complete", name: "Complete", progress: prev.overall, status: "completed" as const, message: "Top Gainers report generated successfully!" } }));
-      
-      // Save report to Supabase for usage tracking and history
-      try {
-        await saveReportToSupabase(gainerPagesData, summaryData, dateRanges, generatedPatterns);
-        // Notify parent component that report was saved
-        onReportSaved?.();
-      } catch (saveError) {
-        console.error('Error saving report to Supabase:', saveError);
-        // Don't show error to user, just log it
-      }
+      setProgress(100);
+      setProgressMessage('Top Gainers report generated successfully!');
       
     } catch (error) {
       console.error('Error loading Top Gainers data:', error);
@@ -465,7 +419,7 @@ const loadTopGainersData = async () => {
   };
 
   // Step 5: Generate AI-powered success patterns
-  const generateAISuccessPatterns = async (topPages: TopGainerPage[]): Promise<AISuccessPatterns> => {
+  const generateAISuccessPatterns = async (topPages: TopGainerPage[]) => {
     setAiPatterns(prev => ({ ...prev, loading: true }));
     
     try {
@@ -505,16 +459,14 @@ Focus on actionable, human-readable insights that can be applied to other pages.
       
       try {
         const parsed = JSON.parse(response);
-        const patternsResult = {
+        setAiPatterns({
           patterns: parsed.patterns || [],
           nextSteps: parsed.nextSteps || [],
           loading: false
-        };
-        setAiPatterns(patternsResult);
-        return patternsResult;
+        });
       } catch (parseError) {
         // Fallback if JSON parsing fails
-        const fallbackPatterns = {
+        setAiPatterns({
           patterns: [
             'Strong content-search intent alignment appears to be driving traffic growth',
             'Pages with improved meta titles and descriptions show better CTR performance',
@@ -526,16 +478,14 @@ Focus on actionable, human-readable insights that can be applied to other pages.
             'Conduct technical SEO audit on pages with similar content themes'
           ],
           loading: false
-        };
-        setAiPatterns(fallbackPatterns);
-        return fallbackPatterns;
+        });
       }
     } catch (error) {
       console.error('Error generating AI success patterns:', error);
       
       // Enhanced error handling for rate limits
       if (error.message?.includes('RATE_LIMIT_EXCEEDED')) {
-        const rateLimitPatterns = {
+        setAiPatterns({
           patterns: [
             '🚫 OpenAI Rate Limit Reached - Using Data-Driven Insights Instead:',
             `Top gaining pages show an average CTR improvement of ${topPages.length > 0 ? (topPages.reduce((sum, p) => sum + p.ctrImprovement, 0) / topPages.length * 100).toFixed(2) : 0}%`,
@@ -551,11 +501,9 @@ Focus on actionable, human-readable insights that can be applied to other pages.
             'Manual analysis: Look for common content themes among your top gaining pages'
           ],
           loading: false
-        };
-        setAiPatterns(rateLimitPatterns);
-        return rateLimitPatterns;
+        });
       } else {
-        const errorPatterns = {
+        setAiPatterns({
           patterns: [
             'Unable to generate AI-powered success patterns at this time',
             'Data-driven insights: Focus on pages showing consistent click growth',
@@ -567,9 +515,7 @@ Focus on actionable, human-readable insights that can be applied to other pages.
             'Focus on the weekly trend data to identify patterns'
           ],
           loading: false
-        };
-        setAiPatterns(errorPatterns);
-        return errorPatterns;
+        });
       }
     }
   };
@@ -649,9 +595,9 @@ Focus on actionable, human-readable insights that can be applied to other pages.
   if (loading) {
     return (
       <DataLoadingOverlay
-        progress={progressState}
+        progress={progress}
         title="Generating Top Gainers SEO Report"
-        subtitle={progressState.currentStage?.message || ""}
+        subtitle={progressMessage}
         isVisible={true}
       />
     );
@@ -675,13 +621,13 @@ Focus on actionable, human-readable insights that can be applied to other pages.
   return (
     <div className="w-full p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Enhanced Top Gainers SEO Report 🚀</h1>
           <p className="text-gray-400 mt-1">
             Advanced analysis: Pages with significant click growth (last 3 months vs previous 3 months)
           </p>
-          </div>
+        </div>
           
           <div className="flex gap-2">
           <Button variant="outline" onClick={exportToCSV} disabled={topGainerPages.length === 0}>

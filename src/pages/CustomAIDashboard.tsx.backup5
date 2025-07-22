@@ -7,9 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   Sparkles, 
   TrendingUp, 
@@ -29,7 +27,7 @@ import {
   RefreshCw,
   Clock,
   CheckCircle
-, ArrowLeft, Bot } from 'lucide-react';
+, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
 import { useAuth } from '@/contexts/AuthContext';
@@ -462,30 +460,16 @@ export default function CustomAIDashboard() {
 
     return (
       <div className="space-y-6">
-        {/* Report Header - Enhanced for Top Gainers */}
+        {/* Report Header */}
         <div className="flex items-center justify-between">
           <div>
-            {currentReport.reportType === 'top_gainers' && currentReport.data.type === 'top_gainers_enhanced' ? (
-              <>
-                <h1 className="text-2xl font-bold text-white">Enhanced Top Gainers SEO Report 🚀</h1>
-                <p className="text-gray-400 mt-1">
-                  Advanced analysis: Pages with significant click growth (last 3 months vs previous 3 months)
-                </p>
-                <p className="text-gray-500 text-sm">
-                  Generated on {new Date(currentReport.createdAt).toLocaleDateString()}
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                  {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.icon}
-                  {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.title}
-                </h3>
-                <p className="text-gray-400 text-sm mt-1">
-                  Generated on {new Date(currentReport.createdAt).toLocaleDateString()}
-                </p>
-              </>
-            )}
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+              {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.icon}
+              {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.title}
+            </h3>
+            <p className="text-gray-400 text-sm mt-1">
+              Generated on {new Date(currentReport.createdAt).toLocaleDateString()}
+            </p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -729,153 +713,6 @@ export default function CustomAIDashboard() {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Weekly Performance Trends - Render actual charts for enhanced top_gainers */}
-            {currentReport.reportType === 'top_gainers' && currentReport.data?.type === 'top_gainers_enhanced' && currentReport.data?.pages && (
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-blue-400" />
-                    Weekly Performance Trends (Top 5 Pages)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {currentReport.data.pages.slice(0, 5).map((page: any, index: number) => (
-                      page.weeklyTrendData && page.weeklyTrendData.length > 0 ? (
-                        <div key={page.url || index}>
-                          <h4 className="text-sm font-medium text-white mb-3">
-                            {index + 1}. {page.pageType || 'Other'} (+{page.clicksGained || 0} clicks)
-                          </h4>
-                          <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={page.weeklyTrendData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                <XAxis dataKey="weekLabel" tick={{fontSize: 12}} stroke="#9CA3AF" />
-                                <YAxis yAxisId="left" orientation="left" stroke="#9CA3AF" />
-                                <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: '#1F2937', 
-                                    border: '1px solid #374151',
-                                    borderRadius: '6px'
-                                  }}
-                                />
-                                <Line 
-                                  yAxisId="left"
-                                  type="monotone" 
-                                  dataKey="clicks" 
-                                  stroke="#3B82F6" 
-                                  strokeWidth={2}
-                                  name="Clicks"
-                                />
-                                <Line 
-                                  yAxisId="left"
-                                  type="monotone" 
-                                  dataKey="ctr" 
-                                  stroke="#10B981" 
-                                  strokeWidth={2}
-                                  name="CTR"
-                                />
-                                <Line 
-                                  yAxisId="right"
-                                  type="monotone" 
-                                  dataKey="avgPosition" 
-                                  stroke="#F59E0B" 
-                                  strokeWidth={2}
-                                  name="Avg Position"
-                                />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-                      ) : null
-                    ))}
-                    {(!currentReport.data.pages.slice(0, 5).some((page: any) => page.weeklyTrendData && page.weeklyTrendData.length > 0)) && (
-                      <div className="text-center py-8">
-                        <BarChart3 className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                        <p className="text-gray-400">No weekly trend data available for this report</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* AI Inferred Success Patterns - Render actual saved patterns and next steps */}
-            {currentReport.reportType === 'top_gainers' && currentReport.data?.type === 'top_gainers_enhanced' && (
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-purple-400" />
-                    AI Inferred Success Patterns
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {currentReport.data?.aiPatterns && (currentReport.data.aiPatterns.patterns?.length > 0 || currentReport.data.aiPatterns.nextSteps?.length > 0) ? (
-                    <div className="space-y-6">
-                      {currentReport.data.aiPatterns.patterns?.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                            <Lightbulb className="h-4 w-4 text-yellow-400" />
-                            Identified Success Patterns
-                          </h4>
-                          <ul className="space-y-2">
-                            {currentReport.data.aiPatterns.patterns.map((pattern: string, index: number) => (
-                              <li key={index} className="flex items-start gap-2 text-gray-300">
-                                <span className="text-green-400 mt-1">•</span>
-                                {pattern}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {currentReport.data.aiPatterns.patterns?.length > 0 && currentReport.data.aiPatterns.nextSteps?.length > 0 && (
-                        <Separator className="bg-gray-600" />
-                      )}
-                      
-                      {currentReport.data.aiPatterns.nextSteps?.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                            <Target className="h-4 w-4 text-blue-400" />
-                            Next Steps Recommendations
-                          </h4>
-                          <ul className="space-y-2">
-                            {currentReport.data.aiPatterns.nextSteps.map((step: string, index: number) => (
-                              <li key={index} className="flex items-start gap-2 text-gray-300">
-                                <span className="text-blue-400 mt-1">{index + 1}.</span>
-                                {step}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ) : currentReport.aiSummary ? (
-                    /* Fallback: show basic AI summary if structured patterns aren't available */
-                    <div className="space-y-6">
-                      <div>
-                        <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                          <Lightbulb className="h-4 w-4 text-yellow-400" />
-                          AI Analysis Summary
-                        </h4>
-                        <div className="bg-gray-700 p-4 rounded-lg">
-                          <p className="text-gray-300 text-sm leading-relaxed">
-                            {currentReport.aiSummary}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Bot className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                      <p className="text-gray-400">No AI analysis available for this report</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             )}

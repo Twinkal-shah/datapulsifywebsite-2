@@ -9,5 +9,32 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/dashboard",
+      "destination": "https://app.datapulsify.com/dashboard",
+      "permanent": true
+    },
+    {
+      "source": "/settings",
+      "destination": "https://app.datapulsify.com/settings",
+      "permanent": true
+    },
+    {
+      "source": "/account-dashboard",
+      "destination": "https://app.datapulsify.com/account-dashboard",
+      "permanent": true
+    },
+    {
+      "source": "/rank-tracker",
+      "destination": "https://app.datapulsify.com/rank-tracker",
+      "permanent": true
+    },
+    {
+      "source": "/top-gainers-report",
+      "destination": "https://app.datapulsify.com/top-gainers-report",
+      "permanent": true
+    }
   ]
 }

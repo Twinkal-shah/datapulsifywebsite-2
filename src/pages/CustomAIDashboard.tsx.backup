@@ -7,9 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   Sparkles, 
   TrendingUp, 
@@ -29,11 +27,10 @@ import {
   RefreshCw,
   Clock,
   CheckCircle
-, ArrowLeft, Bot } from 'lucide-react';
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RenewalOverlay } from '@/components/RenewalOverlay';
 import { useAuth } from '@/contexts/AuthContext';
-import { TopGainersContent } from "@/components/dashboard/TopGainersContent";
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { createReportService } from '@/lib/reportService';
 import { createExportService } from '@/lib/exportService';
@@ -49,10 +46,10 @@ import { toast } from 'sonner';
 const REPORT_CONFIGS = [
   {
     id: 'top_gainers' as ReportType,
-    title: 'Top Gainers Report',
-    description: 'Pages with significant click growth and AI-powered optimization insights',
-    icon: <TrendingUp className="h-5 w-5 text-green-400" />,
-    category: 'Performance',
+    title: 'Basic Top Gainers (Legacy)',
+    description: '⚠️ Use Enhanced Top Gainers Report instead → /top-gainers-report',
+    icon: <TrendingUp className="h-5 w-5 text-yellow-400" />,
+    category: 'Legacy',
     estimatedTime: '2-3 min'
   },
   {
@@ -91,7 +88,7 @@ const REPORT_CONFIGS = [
     id: 'quick_wins' as ReportType,
     title: 'Quick Wins Report',
     description: 'Low-effort, high-impact optimization opportunities',
-    icon: <Zap className="h-5 w-5 text-green-400" />,
+    icon: <Zap className="h-5 w-5 text-yellow-400" />,
     category: 'Optimization',
     estimatedTime: '1-2 min'
   }
@@ -104,7 +101,7 @@ export default function CustomAIDashboard() {
   // State management
   const [promptInput, setPromptInput] = useState('');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [showEnhancedReport, setShowEnhancedReport] = useState<ReportType | null>(null);  const [currentReport, setCurrentReport] = useState<Report | null>(null);
+  const [currentReport, setCurrentReport] = useState<Report | null>(null);
   const [usageStats, setUsageStats] = useState<ReportUsage | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
@@ -228,14 +225,6 @@ export default function CustomAIDashboard() {
   };
 
   const handleUseReport = async (reportType: ReportType) => {
-    // Handle enhanced reports that don't use the standard AI generation
-    if (reportType === 'top_gainers') {
-      setShowEnhancedReport(reportType);
-      setCurrentReport(null);
-      setIsGenerating(false);
-      setActiveTab('report'); // Switch to report tab
-      return;
-    }
     if (!user?.id) {
       toast.error('Please log in to generate reports');
       return;
@@ -355,8 +344,6 @@ export default function CustomAIDashboard() {
   };
 
   const handleViewHistoryReport = (report: Report) => {
-    // Clear enhanced report state to show saved data instead of live component
-    setShowEnhancedReport(null);
     setCurrentReport(report);
     setSelectedReport(report);
     setActiveTab('report');
@@ -378,11 +365,7 @@ export default function CustomAIDashboard() {
     // Helper to get report rows based on report type
     const getReportRows = () => {
       if (currentReport.reportType === 'top_gainers') {
-        // Handle both old format (data.top_pages) and new enhanced format (data.pages)
-        if (currentReport.data.type === 'top_gainers_enhanced') {
-          return currentReport.data.pages || [];
-        }
-        return currentReport.data.top_pages || [];
+        return currentReport.data.top_pages;
       } else if (currentReport.reportType === 'underperforming_pages') {
         return currentReport.data.pages;
       }
@@ -392,10 +375,6 @@ export default function CustomAIDashboard() {
     // Helper to get summary based on report type
     const getReportSummary = () => {
       if (currentReport.reportType === 'top_gainers') {
-        // Handle enhanced format with custom summary or fallback to AI summary
-        if (currentReport.data.type === 'top_gainers_enhanced') {
-          return currentReport.aiSummary;
-        }
         return currentReport.data.summary_heading;
       }
       return currentReport.aiSummary;
@@ -413,24 +392,7 @@ export default function CustomAIDashboard() {
 
     // Helper to get metrics from row based on report type
     const getRowMetrics = (row: any) => {
-      if (currentReport.reportType === 'top_gainers') {
-        // Handle enhanced format with different field structure
-        if (currentReport.data.type === 'top_gainers_enhanced') {
-          return {
-            clicks: row.currentMetrics?.clicks || row.clicks || 0,
-            impressions: row.currentMetrics?.impressions || row.impressions || 0,
-            ctr: (row.currentMetrics?.ctr || row.ctr || 0) * 100, // Convert to percentage
-            position: row.currentMetrics?.avgPosition || row.position || 0
-          };
-        }
-        // Old format
-        return {
-          clicks: row.clicks,
-          impressions: row.impressions,
-          ctr: row.ctr,
-          position: row.position
-        };
-      } else if (currentReport.reportType === 'underperforming_pages') {
+      if (currentReport.reportType === 'top_gainers' || currentReport.reportType === 'underperforming_pages') {
         return {
           clicks: row.clicks,
           impressions: row.impressions,
@@ -462,30 +424,16 @@ export default function CustomAIDashboard() {
 
     return (
       <div className="space-y-6">
-        {/* Report Header - Enhanced for Top Gainers */}
+        {/* Report Header */}
         <div className="flex items-center justify-between">
           <div>
-            {currentReport.reportType === 'top_gainers' && currentReport.data.type === 'top_gainers_enhanced' ? (
-              <>
-                <h1 className="text-2xl font-bold text-white">Enhanced Top Gainers SEO Report 🚀</h1>
-                <p className="text-gray-400 mt-1">
-                  Advanced analysis: Pages with significant click growth (last 3 months vs previous 3 months)
-                </p>
-                <p className="text-gray-500 text-sm">
-                  Generated on {new Date(currentReport.createdAt).toLocaleDateString()}
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                  {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.icon}
-                  {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.title}
-                </h3>
-                <p className="text-gray-400 text-sm mt-1">
-                  Generated on {new Date(currentReport.createdAt).toLocaleDateString()}
-                </p>
-              </>
-            )}
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+              {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.icon}
+              {REPORT_CONFIGS.find(r => r.id === currentReport.reportType)?.title}
+            </h3>
+            <p className="text-gray-400 text-sm mt-1">
+              Generated on {new Date(currentReport.createdAt).toLocaleDateString()}
+            </p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -509,50 +457,8 @@ export default function CustomAIDashboard() {
           </div>
         </div>
 
-        {/* Report Summary - Enhanced for Top Gainers */}
-        {currentReport.reportType === 'top_gainers' && currentReport.data.type === 'top_gainers_enhanced' && currentReport.data.summary ? (
-          <Card className="bg-gray-700 border-gray-600">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-400" />
-                Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-400">{currentReport.data.summary.totalGainerPages}</div>
-                  <div className="text-sm text-gray-400">Gainer Pages</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-400">{currentReport.data.summary.netClicksGained?.toLocaleString()}</div>
-                  <div className="text-sm text-gray-400">Net Clicks Gained</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">
-                    +{(currentReport.data.summary.avgCtrImprovement * 100).toFixed(2)}%
-                  </div>
-                  <div className="text-sm text-gray-400">Avg CTR Improvement</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-green-400 font-medium">TOP GAINING PAGE</div>
-                  {currentReport.data.summary.topGainingPage ? (
-                    <>
-                      <div className="text-sm font-medium text-white truncate">
-                        {currentReport.data.summary.topGainingPage.url?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        +{currentReport.data.summary.topGainingPage.clicksGained?.toLocaleString()} clicks
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-sm text-gray-400">-</div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : getReportSummary() ? (
+        {/* Report Summary */}
+        {getReportSummary() && (
           <Card className="bg-gray-700 border-gray-600">
             <CardContent className="p-4">
               <h4 className="font-medium text-white mb-2">AI Analysis Summary</h4>
@@ -561,7 +467,7 @@ export default function CustomAIDashboard() {
               </p>
             </CardContent>
           </Card>
-        ) : null}
+        )}
 
         {/* Report Data - Enhanced format for supported reports */}
         {isEnhancedReport() ? (
@@ -576,30 +482,16 @@ export default function CustomAIDashboard() {
                       <TableRow className="border-gray-600 hover:bg-gray-600/50">
                         <TableHead className="text-gray-300">Select</TableHead>
                         <TableHead className="text-gray-300">URL</TableHead>
-                        {currentReport.reportType === 'top_gainers' && currentReport.data.type === 'top_gainers_enhanced' ? (
-                          <>
-                            <TableHead className="text-gray-300">Page Type</TableHead>
-                            <TableHead className="text-gray-300 text-right">Clicks Gained</TableHead>
-                            <TableHead className="text-gray-300 text-right">CTR Improvement</TableHead>
-                            <TableHead className="text-gray-300 text-right">Position Change</TableHead>
-                            <TableHead className="text-gray-300">Top Query</TableHead>
-                          </>
-                        ) : (
-                          <>
-                            <TableHead className="text-gray-300 text-right">Clicks</TableHead>
-                            <TableHead className="text-gray-300 text-right">Impressions</TableHead>
-                            <TableHead className="text-gray-300 text-right">CTR</TableHead>
-                            <TableHead className="text-gray-300 text-right">Avg Position</TableHead>
-                          </>
-                        )}
+                        <TableHead className="text-gray-300 text-right">Clicks</TableHead>
+                        <TableHead className="text-gray-300 text-right">Impressions</TableHead>
+                        <TableHead className="text-gray-300 text-right">CTR</TableHead>
+                        <TableHead className="text-gray-300 text-right">Avg Position</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {getReportRows()?.map((row, index) => {
                         const url = getRowUrl(row);
                         const metrics = getRowMetrics(row);
-                        const isEnhanced = currentReport.reportType === 'top_gainers' && currentReport.data.type === 'top_gainers_enhanced';
-                        
                         return (
                           <TableRow key={index} className="border-gray-600 hover:bg-gray-600/50">
                             <TableCell>
@@ -615,46 +507,18 @@ export default function CustomAIDashboard() {
                                 {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                               </a>
                             </TableCell>
-                            {isEnhanced ? (
-                              <>
-                                <TableCell>
-                                  <Badge variant="outline">{row.pageType || 'Other'}</Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant="default" className="bg-green-600">
-                                    +{row.clicksGained?.toLocaleString() || 0}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant={row.ctrImprovement > 0 ? "default" : "destructive"}>
-                                    {row.ctrImprovement > 0 ? '+' : ''}{(row.ctrImprovement * 100).toFixed(2)}%
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant={row.positionChange > 0 ? "default" : "secondary"}>
-                                    {row.positionChange > 0 ? '+' : ''}{row.positionChange?.toFixed(1) || 0}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="max-w-[200px] truncate">
-                                  {row.topQuery || '-'}
-                                </TableCell>
-                              </>
-                            ) : (
-                              <>
-                                <TableCell className="text-right text-gray-300">
-                                  {metrics.clicks?.toLocaleString() || '-'}
-                                </TableCell>
-                                <TableCell className="text-right text-gray-300">
-                                  {metrics.impressions?.toLocaleString() || '-'}
-                                </TableCell>
-                                <TableCell className="text-right text-gray-300">
-                                  {metrics.ctr ? `${(metrics.ctr).toFixed(2)}%` : '-'}
-                                </TableCell>
-                                <TableCell className="text-right text-gray-300">
-                                  {metrics.position?.toFixed(1) || '-'}
-                                </TableCell>
-                              </>
-                            )}
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.clicks?.toLocaleString() || '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.impressions?.toLocaleString() || '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.ctr ? `${(metrics.ctr * 100).toFixed(2)}%` : '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-gray-300">
+                              {metrics.position?.toFixed(1) || '-'}
+                            </TableCell>
                           </TableRow>
                         );
                       })}
@@ -732,153 +596,6 @@ export default function CustomAIDashboard() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Weekly Performance Trends - Render actual charts for enhanced top_gainers */}
-            {currentReport.reportType === 'top_gainers' && currentReport.data?.type === 'top_gainers_enhanced' && currentReport.data?.pages && (
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-blue-400" />
-                    Weekly Performance Trends (Top 5 Pages)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {currentReport.data.pages.slice(0, 5).map((page: any, index: number) => (
-                      page.weeklyTrendData && page.weeklyTrendData.length > 0 ? (
-                        <div key={page.url || index}>
-                          <h4 className="text-sm font-medium text-white mb-3">
-                            {index + 1}. {page.pageType || 'Other'} (+{page.clicksGained || 0} clicks)
-                          </h4>
-                          <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={page.weeklyTrendData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                <XAxis dataKey="weekLabel" tick={{fontSize: 12}} stroke="#9CA3AF" />
-                                <YAxis yAxisId="left" orientation="left" stroke="#9CA3AF" />
-                                <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: '#1F2937', 
-                                    border: '1px solid #374151',
-                                    borderRadius: '6px'
-                                  }}
-                                />
-                                <Line 
-                                  yAxisId="left"
-                                  type="monotone" 
-                                  dataKey="clicks" 
-                                  stroke="#3B82F6" 
-                                  strokeWidth={2}
-                                  name="Clicks"
-                                />
-                                <Line 
-                                  yAxisId="left"
-                                  type="monotone" 
-                                  dataKey="ctr" 
-                                  stroke="#10B981" 
-                                  strokeWidth={2}
-                                  name="CTR"
-                                />
-                                <Line 
-                                  yAxisId="right"
-                                  type="monotone" 
-                                  dataKey="avgPosition" 
-                                  stroke="#F59E0B" 
-                                  strokeWidth={2}
-                                  name="Avg Position"
-                                />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-                      ) : null
-                    ))}
-                    {(!currentReport.data.pages.slice(0, 5).some((page: any) => page.weeklyTrendData && page.weeklyTrendData.length > 0)) && (
-                      <div className="text-center py-8">
-                        <BarChart3 className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                        <p className="text-gray-400">No weekly trend data available for this report</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* AI Inferred Success Patterns - Render actual saved patterns and next steps */}
-            {currentReport.reportType === 'top_gainers' && currentReport.data?.type === 'top_gainers_enhanced' && (
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-purple-400" />
-                    AI Inferred Success Patterns
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {currentReport.data?.aiPatterns && (currentReport.data.aiPatterns.patterns?.length > 0 || currentReport.data.aiPatterns.nextSteps?.length > 0) ? (
-                    <div className="space-y-6">
-                      {currentReport.data.aiPatterns.patterns?.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                            <Lightbulb className="h-4 w-4 text-yellow-400" />
-                            Identified Success Patterns
-                          </h4>
-                          <ul className="space-y-2">
-                            {currentReport.data.aiPatterns.patterns.map((pattern: string, index: number) => (
-                              <li key={index} className="flex items-start gap-2 text-gray-300">
-                                <span className="text-green-400 mt-1">•</span>
-                                {pattern}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {currentReport.data.aiPatterns.patterns?.length > 0 && currentReport.data.aiPatterns.nextSteps?.length > 0 && (
-                        <Separator className="bg-gray-600" />
-                      )}
-                      
-                      {currentReport.data.aiPatterns.nextSteps?.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                            <Target className="h-4 w-4 text-blue-400" />
-                            Next Steps Recommendations
-                          </h4>
-                          <ul className="space-y-2">
-                            {currentReport.data.aiPatterns.nextSteps.map((step: string, index: number) => (
-                              <li key={index} className="flex items-start gap-2 text-gray-300">
-                                <span className="text-blue-400 mt-1">{index + 1}.</span>
-                                {step}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ) : currentReport.aiSummary ? (
-                    /* Fallback: show basic AI summary if structured patterns aren't available */
-                    <div className="space-y-6">
-                      <div>
-                        <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                          <Lightbulb className="h-4 w-4 text-yellow-400" />
-                          AI Analysis Summary
-                        </h4>
-                        <div className="bg-gray-700 p-4 rounded-lg">
-                          <p className="text-gray-300 text-sm leading-relaxed">
-                            {currentReport.aiSummary}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Bot className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                      <p className="text-gray-400">No AI analysis available for this report</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         ) : (
           /* Original table format for other report types */
@@ -942,7 +659,7 @@ export default function CustomAIDashboard() {
                     <h3 className="text-lg font-medium text-yellow-100">Google Search Console Required</h3>
                     <p className="text-sm text-yellow-200 mt-1">
                       Connect your Google Search Console account to generate AI reports. 
-                      <a href="/settings/googlesearchconsole" className="text-green-400 hover:text-yellow-300 underline ml-1">
+                      <a href="/settings/googlesearchconsole" className="text-yellow-400 hover:text-yellow-300 underline ml-1">
                         Go to Settings
                       </a>
                     </p>
@@ -988,7 +705,7 @@ export default function CustomAIDashboard() {
               <TabsTrigger value="selector" className="text-gray-300 data-[state=active]:bg-gray-600 data-[state=active]:text-white">
                 Generate Reports
               </TabsTrigger>
-              <TabsTrigger value="report" className="text-gray-300 data-[state=active]:bg-gray-600 data-[state=active]:text-white" disabled={!currentReport && !showEnhancedReport}>
+              <TabsTrigger value="report" className="text-gray-300 data-[state=active]:bg-gray-600 data-[state=active]:text-white" disabled={!currentReport}>
                 Current Report
               </TabsTrigger>
               <TabsTrigger value="history" className="text-gray-300 data-[state=active]:bg-gray-600 data-[state=active]:text-white">
@@ -1001,7 +718,7 @@ export default function CustomAIDashboard() {
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-green-400" />
+                <Lightbulb className="h-5 w-5 text-yellow-400" />
                 Suggested AI Reports
               </CardTitle>
               <CardDescription className="text-gray-400">
@@ -1092,32 +809,7 @@ export default function CustomAIDashboard() {
             </TabsContent>
 
             <TabsContent value="report" className="mt-6">
-              {/* Enhanced Report Section - Only for NEW report generation, not historical viewing */}
-              {showEnhancedReport === 'top_gainers' && !currentReport ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => {
-                        setShowEnhancedReport(null);
-                        setActiveTab('selector');
-                      }}
-                      className="text-gray-400 hover:text-white"
-                    >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back to Report Selection
-                    </Button>
-                  </div>
-                  <TopGainersContent 
-                    isActive={true} 
-                    onReportSaved={() => {
-                      // Refresh usage and report history when report is saved
-                      loadUsageStats();
-                      loadReportHistory();
-                    }}
-                  />
-                </div>
-              ) : isGenerating ? (
+              {isGenerating ? (
           <Card className="bg-gray-800 border-gray-700">
                   <CardContent className="pt-6">
                     <div className="text-center space-y-4">

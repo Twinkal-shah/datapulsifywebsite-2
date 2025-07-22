@@ -32,7 +32,7 @@ import './App.css';
 import { GoogleCallback } from '@/pages/GoogleCallback';
 import TestGSC from './pages/TestGSC';
 import { navigationOptimizer } from './utils/navigationOptimizer';
-
+import TopGainersReport from './pages/TopGainersReport'; 
 // Enhanced lazy loading with retry on tab visibility
 const createLazyComponent = (importFn: () => Promise<any>) => {
   const LazyComponent = lazy(importFn);
@@ -49,7 +49,6 @@ import ClickGapIntelligence from './pages/ClickGapIntelligence';
 import RankTracker from './pages/RankTracker';
 import Settings from './pages/Settings';
 import CustomAIDashboard from './pages/CustomAIDashboard';
-import TopGainersReport from './pages/TopGainersReport';
 
 
 // Keep lazy loading for less frequently used pages
@@ -148,7 +147,7 @@ const App = () => {
                   <Route path="/click-gap-intelligence" element={<ClickGapIntelligence />} />
                   <Route path="/rank-tracker" element={<RankTracker />} />
                   <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
-                  <Route path="/top-gainers-report" element={<TopGainersReport />} />
+                  
         
                   <Route path="/keyword-analysis" element={<Dashboard />} />
                   <Route path="/gap-analysis" element={<Dashboard />} />
@@ -168,6 +167,7 @@ const App = () => {
                   <Route path="/share/:token" element={<SharedReportPage />} />
                   
                   <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
+                  <Route path="/top-gainers-report" element={<TopGainersReport />} />
                   
                   <Route path="*" element={<NotFound />} />
                 </Routes>

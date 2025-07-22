@@ -367,385 +367,41 @@ export class ReportService {
   }
 
   private async processTopGainersData(gscData: GSCDataPoint[], dateRange: { startDate: string; endDate: string }) {
-    try {
-      console.log('Starting enhanced Top Gainers analysis...');
-      
-      // Step 1: Calculate dynamic date ranges (last 3 months vs previous 3 months)
-      const now = new Date();
-      const currentEnd = now;
-      const currentStart = new Date(now);
-      currentStart.setMonth(currentStart.getMonth() - 3);
-      
-      const previousEnd = new Date(currentStart);
-      previousEnd.setDate(previousEnd.getDate() - 1);
-      const previousStart = new Date(previousEnd);
-      previousStart.setMonth(previousStart.getMonth() - 3);
-      
-      const currentPeriod = {
-        startDate: currentStart.toISOString().split('T')[0],
-        endDate: currentEnd.toISOString().split('T')[0]
-      };
-      
-      const previousPeriod = {
-        startDate: previousStart.toISOString().split('T')[0],
-        endDate: previousEnd.toISOString().split('T')[0]
-      };
-
-      // Step 2: Fetch GSC data for both periods
-      const [currentData, previousData] = await Promise.all([
-        gscService.searchConsole({
-          startDate: currentPeriod.startDate,
-          endDate: currentPeriod.endDate,
-          dimensions: ['page'],
-          rowLimit: 25000
-        }),
-        gscService.searchConsole({
-          startDate: previousPeriod.startDate,
-          endDate: previousPeriod.endDate,
-          dimensions: ['page'],
-          rowLimit: 25000
-        })
-      ]);
-
-      // Step 3: Calculate deltas and identify top gainers
-      const pageMap = new Map();
-      
-      // Map current period data
-      currentData.forEach(item => {
-        pageMap.set(item.keys[0], {
-          current: {
-            clicks: item.clicks,
-            impressions: item.impressions,
-            ctr: item.ctr,
-            avgPosition: item.position
-          },
-          previous: {
-            clicks: 0,
-            impressions: 0,
-            ctr: 0,
-            avgPosition: 0
-          }
-        });
-      });
-
-      // Map previous period data
-      previousData.forEach(item => {
-        const pageUrl = item.keys[0];
-        const existing = pageMap.get(pageUrl);
-        if (existing) {
-          existing.previous = {
-            clicks: item.clicks,
-            impressions: item.impressions,
-            ctr: item.ctr,
-            avgPosition: item.position
-          };
-        }
-      });
-
-      // Calculate deltas and filter gainers
-      const topGainers = [];
-      pageMap.forEach((data, url) => {
-        const clicksGained = data.current.clicks - data.previous.clicks;
-        if (clicksGained > 0) { // Only positive gainers
-          const ctrImprovement = (data.current.ctr - data.previous.ctr) * 100; // Convert to percentage
-          const positionChange = data.previous.avgPosition - data.current.avgPosition;
-          
-          topGainers.push({
-            url,
-            pageType: this.categorizePageType(url),
-            currentMetrics: data.current,
-            previousMetrics: data.previous,
-            clicksGained,
-            ctrImprovement,
-            positionChange,
-            topQuery: 'Loading...', // Will be populated in step 4
-          });
-        }
-      });
-
-      // Sort by clicks gained (descending) and take top 15
-      topGainers.sort((a, b) => b.clicksGained - a.clicksGained);
-      const top15Gainers = topGainers.slice(0, 15);
-
-      // Step 4: Get top query for each gainer page (simplified for performance)
-      for (const page of top15Gainers.slice(0, 5)) { // Only top 5 for performance
-        try {
-          const pageQueryData = await gscService.searchConsole({
-            startDate: currentPeriod.startDate,
-            endDate: currentPeriod.endDate,
-            dimensions: ['query'],
-            dimensionFilterGroups: [{
-              filters: [{
-                dimension: 'page',
-                operator: 'equals',
-                expression: page.url
-              }]
-            }],
-            rowLimit: 10
-          });
-          
-          if (pageQueryData.length > 0) {
-            const topQuery = pageQueryData
-              .sort((a, b) => b.clicks - a.clicks)[0];
-            page.topQuery = topQuery.keys[0] || 'No specific query';
-          }
-        } catch (error) {
-          console.warn(`Failed to get top query for ${page.url}:`, error);
-          page.topQuery = 'Unable to fetch';
-        }
-      }
-
-      // Set remaining pages to have a default query
-      for (const page of top15Gainers.slice(5)) {
-        page.topQuery = 'Query data available in enhanced view';
-      }
-
-
-      // Step 4.5: Generate weekly performance trend data for top 5 pages
-      const trendStart = new Date(now);
-      trendStart.setMonth(trendStart.getMonth() - 6); // Last 6 months
-      
-      // Generate weekly trend data for top 5 pages
-      for (const page of top15Gainers.slice(0, 5)) {
-        try {
-          const weeklyData = await gscService.searchConsole({
-            startDate: trendStart.toISOString().split('T')[0],
-            endDate: now.toISOString().split('T')[0],
-            dimensions: ['date'],
-            dimensionFilterGroups: [{
-              filters: [{
-                dimension: 'page',
-                operator: 'equals',
-                expression: page.url
-              }]
-            }],
-            rowLimit: 180 // ~6 months of daily data
-          });
-          
-          // Group by week and calculate weekly metrics
-          const weeklyTrends = [];
-          const weekMap = new Map();
-          
-          weeklyData.forEach(item => {
-            const date = new Date(item.keys[0]);
-            const weekStart = new Date(date);
-            weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
-            const weekKey = weekStart.toISOString().split('T')[0];
-            
-            if (!weekMap.has(weekKey)) {
-              weekMap.set(weekKey, {
-                weekStart: weekStart,
-                clicks: 0,
-                impressions: 0,
-                ctr: 0,
-                avgPosition: 0,
-                days: 0
-              });
-            }
-            
-            const week = weekMap.get(weekKey);
-            week.clicks += item.clicks;
-            week.impressions += item.impressions;
-            week.days += 1;
-          });
-          
-          // Calculate averages and format for charts
-          weekMap.forEach((week, weekKey) => {
-            week.ctr = week.impressions > 0 ? (week.clicks / week.impressions) * 100 : 0;
-            week.avgPosition = week.days > 0 ? week.avgPosition / week.days : 0;
-            
-            weeklyTrends.push({
-              weekLabel: week.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              clicks: week.clicks,
-              ctr: parseFloat(week.ctr.toFixed(2)),
-              avgPosition: parseFloat(week.avgPosition.toFixed(1)),
-              date: week.weekStart.toISOString().split('T')[0]
-            });
-          });
-          
-          // Sort by date and limit to recent weeks
-          weeklyTrends.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          page.weeklyTrendData = weeklyTrends.slice(-24); // Last 24 weeks (~6 months)
-          
-        } catch (error) {
-          console.warn(`Failed to get weekly trends for ${page.url}:`, error);
-          page.weeklyTrendData = [];
-        }
-      }
-
-      // Set empty trend data for remaining pages
-      for (const page of top15Gainers.slice(5)) {
-        page.weeklyTrendData = [];
-      }
-
-      // Step 5: Generate AI-powered success patterns
-      const aiPatternsPrompt = `Based on the following SEO performance data for top gaining pages, infer possible reasons for why these pages gained traffic. Suggest patterns such as improved title alignment, stronger search intent match, added structured content, or increased topical authority.
-
-Top Gaining Pages:
-${top15Gainers.slice(0, 8).map(page => 
-  `- ${page.url} (${page.pageType}): +${page.clicksGained} clicks, ${page.ctrImprovement > 0 ? '+' : ''}${page.ctrImprovement.toFixed(2)}% CTR, Position change: ${page.positionChange > 0 ? '+' : ''}${page.positionChange.toFixed(1)}, Top Query: "${page.topQuery}"`
-).join('\n')}
-
-Provide 3-5 actionable insights in bullet points, followed by 3 next steps recommendations. Format: 
-INSIGHTS:
-• [insight 1]
-• [insight 2]
-...
-NEXT STEPS:
-1. [step 1]
-2. [step 2]
-...`;
-
-      let aiPatterns = [];
-      let nextSteps = [];
-      
-      try {
-        const aiResponse = await openAIService.generateText(aiPatternsPrompt);
-        
-        // Parse AI response into patterns and next steps
-        const sections = aiResponse.split('NEXT STEPS:');
-        if (sections.length === 2) {
-          const insightsSection = sections[0].replace('INSIGHTS:', '').trim();
-          aiPatterns = insightsSection.split('\n')
-            .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
-            .map(line => line.replace(/^[•-]\s*/, '').trim())
-            .filter(line => line.length > 0);
-          
-          nextSteps = sections[1].trim().split('\n')
-            .filter(line => line.trim().match(/^\d+\./))
-            .map(line => line.replace(/^\d+\.\s*/, '').trim())
-            .filter(line => line.length > 0);
-        } else {
-          // Fallback if format is different
-          aiPatterns = [
-            'Strong content-search intent alignment appears to be driving traffic growth',
-            'Pages with improved meta titles and descriptions show better CTR performance',
-            'Technical SEO improvements may have contributed to ranking gains'
-          ];
-          nextSteps = [
-            'Apply successful title optimization patterns to similar pages',
-            'Review and improve meta descriptions on underperforming pages',
-            'Conduct technical SEO audit on pages with similar content themes'
-          ];
-        }
-      } catch (error) {
-        console.warn('Failed to generate AI patterns, using defaults:', error);
-        aiPatterns = [
-          'Strong content-search intent alignment appears to be driving traffic growth',
-          'Pages with improved meta titles and descriptions show better CTR performance',
-          'Technical SEO improvements may have contributed to ranking gains'
-        ];
-        nextSteps = [
-          'Apply successful title optimization patterns to similar pages',
-          'Review and improve meta descriptions on underperforming pages',
-          'Conduct technical SEO audit on pages with similar content themes'
-        ];
-      }
-
-      // Calculate summary metrics
-      const totalGainerPages = topGainers.length;
-      const netClicksGained = topGainers.reduce((sum, page) => sum + page.clicksGained, 0);
-      const avgCtrImprovement = topGainers.length > 0 
-        ? topGainers.reduce((sum, page) => sum + page.ctrImprovement, 0) / topGainers.length 
-        : 0;
-      const topGainingPage = topGainers.length > 0 ? topGainers[0] : null;
-
-      // Return enhanced report data structure compatible with existing dashboard
-      return {
-        // Enhanced summary for new dashboard sections
-        summary: {
-          totalGainerPages,
-          netClicksGained,
-          avgCtrImprovement,
-          topGainingPage: topGainingPage ? {
-            url: topGainingPage.url,
-            clicksGained: topGainingPage.clicksGained,
-            pageType: topGainingPage.pageType
-          } : null
-        },
-        // Compatible with existing dashboard display
-        summary_heading: `🚀 Enhanced Top Gainers Analysis: ${totalGainerPages} pages gained ${netClicksGained.toLocaleString()} total clicks with ${avgCtrImprovement.toFixed(1)}% average CTR improvement`,
-        top_pages: top15Gainers.map(page => ({
-          url: page.url,
-          pageType: page.pageType,
-          clicks: page.currentMetrics.clicks,
-          impressions: page.currentMetrics.impressions,
-          ctr: page.currentMetrics.ctr,
-          position: page.currentMetrics.avgPosition,
-          // Enhanced fields
-          clicksGained: page.clicksGained,
-          ctrImprovement: page.ctrImprovement,
-          positionChange: page.positionChange,
-          topQuery: page.topQuery,
-          // Required for existing dashboard
-          seo_recommendation: `Focus on "${page.topQuery}" optimization to maintain +${page.clicksGained} click growth momentum.`,
-          aeo_recommendation: `Add structured content around "${page.topQuery}" for better AI visibility and enhanced CTR.`
-        })),
-        // AI insights for enhanced sections
-        aiPatterns,
-        nextSteps,
-        dateRanges: {
-          current: currentPeriod,
-          previous: previousPeriod
-        }
-      };
-
-    } catch (error) {
-      console.error('Error in enhanced processTopGainersData:', error);
-      // Fallback to basic processing if enhanced analysis fails
-      return this.fallbackTopGainersProcessing(gscData, dateRange);
-    }
-  }
-
-  private categorizePageType(url: string): string {
-    const urlLower = url.toLowerCase();
+    const aiResponse = await openAIService.generateReportSummary('top_gainers', gscData, dateRange);
     
-    if (urlLower === '/' || urlLower.endsWith('/')) {
-      return 'Homepage';
-    } else if (urlLower.includes('/blog/') || urlLower.includes('/post/') || urlLower.includes('/article/')) {
-      return 'Blog Post';
-    } else if (urlLower.includes('/product/') || urlLower.includes('/shop/') || urlLower.includes('/store/')) {
-      return 'Product Page';
-    } else if (urlLower.includes('/service/') || urlLower.includes('/services/')) {
-      return 'Service Page';
-    } else if (urlLower.includes('/pricing') || urlLower.includes('/plans') || urlLower.includes('/cost')) {
-      return 'Pricing Page';
-    } else if (urlLower.includes('/about') || urlLower.includes('/team') || urlLower.includes('/company')) {
-      return 'About Page';
-    } else if (urlLower.includes('/contact') || urlLower.includes('/support') || urlLower.includes('/help')) {
-      return 'Support Page';
-    } else if (urlLower.includes('/category/') || urlLower.includes('/tag/')) {
-      return 'Category Page';
-    } else {
-      return 'Content Page';
+    try {
+      const parsedResponse = JSON.parse(aiResponse);
+      return {
+        summary_heading: parsedResponse.summary_heading,
+        top_pages: parsedResponse.top_pages.map(page => ({
+          url: page.url,
+          clicks: page.clicks,
+          impressions: page.impressions,
+          ctr: page.ctr,
+          position: page.position,
+          seo_recommendation: page.seo_recommendation,
+          aeo_recommendation: page.aeo_recommendation
+        }))
+      };
+    } catch (error) {
+      console.error('Error parsing AI response:', error);
+      // Fallback to basic processing if AI response parsing fails
+      return {
+        summary_heading: "Here are the top performing pages (last 3 months):",
+        top_pages: gscData
+          .sort((a, b) => b.clicks - a.clicks)
+          .slice(0, 5)
+          .map(item => ({
+            url: item.page || item.query,
+            clicks: item.clicks,
+            impressions: item.impressions,
+            ctr: item.ctr,
+            position: item.position,
+            seo_recommendation: "Optimize title and meta description for better CTR.",
+            aeo_recommendation: "Add direct answers and structured content for AI visibility."
+          }))
+      };
     }
-  }
-
-  private async fallbackTopGainersProcessing(gscData: GSCDataPoint[], dateRange: { startDate: string; endDate: string }) {
-    // Fallback to original simple processing if enhanced fails
-    console.log('Using fallback processing for top gainers report');
-    return {
-      summary_heading: "Top performing pages (last 3 months) - Enhanced analysis temporarily unavailable",
-      top_pages: gscData
-        .sort((a, b) => b.clicks - a.clicks)
-        .slice(0, 10)
-        .map(item => ({
-          url: item.page || item.query,
-          pageType: this.categorizePageType(item.page || item.query),
-          clicks: item.clicks,
-          impressions: item.impressions,
-          ctr: item.ctr,
-          position: item.position,
-          clicksGained: 0,
-          ctrImprovement: 0,
-          positionChange: 0,
-          topQuery: 'N/A',
-          seo_recommendation: "Optimize title and meta description for better CTR.",
-          aeo_recommendation: "Add direct answers and structured content for AI visibility."
-        })),
-      aiPatterns: ["Enhanced AI patterns unavailable - please try regenerating the report"],
-      nextSteps: ["Refresh the page and try generating the report again"]
-    };
   }
 
   private async processUnderperformingPagesData(gscData: GSCDataPoint[]) {
@@ -1017,47 +673,6 @@ NEXT STEPS:
     } catch (error) {
       console.error('Error fetching reports:', error);
       return []; // Return empty array on error
-    }
-  }
-
-  async saveTopGainersReport(
-    reportData: {
-      summary: any;
-      pages: any[];
-      dateRanges: any;
-      aiPatterns?: any;
-    },
-    aiSummary?: string
-  ): Promise<void> {
-    try {
-      // Create report record
-      await this.createReportRecord(
-        'top_gainers',
-        {
-          startDate: reportData.dateRanges.current.startDate,
-          endDate: reportData.dateRanges.current.endDate
-        },
-        [], // Empty GSC data since we have processed data
-        aiSummary || `Enhanced Top Gainers Report generated with ${reportData.pages.length} gaining pages. Total clicks gained: ${reportData.summary.netClicksGained?.toLocaleString() || 0}.`,
-        {
-          type: 'top_gainers_enhanced',
-          summary: reportData.summary,
-          pages: reportData.pages.slice(0, 50), // Limit data size
-          dateRanges: reportData.dateRanges,
-          aiPatterns: reportData.aiPatterns, // Include AI patterns in saved data
-          generatedAt: new Date().toISOString()
-        }
-      );
-
-      // Update usage count
-      await supabase.rpc('increment_report_usage', {
-        user_uuid: this.userId
-      });
-      
-      console.log('Top Gainers report saved to Supabase successfully');
-    } catch (error) {
-      console.error('Error saving Top Gainers report:', error);
-      throw error;
     }
   }
 

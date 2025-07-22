@@ -561,12 +561,12 @@ export function DashboardContent({ isActive, onNavigate }: DashboardContentProps
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-emerald-400" />
-              Top Gainers Report
+              Enhanced Top Gainers Report 🚀
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-400 text-sm">
-              Discover pages with significant click growth and get AI-powered optimization recommendations.
+              <strong>NEW:</strong> Advanced analysis with 6-step process: GSC data comparison, delta calculations, weekly trends, and AI success patterns.
             </p>
           </CardContent>
         </Card>
