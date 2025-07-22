@@ -8,8 +8,21 @@ export const GoogleCallback: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Processing authentication...');
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasRedirected, setHasRedirected] = useState(false);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    if (user && !hasRedirected && !error) {
+      console.log('User authenticated via auth context, redirecting to dashboard...');
+      setHasRedirected(true);
+      setStatus('Authentication successful! Redirecting to dashboard...');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1000);
+    }
+  }, [user, hasRedirected, error, navigate]);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -23,11 +36,22 @@ export const GoogleCallback: React.FC = () => {
       try {
         setStatus('Verifying authentication...');
         
-        // Extract query parameters from URL
+        // Extract query parameters from URL (for OAuth code flow)
         const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const state = urlParams.get('state');
-        const oauthError = urlParams.get('error');
+        
+        // Also check URL hash (Supabase sometimes uses hash for OAuth)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        
+        const code = urlParams.get('code') || hashParams.get('code');
+        const state = urlParams.get('state') || hashParams.get('state');
+        const oauthError = urlParams.get('error') || hashParams.get('error');
+        
+        console.log('OAuth callback parameters:', {
+          hasCode: !!code,
+          hasState: !!state,
+          hasError: !!oauthError,
+          url: window.location.href
+        });
 
         // Check for OAuth errors first
         if (oauthError) {
@@ -44,33 +68,18 @@ export const GoogleCallback: React.FC = () => {
           console.log('Processing Supabase OAuth callback...');
           setStatus('Completing sign-in...');
           
-          // Let Supabase handle the OAuth callback automatically
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          // For Supabase OAuth, let the auth context handle the authentication
+          // We'll just wait and let the useEffect above handle the redirect when user is set
+          console.log('Waiting for auth context to process authentication...');
+          setStatus('Finalizing authentication...');
           
-          if (sessionError) {
-            console.error('Supabase session error:', sessionError);
-            setError(`Authentication failed: ${sessionError.message}`);
-            return;
-          }
-
-          if (session) {
-            console.log('Supabase OAuth successful, redirecting to dashboard...');
-            setStatus('Authentication successful! Redirecting to dashboard...');
-            
-            // Wait a moment for the session to be fully established
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Redirect to dashboard
-            navigate('/dashboard');
-          } else {
-            // If no session yet, wait for the auth state change to handle it
-            setStatus('Finalizing authentication...');
-            
-            // Set a timeout to redirect if auth doesn't complete
-            setTimeout(() => {
-              navigate('/dashboard');
-            }, 2000);
-          }
+          // Set a timeout as fallback in case auth context doesn't update
+          setTimeout(() => {
+            if (!user && !hasRedirected && !error) {
+              console.error('Authentication timeout - no user session established');
+              setError('Authentication timed out. Please try logging in again.');
+            }
+          }, 10000); // 10 second timeout
         } else if (isGSCAuth) {
           console.log('Processing GSC OAuth callback...');
           setStatus('Connecting to Google Search Console...');
