@@ -128,11 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!isInitialLoad && (window.location.pathname === '/' || window.location.pathname === '/auth/google/callback')) {
           console.log('Redirecting to app subdomain dashboard...');
           const appUrl = getAppUrl();
-          if (window.location.origin !== appUrl) {
-            window.location.href = `${appUrl}/dashboard`;
-          } else {
-            navigate('/dashboard');
-          }
+          window.location.href = `${appUrl}/dashboard`;
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out, clearing data...');

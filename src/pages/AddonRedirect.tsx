@@ -1,32 +1,34 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { getAppUrl } from '@/lib/supabaseClient';
 
-const AddonRedirect = () => {
+export default function AddonRedirect() {
   const navigate = useNavigate();
-  const auth = useAuth();
+  const location = useLocation();
+  const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleAddonAuth = async () => {
       try {
-        // Get all parameters from URL
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(location.search);
         const email = params.get('email');
         const property = params.get('property');
         const accessToken = params.get('accessToken');
 
         if (!email || !property || !accessToken) {
-          throw new Error('Missing required authentication parameters');
+          throw new Error('Missing required parameters');
         }
 
-        // Store GSC data
+        // Store GSC token and property in localStorage
         localStorage.setItem('gsc_token', accessToken);
         localStorage.setItem('gsc_property', property);
 
-        // Update user data in auth context
-        auth.login({
-          name: email.split('@')[0], // Use email username as display name
+        // Log in the user with addon data
+        await login({
+          id: `addon-${email}`,
+          name: email.split('@')[0],
           email: email,
           member_since: new Date().toISOString(),
           current_plan: "GSC Plan",
@@ -34,8 +36,8 @@ const AddonRedirect = () => {
           isAddonUser: true
         });
 
-        // Redirect to dashboard
-        navigate('/dashboard');
+        // Redirect to app subdomain dashboard
+        window.location.href = `${getAppUrl()}/dashboard`;
       } catch (error) {
         console.error('Authentication failed:', error);
         setError('Authentication failed. Please try again: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -43,19 +45,19 @@ const AddonRedirect = () => {
     };
 
     handleAddonAuth();
-  }, [navigate, auth]);
+  }, [location, login, navigate]);
 
   if (error) {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
-        <div className="bg-[#1a1d23] p-6 rounded-2xl text-center">
-          <h2 className="text-xl text-white mb-4">Authentication Error</h2>
-          <p className="text-red-400">{error}</p>
-          <button 
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-400 mb-4">Authentication Error</h1>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button
             onClick={() => navigate('/')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
           >
-            Return to Home
+            Go to Home
           </button>
         </div>
       </div>
@@ -63,10 +65,12 @@ const AddonRedirect = () => {
   }
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center">
-      <div className="text-white text-xl">Authenticating...</div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+        <h1 className="text-xl font-semibold text-white mb-2">Authenticating...</h1>
+        <p className="text-gray-400">Please wait while we set up your account.</p>
+      </div>
     </div>
   );
-};
-
-export default AddonRedirect; 
+} 

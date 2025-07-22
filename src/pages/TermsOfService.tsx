@@ -78,7 +78,7 @@ const TermsOfService = () => {
             <div className="mb-12">
               <h2 className="text-2xl font-bold mt-8 mb-4">7. Termination</h2>
               <p className="mb-4">
-                We may suspend or terminate your access if you violate these Terms. You may also stop using the Service at any time and revoke access via <a href="https://datapulsify.com/dashboard" className="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener noreferrer">datapulsify.com/dashboard</a>.
+                We may suspend or terminate your access if you violate these Terms. You may also stop using the Service at any time and revoke access via <a href="https://app.datapulsify.com/dashboard" className="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener noreferrer">app.datapulsify.com/dashboard</a>.
               </p>
             </div>
 

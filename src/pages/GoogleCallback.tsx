@@ -1,132 +1,76 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleAuthService } from '@/lib/googleAuthService';
-import { useAuth } from '@/contexts/AuthContext';
+import { getAppUrl } from '@/lib/supabaseClient';
 
-export const GoogleCallback: React.FC = () => {
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>('Connecting to Google Search Console...');
+const GoogleCallback = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const location = useLocation();
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Prevent multiple executions (React StrictMode protection)
-      if (isProcessing) {
-        console.log('⚠️ Callback already processing, skipping...');
-        return;
-      }
-      
-      setIsProcessing(true);
       try {
-        setStatus('Verifying authentication...');
-        
-        // Extract query parameters from URL
-        const urlParams = new URLSearchParams(window.location.search);
+        const authService = new GoogleAuthService();
+        const urlParams = new URLSearchParams(location.search);
         const code = urlParams.get('code');
         const state = urlParams.get('state');
-        const oauthError = urlParams.get('error');
-
-        // Check for OAuth errors first
-        if (oauthError) {
-          setError(`OAuth error: ${oauthError}`);
-          return;
+        
+        if (!code) {
+          throw new Error('No authorization code received');
         }
 
-        // Validate required parameters
-        if (!code || !state) {
-          setError('Missing required authentication parameters. Please try connecting again.');
-          return;
-        }
-
-        setStatus('Exchanging authorization code...');
+        // Exchange code for tokens
+        await authService.handleCallback(code, state);
         
-        const authService = new GoogleAuthService();
-        const result = await authService.handleCallback(code, state);
-
-        if (!result.success) {
-          setError(result.error || 'Failed to authenticate with Google');
-          return;
-        }
-
-        // Check if token was stored
-        const token = localStorage.getItem('gsc_token');
-        if (!token) {
-          setError('Authentication completed but no token was stored. Please try connecting again.');
-          return;
-        }
-
-        setStatus('Authentication successful! Redirecting to settings...');
+        setStatus('success');
+        setMessage('Successfully connected to Google Search Console!');
         
-        // Set a flag to indicate recent authentication
-        sessionStorage.setItem('gsc_auth_pending', 'true');
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          window.location.href = `${getAppUrl()}/dashboard`;
+        }, 2000);
         
-        // Wait a moment to ensure navigation is ready
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Redirect to GSC settings page
-        navigate('/settings/googlesearchconsole');
       } catch (error) {
-        setIsProcessing(false); // Reset on error
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred during authentication';
-        
-        // Check if this is a state validation error and provide detailed guidance
-        if (errorMessage.includes('Authentication state validation failed') || 
-            errorMessage.includes('Invalid authentication state')) {
-          setError(errorMessage);
-        } else {
-          // For other errors, provide basic guidance
-          setError(`${errorMessage}
-
-If this problem persists, try:
-1. Clearing your browser cache and cookies
-2. Disabling browser extensions temporarily
-3. Using an incognito/private browsing window
-4. Contacting support if the issue continues`);
-        }
+        console.error('Google Auth callback error:', error);
+        setStatus('error');
+        setMessage(error instanceof Error ? error.message : 'Authentication failed');
       }
     };
 
     handleCallback();
-  }, [navigate, login]);
+  }, [location.search]);
 
-  if (error) {
+  const handleDashboardRedirect = () => {
+    window.location.href = `${getAppUrl()}/dashboard`;
+  };
+
+  if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full space-y-8">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          <h1 className="text-xl font-semibold text-white mb-2">Processing Authentication...</h1>
+          <p className="text-gray-400">Please wait while we connect your Google Search Console.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'success') {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="max-w-md w-full space-y-8 p-8">
           <div className="text-center">
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Authentication Error
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-              {error}
-            </p>
-            <div className="mt-4 space-y-2">
-              <button
-                onClick={() => navigate('/settings/googlesearchconsole')}
-                className="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Go to Settings
-              </button>
-              <button
-                onClick={() => {
-                  // Clear authentication state and redirect to settings
-                  const authService = new GoogleAuthService();
-                  authService.clearAuthState();
-                  navigate('/settings/googlesearchconsole');
-                }}
-                className="w-full inline-flex items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md shadow-sm text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-              >
-                Clear Auth State & Try Again
-              </button>
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="w-full inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Return to Dashboard
-              </button>
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              </svg>
             </div>
+            <h2 className="mt-6 text-3xl font-extrabold text-white">Success!</h2>
+            <p className="mt-2 text-sm text-gray-400">{message}</p>
+            <p className="mt-2 text-xs text-gray-500">Redirecting to dashboard...</p>
           </div>
         </div>
       </div>
@@ -134,20 +78,39 @@ If this problem persists, try:
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Connecting to Google Search Console
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            {status}
-          </p>
-          <div className="mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+            <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
           </div>
+          <h2 className="mt-6 text-3xl font-extrabold text-white">Authentication Error</h2>
+          <p className="mt-2 text-sm text-gray-400">{message}</p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              const authService = new GoogleAuthService();
+              authService.clearAuthState();
+              navigate('/settings/googlesearchconsole');
+            }}
+            className="w-full inline-flex items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md shadow-sm text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+          >
+            Clear Auth State & Try Again
+          </button>
+          <button
+            onClick={handleDashboardRedirect}
+            className="w-full inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Return to Dashboard
+          </button>
         </div>
       </div>
     </div>
   );
-}; 
+};
+
+export default GoogleCallback; 
