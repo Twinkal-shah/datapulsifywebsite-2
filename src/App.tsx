@@ -120,39 +120,47 @@ const App = () => {
         fullUrl: window.location.href
       });
       
-      // AGGRESSIVE REDIRECT: If on datapulsify.com and NOT on home page, redirect to app
-      if (hostname === 'datapulsify.com' && currentPath !== '/' && currentPath !== '/pricing' && currentPath !== '/features') {
-        console.log('🚨 AGGRESSIVE REDIRECT: User on marketing site with non-marketing path, checking session...');
+      // Only redirect if on marketing site with app paths AND not in auth flow
+      const isInAuthFlow = currentPath.includes('/auth/') || window.location.search.includes('code=');
+      
+      if (hostname === 'datapulsify.com' && 
+          currentPath !== '/' && 
+          currentPath !== '/pricing' && 
+          currentPath !== '/features' && 
+          !isInAuthFlow) {
+        console.log('🚨 User on marketing site with app path (not in auth flow), checking session...');
         
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          console.log('Session check for aggressive redirect:', { hasSession: !!session });
+          console.log('Session check for redirect:', { hasSession: !!session });
           
           if (session) {
-            console.log('🚀 SESSION FOUND - REDIRECTING IMMEDIATELY TO APP SUBDOMAIN');
+            console.log('🚀 Session found, redirecting to app subdomain...');
             const redirectUrl = `https://app.datapulsify.com${currentPath}${window.location.search}`;
-            console.log('🔄 REDIRECTING TO:', redirectUrl);
+            console.log('🔄 Redirecting to:', redirectUrl);
             
-            // Use multiple redirect methods to ensure it works
-            window.location.replace(redirectUrl);
+            // Use gentle redirect to avoid conflicts
             window.location.href = redirectUrl;
             return;
           } else {
             console.log('❌ No session found, staying on marketing site');
           }
         } catch (error) {
-          console.error('❌ Error in aggressive redirect check:', error);
+          console.error('❌ Error in redirect check:', error);
         }
       } else {
         console.log('ℹ️ No redirect needed:', {
-          reason: hostname !== 'datapulsify.com' ? 'Not on marketing site' : 'On marketing page',
+          reason: isInAuthFlow ? 'In auth flow' : (hostname !== 'datapulsify.com' ? 'Not on marketing site' : 'On marketing page'),
           hostname,
-          currentPath
+          currentPath,
+          isInAuthFlow
         });
       }
     };
     
-    immediateRedirectCheck();
+    // Add a small delay to avoid conflicts with auth state changes
+    const timer = setTimeout(immediateRedirectCheck, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {

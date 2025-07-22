@@ -259,22 +259,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('Handling user data for:', supabaseUser.email);
       console.log('User metadata:', supabaseUser.user_metadata);
       
-      // IMMEDIATE REDIRECT CHECK - if user is authenticated but on wrong subdomain
-      const hostname = window.location.hostname;
-      const currentPath = window.location.pathname;
-      
-      if (hostname === 'datapulsify.com' && currentPath !== '/' && currentPath !== '/pricing' && currentPath !== '/features') {
-        console.log('🚨 AUTHENTICATED USER ON MARKETING SITE - IMMEDIATE REDIRECT');
-        console.log('Current location:', { hostname, currentPath, fullUrl: window.location.href });
-        
-        const redirectUrl = `https://app.datapulsify.com${currentPath}${window.location.search}`;
-        console.log('🔄 REDIRECTING AUTHENTICATED USER TO:', redirectUrl);
-        
-        // Force immediate redirect
-        window.location.replace(redirectUrl);
-        return; // Stop further processing
-      }
-      
       // Get user installation data
       const { data: installationData, error: installationError } = await supabase
         .from('user_installations')

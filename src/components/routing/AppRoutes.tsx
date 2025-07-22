@@ -32,27 +32,33 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, refreshSession } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshAttempted, setRefreshAttempted] = useState(false);
+  const [hasCheckedSession, setHasCheckedSession] = useState(false);
   
   useEffect(() => {
     // If no user and not loading, try refreshing session once
-    if (!user && !loading && !refreshAttempted) {
+    if (!user && !loading && !refreshAttempted && !hasCheckedSession) {
+      console.log('🔄 ProtectedRoute: No user found, attempting session refresh...');
       setRefreshAttempted(true);
       setIsRefreshing(true);
       
       refreshSession()
         .then((success) => {
-          console.log('Protected route session refresh:', success ? 'success' : 'failed');
+          console.log('🔄 ProtectedRoute session refresh:', success ? 'SUCCESS' : 'FAILED');
+          setHasCheckedSession(true);
         })
         .catch((error) => {
-          console.error('Protected route session refresh error:', error);
+          console.error('❌ ProtectedRoute session refresh error:', error);
+          setHasCheckedSession(true);
         })
         .finally(() => {
           setIsRefreshing(false);
         });
     }
-  }, [user, loading, refreshAttempted, refreshSession]);
+  }, [user, loading, refreshAttempted, refreshSession, hasCheckedSession]);
   
-  if (loading || isRefreshing) {
+  // Show loading while checking authentication
+  if (loading || isRefreshing || !hasCheckedSession) {
+    console.log('⏳ ProtectedRoute: Loading state', { loading, isRefreshing, hasCheckedSession, hasUser: !!user });
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900 flex items-center justify-center">
         <div className="text-white text-xl flex items-center gap-3">
@@ -63,22 +69,32 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
   
-  if (!user) {
-    // After refresh attempt failed, redirect to marketing site for login
-    const config = subdomainService.getConfig();
-    console.log('No user found after refresh attempt, redirecting to marketing site...');
+  // Only redirect if we've completed all checks and still no user
+  if (!user && hasCheckedSession) {
+    console.log('❌ ProtectedRoute: No user after all checks, redirecting to marketing site...');
     
-    if (config.hostname.includes('datapulsify.com')) {
-      // Clear any stale data before redirecting
-      localStorage.removeItem('user');
-      sessionStorage.clear();
-      window.location.href = subdomainService.getMarketingUrl('/');
-    } else {
-      window.location.href = '/';
-    }
-    return null;
+    // Give a small delay to prevent immediate redirects during auth flow
+    setTimeout(() => {
+      const config = subdomainService.getConfig();
+      if (config.hostname.includes('datapulsify.com')) {
+        // Clear any stale data before redirecting
+        localStorage.removeItem('user');
+        sessionStorage.clear();
+        console.log('🔄 Redirecting to marketing site:', subdomainService.getMarketingUrl('/'));
+        window.location.href = subdomainService.getMarketingUrl('/');
+      } else {
+        window.location.href = '/';
+      }
+    }, 100); // Small delay to prevent race conditions
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Redirecting to login...</div>
+      </div>
+    );
   }
   
+  console.log('✅ ProtectedRoute: User authenticated, rendering protected content');
   return <>{children}</>;
 };
 
