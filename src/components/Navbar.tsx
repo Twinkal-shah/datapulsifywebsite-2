@@ -135,10 +135,26 @@ const Navbar = () => {
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => {
+                    console.log('🖱️ Dashboard clicked from navbar');
+                    console.log('🔍 Current state:', {
+                      hostname: window.location.hostname,
+                      pathname: window.location.pathname,
+                      userLoggedIn: !!auth.user,
+                      userEmail: auth.user?.email
+                    });
+                    
                     const config = subdomainService.getConfig();
+                    console.log('🔍 Subdomain config:', config);
+                    
                     if (config.isMarketing && config.hostname.includes('datapulsify.com')) {
-                      window.location.href = subdomainService.getAppUrl('/dashboard');
+                      const redirectUrl = subdomainService.getAppUrl('/dashboard');
+                      console.log('🔄 Redirecting to app subdomain:', {
+                        from: window.location.href,
+                        to: redirectUrl
+                      });
+                      window.location.href = redirectUrl;
                     } else {
+                      console.log('🔄 Using React Router navigation to /dashboard');
                       navigate('/dashboard');
                     }
                   }}>

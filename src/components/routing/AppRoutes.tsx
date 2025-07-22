@@ -72,10 +72,26 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // Only redirect if we've completed all checks and still no user
   if (!user && hasCheckedSession) {
     console.log('❌ ProtectedRoute: No user after all checks, redirecting to marketing site...');
+    console.log('🔍 ProtectedRoute final state check:', {
+      user: !!user,
+      loading,
+      isRefreshing,
+      hasCheckedSession,
+      refreshAttempted,
+      currentUrl: window.location.href,
+      userInLocalStorage: !!localStorage.getItem('user'),
+      sessionInLocalStorage: !!sessionStorage.getItem('sb-auth-token')
+    });
     
     // Give a small delay to prevent immediate redirects during auth flow
     setTimeout(() => {
       const config = subdomainService.getConfig();
+      console.log('🔄 Final redirect decision:', {
+        hostname: config.hostname,
+        includesDatapulsify: config.hostname.includes('datapulsify.com'),
+        redirectTo: subdomainService.getMarketingUrl('/')
+      });
+      
       if (config.hostname.includes('datapulsify.com')) {
         // Clear any stale data before redirecting
         localStorage.removeItem('user');
