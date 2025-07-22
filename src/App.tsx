@@ -44,7 +44,7 @@ const SubdomainRouter = () => {
       // Enforce correct subdomain in production
       subdomainService.enforceCorrectSubdomain();
       
-      console.log('Subdomain routing initialized:', {
+      console.log('🌐 Subdomain routing initialized:', {
         hostname: config.hostname,
         isApp: config.isApp,
         isMarketing: config.isMarketing,
@@ -53,14 +53,14 @@ const SubdomainRouter = () => {
         shouldBeOnApp: subdomainService.shouldBeOnApp()
       });
     } catch (error) {
-      console.error('Subdomain routing error:', error);
+      console.error('❌ Subdomain routing error:', error);
     }
   }, [config]);
   
   // Additional check: if user has session but is on marketing site with app path, redirect
   useEffect(() => {
     const checkAuthAndRedirect = async () => {
-      console.log('Checking auth and redirect...', {
+      console.log('🔍 Checking auth and redirect...', {
         isMarketing: config.isMarketing,
         shouldBeOnApp: subdomainService.shouldBeOnApp(),
         currentPath: window.location.pathname,
@@ -68,21 +68,21 @@ const SubdomainRouter = () => {
       });
       
       if (config.isMarketing && subdomainService.shouldBeOnApp()) {
-        console.log('User on marketing site but should be on app, checking session...');
+        console.log('⚠️ User on marketing site but should be on app, checking session...');
         
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          console.log('Session check result:', { hasSession: !!session });
+          console.log('🔐 Session check result:', { hasSession: !!session });
           
           if (session) {
-            console.log('User has session and should be on app, redirecting...');
+            console.log('✅ User has session and should be on app, redirecting...');
             const redirectUrl = subdomainService.getAppUrl(window.location.pathname + window.location.search);
-            console.log('Redirecting to:', redirectUrl);
-            window.location.href = redirectUrl;
+            console.log('🔄 Redirecting to:', redirectUrl);
+            window.location.replace(redirectUrl); // Use replace instead of href
             return;
           }
         } catch (error) {
-          console.error('Error checking session for subdomain redirect:', error);
+          console.error('❌ Error checking session for subdomain redirect:', error);
         }
       }
     };
@@ -101,7 +101,7 @@ const App = () => {
 
   // Initialize navigation optimizer
   useEffect(() => {
-    console.log('Navigation optimizer initialized');
+    console.log('🚀 Navigation optimizer initialized');
   }, []);
 
   // Immediate redirect check for authenticated users on wrong subdomain
@@ -110,97 +110,83 @@ const App = () => {
       const hostname = window.location.hostname;
       const isOnMarketing = hostname === 'datapulsify.com';
       const currentPath = window.location.pathname;
+      const isInAuthFlow = currentPath.includes('/auth/') || window.location.search.includes('code=');
       
-      console.log('Immediate redirect check:', {
-        hostname: hostname,
-        isOnMarketing: isOnMarketing,
+      console.log('🔍 Immediate redirect check:', {
+        hostname,
+        isOnMarketing,
         isOnApp: hostname === 'app.datapulsify.com',
-        currentPath: currentPath,
-        isDashboardPath: currentPath.startsWith('/dashboard') || currentPath.startsWith('/account') || currentPath.startsWith('/settings'),
+        currentPath,
+        isInAuthFlow,
         fullUrl: window.location.href
       });
       
-      // Only redirect if on marketing site with app paths AND not in auth flow
-      const isInAuthFlow = currentPath.includes('/auth/') || window.location.search.includes('code=');
-      
-      if (hostname === 'datapulsify.com' && 
-          currentPath !== '/' && 
-          currentPath !== '/pricing' && 
-          currentPath !== '/features' && 
-          !isInAuthFlow) {
-        console.log('🚨 User on marketing site with app path (not in auth flow), checking session...');
+      // Check if we have a session
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const hasSession = !!session;
         
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          console.log('Session check for redirect:', { hasSession: !!session });
+        // If we have a session and we're on marketing site
+        if (hasSession && isOnMarketing) {
+          // Don't redirect if it's a marketing-only path
+          const marketingPaths = ['/', '/pricing', '/features', '/about', '/contact', '/privacy', '/terms'];
+          const isMarketingPath = marketingPaths.some(path => currentPath === path);
           
-          if (session) {
-            console.log('🚀 Session found, redirecting to app subdomain...');
+          if (!isMarketingPath && !isInAuthFlow) {
+            console.log('🚨 Authenticated user on marketing site, redirecting to app...');
             const redirectUrl = `https://app.datapulsify.com${currentPath}${window.location.search}`;
             console.log('🔄 Redirecting to:', redirectUrl);
-            
-            // Use gentle redirect to avoid conflicts
-            window.location.href = redirectUrl;
+            window.location.replace(redirectUrl); // Use replace instead of href
             return;
-          } else {
-            console.log('❌ No session found, staying on marketing site');
           }
-        } catch (error) {
-          console.error('❌ Error in redirect check:', error);
         }
-      } else {
-        console.log('ℹ️ No redirect needed:', {
-          reason: isInAuthFlow ? 'In auth flow' : (hostname !== 'datapulsify.com' ? 'Not on marketing site' : 'On marketing page'),
-          hostname,
-          currentPath,
-          isInAuthFlow
-        });
+      } catch (error) {
+        console.error('❌ Error in immediate redirect check:', error);
       }
     };
     
-    // Add a small delay to avoid conflicts with auth state changes
-    const timer = setTimeout(immediateRedirectCheck, 500);
-    return () => clearTimeout(timer);
+    // Run immediately
+    immediateRedirectCheck();
   }, []);
 
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log('Initial session check starting...');
+        console.log('🔄 Initial session check starting...');
         
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error checking session:', error);
+          console.error('❌ Error checking session:', error);
           
           // If we're on app subdomain and can't get session, might be a cross-domain issue
           const config = subdomainService.getConfig();
           if (config.isApp && config.hostname.includes('datapulsify.com') && sessionCheckRetries < 1) {
-            console.log('App subdomain session check failed, attempting recovery...');
+            console.log('⚠️ App subdomain session check failed, attempting recovery...');
             setSessionCheckRetries(prev => prev + 1);
             
             // Try refreshing the session
             try {
               const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
               if (refreshError || !refreshData.session) {
-                console.log('Session refresh failed, redirecting to marketing site...');
+                console.log('❌ Session refresh failed, redirecting to marketing site...');
                 // Clear any stored auth data
                 localStorage.clear();
                 sessionStorage.clear();
                 // Redirect to marketing site for re-authentication
-                subdomainService.redirectToMarketing('/');
+                window.location.replace('https://datapulsify.com/');
                 return;
               }
-              console.log('Session recovered successfully');
+              console.log('✅ Session recovered successfully');
             } catch (refreshError) {
-              console.error('Session recovery failed:', refreshError);
-              subdomainService.redirectToMarketing('/');
+              console.error('❌ Session recovery failed:', refreshError);
+              window.location.replace('https://datapulsify.com/');
               return;
             }
           }
         }
         
-        console.log('Initial session check:', session ? 'Session exists' : 'No session');
+        console.log('🔐 Initial session check:', session ? 'Session exists' : 'No session');
         
         // If we have a session but user is on marketing site trying to access app routes
         if (session) {
@@ -208,29 +194,19 @@ const App = () => {
           const shouldBeOnApp = subdomainService.shouldBeOnApp();
           
           if (config.isMarketing && shouldBeOnApp) {
-            console.log('User has session but is on marketing site for app route, redirecting...');
-            subdomainService.redirectToApp(window.location.pathname + window.location.search);
-            return;
-          }
-          
-          // Also check if user is on marketing site with dashboard-like paths
-          if (config.isMarketing && (
-            window.location.pathname === '/dashboard' ||
-            window.location.pathname.startsWith('/account') ||
-            window.location.pathname.startsWith('/settings')
-          )) {
-            console.log('Authenticated user on marketing site with app path, redirecting to app...');
-            subdomainService.redirectToApp(window.location.pathname + window.location.search);
+            console.log('⚠️ User has session but is on marketing site for app route, redirecting...');
+            const redirectUrl = subdomainService.getAppUrl(window.location.pathname + window.location.search);
+            window.location.replace(redirectUrl);
             return;
           }
         }
         
       } catch (error) {
-        console.error('Failed to check session:', error);
+        console.error('❌ Failed to check session:', error);
         
         // If critical error, clear everything and start fresh
         if (sessionCheckRetries >= 2) {
-          console.log('Multiple session check failures, clearing all data...');
+          console.log('🧹 Multiple session check failures, clearing all data...');
           localStorage.clear();
           sessionStorage.clear();
         }

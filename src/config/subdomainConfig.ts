@@ -74,12 +74,18 @@ class SubdomainService {
 
   // Redirect helpers
   redirectToApp(path = '/dashboard'): void {
-    console.log(`Redirecting to app subdomain: ${this.getAppUrl(path)}`);
+    console.log(`🔄 Redirecting to app subdomain:`, {
+      from: window.location.href,
+      to: this.getAppUrl(path)
+    });
     window.location.href = this.getAppUrl(path);
   }
 
   redirectToMarketing(path = ''): void {
-    console.log(`Redirecting to marketing subdomain: ${this.getMarketingUrl(path)}`);
+    console.log(`🔄 Redirecting to marketing subdomain:`, {
+      from: window.location.href,
+      to: this.getMarketingUrl(path)
+    });
     window.location.href = this.getMarketingUrl(path);
   }
 
@@ -99,11 +105,30 @@ class SubdomainService {
       '/keyword-clustering',
       '/reports',
       '/top-gainers-report',
-      '/auth/google/callback', // Auth callbacks should be on app subdomain
+      '/auth/google/callback',
       '/auth/callback'
     ];
-    
-    return appPaths.some(appPath => path.startsWith(appPath));
+
+    // First check if path is an app path
+    const isAppPath = appPaths.some(appPath => path.startsWith(appPath));
+    if (isAppPath) return true;
+
+    // If not an app path, check if user has a session
+    try {
+      const authToken = localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token');
+      const hasSession = !!authToken;
+      
+      // If user has a session and is not on a marketing-only path, they should be on app
+      if (hasSession) {
+        const marketingOnlyPaths = ['/', '/pricing', '/features', '/about', '/contact', '/privacy', '/terms'];
+        const isMarketingPath = marketingOnlyPaths.some(mPath => path === mPath);
+        return !isMarketingPath;
+      }
+    } catch (error) {
+      console.warn('Error checking auth session:', error);
+    }
+
+    return false;
   }
 
   // Check if current page should be on marketing subdomain
@@ -120,13 +145,22 @@ class SubdomainService {
 
     const shouldBeApp = this.shouldBeOnApp();
     const isCurrentlyApp = this.config.isApp;
+    const currentPath = window.location.pathname;
+    const currentSearch = window.location.search;
+
+    console.log('🔍 Enforcing subdomain:', {
+      shouldBeApp,
+      isCurrentlyApp,
+      currentPath,
+      hasSession: !!localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token')
+    });
 
     if (shouldBeApp && !isCurrentlyApp) {
       // Should be on app, but currently on marketing
-      this.redirectToApp(window.location.pathname + window.location.search);
+      this.redirectToApp(currentPath + currentSearch);
     } else if (!shouldBeApp && isCurrentlyApp) {
       // Should be on marketing, but currently on app
-      this.redirectToMarketing(window.location.pathname + window.location.search);
+      this.redirectToMarketing(currentPath + currentSearch);
     }
   }
 }
