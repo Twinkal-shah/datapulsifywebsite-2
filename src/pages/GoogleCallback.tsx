@@ -24,6 +24,33 @@ export const GoogleCallback: React.FC = () => {
     }
   }, [user, hasRedirected, error, navigate]);
 
+  // Add logging for debugging
+  useEffect(() => {
+    console.log('GoogleCallback component state:', {
+      user: !!user,
+      hasRedirected,
+      error: !!error,
+      isProcessing,
+      status,
+      url: window.location.href
+    });
+  }, [user, hasRedirected, error, isProcessing, status]);
+
+  // Add direct Supabase auth listener for debugging
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('GoogleCallback: Supabase auth state change:', event, {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userEmail: session?.user?.email
+      });
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     const handleCallback = async () => {
       // Prevent multiple executions (React StrictMode protection)
@@ -73,13 +100,36 @@ export const GoogleCallback: React.FC = () => {
           console.log('Waiting for auth context to process authentication...');
           setStatus('Finalizing authentication...');
           
-          // Set a timeout as fallback in case auth context doesn't update
+          // Check if we already have a session immediately
+          try {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            console.log('Immediate session check:', { 
+              hasSession: !!session, 
+              hasUser: !!session?.user,
+              error: sessionError?.message 
+            });
+            
+            if (session?.user) {
+              console.log('Session found immediately, setting user...');
+              // The useEffect will handle the redirect
+            }
+          } catch (error) {
+            console.error('Error checking immediate session:', error);
+          }
+          
+          // Set a longer timeout as fallback in case auth context doesn't update
           setTimeout(() => {
             if (!user && !hasRedirected && !error) {
-              console.error('Authentication timeout - no user session established');
-              setError('Authentication timed out. Please try logging in again.');
+              console.error('Authentication timeout - no user session established after 15 seconds');
+              console.log('Final state check:', {
+                user: !!user,
+                hasRedirected,
+                error: !!error,
+                url: window.location.href
+              });
+              setError('Authentication timed out. This might be due to a configuration issue. Please try logging in again.');
             }
-          }, 10000); // 10 second timeout
+          }, 15000); // Increased to 15 seconds
         } else if (isGSCAuth) {
           console.log('Processing GSC OAuth callback...');
           setStatus('Connecting to Google Search Console...');
