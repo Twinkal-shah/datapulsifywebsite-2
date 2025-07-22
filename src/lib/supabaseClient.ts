@@ -20,18 +20,16 @@ const isDev = import.meta.env.DEV;
 const isProduction = window.location.hostname.includes('datapulsify.com');
 const currentPort = window.location.port || '5173';
 
-// Set base URL based on environment and hostname
-let baseUrl: string;
+// Set redirect URL - always redirect to app subdomain for OAuth callbacks
+let redirectUrl: string;
 if (isDev) {
-  baseUrl = `http://localhost:${currentPort}`;
+  redirectUrl = `http://localhost:${currentPort}/auth/google/callback`;
 } else if (isProduction) {
-  // Use the current hostname (app.datapulsify.com or datapulsify.com)
-  baseUrl = `https://${window.location.hostname}`;
+  // Always redirect to app subdomain, regardless of which subdomain initiated login
+  redirectUrl = 'https://app.datapulsify.com/auth/google/callback';
 } else {
-  baseUrl = 'https://app.datapulsify.com';
+  redirectUrl = 'https://app.datapulsify.com/auth/google/callback';
 }
-
-const redirectUrl = `${baseUrl}/auth/google/callback`;
 
 console.log('Auth redirect URL:', redirectUrl);
 console.log('Environment:', isDev ? 'development' : 'production');

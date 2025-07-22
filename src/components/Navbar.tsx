@@ -42,10 +42,10 @@ const Navbar = () => {
       // Get the current URL's port for development
       const currentPort = window.location.port;
       
-      // In development, use the current port, in production use the subdomain
+      // Always redirect to the OAuth callback endpoint, which will then handle the session
       const redirectUrl = import.meta.env.DEV
-        ? `http://localhost:${currentPort}/dashboard`
-        : subdomainService.getAppUrl('/dashboard');
+        ? `http://localhost:${currentPort}/auth/google/callback`
+        : 'https://app.datapulsify.com/auth/google/callback';
       
       console.log('Login redirect URL:', redirectUrl);
 
