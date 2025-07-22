@@ -15,29 +15,38 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase configuration is incomplete. Check your environment variables.');
 }
 
-// Determine the environment (for logging/debugging purposes)
-const isDev = import.meta.env.VITE_APP_ENV === 'development';
-const baseUrl = isDev ? 'http://localhost:8081' : 'https://app.datapulsify.com';
+// Determine the environment and configure accordingly
+const isDev = import.meta.env.DEV;
+const currentPort = window.location.port || '8095';
+const baseUrl = isDev ? `http://localhost:${currentPort}` : 'https://app.datapulsify.com';
 const redirectUrl = `${baseUrl}/dashboard`;
 
 console.log('Auth redirect URL:', redirectUrl);
 console.log('Environment:', isDev ? 'development' : 'production');
 
-// ✅ Create Supabase client with cookie-based session for cross-subdomain login
+// Create Supabase client with environment-aware configuration
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    debug: true,
-    cookieOptions: {
-      domain: '.datapulsify.com', // ✅ required for cross-subdomain cookies
-      path: '/',
-      sameSite: 'Lax',
-      secure: true,               // ✅ required for HTTPS
-      maxAge: 60 * 60 * 24 * 7,   // 7 days
-    },
+    debug: isDev,
+    storage: {
+      getItem: (key) => {
+        const item = localStorage.getItem(key);
+        console.log('Getting auth item:', key, item ? 'exists' : 'missing');
+        return item;
+      },
+      setItem: (key, value) => {
+        console.log('Setting auth item:', key);
+        localStorage.setItem(key, value);
+      },
+      removeItem: (key) => {
+        console.log('Removing auth item:', key);
+        localStorage.removeItem(key);
+      }
+    }
   },
   global: {
     headers: {
@@ -49,4 +58,13 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
 // Log Supabase auth state changes (for debugging)
 supabase.auth.onAuthStateChange((event, session) => {
   console.log('Supabase Auth State Change:', event, session ? 'Session exists' : 'No session');
+  
+  // Log detailed session information in development
+  if (isDev && session) {
+    console.log('Session details:', {
+      user: session.user.email,
+      expiresAt: session.expires_at,
+      refreshToken: session.refresh_token ? 'exists' : 'missing'
+    });
+  }
 });

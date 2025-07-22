@@ -25,6 +25,14 @@
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://datapulsify.com"
         }
       ]
     }
@@ -96,5 +104,8 @@
       "destination": "https://app.datapulsify.com/custom-ai-dashboard",
       "permanent": false
     }
-  ]
+  ],
+  "env": {
+    "VITE_APP_ENV": "production"
+  }
 }
