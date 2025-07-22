@@ -1,14 +1,14 @@
 import { useState, useEffect, createContext, useContext, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-import { useDataExports } from '@/hooks/useDataExports';
-import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { useDataExports } from '../hooks/useDataExports';
+import { DashboardLayout } from '../components/DashboardLayout';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import { Calendar } from '../components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { format, subDays, subMonths, subWeeks, addDays, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval, getMonth, getYear, startOfDay, isValid, differenceInDays } from 'date-fns';
 import {
   LineChart,
@@ -41,20 +41,20 @@ import {
   X,
   Share2 // Added Share2 icon
 } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { gscService, GSCDataPoint } from '@/lib/gscService';
-import { cn, getCountryName } from '@/lib/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Badge } from '@/components/ui/badge';
-import { GSCTester } from '@/components/GSCTester';
-import { ShareReportModal } from '@/components/ShareReportModal';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabaseClient';
-import { GSCService } from '@/lib/gscService';
-import { PROPERTY_CHANGE_EVENT } from '@/components/PropertySelector';
-import { RenewalOverlay } from '@/components/RenewalOverlay';
-import { useTabVisibility } from '@/hooks/useTabVisibility';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { gscService, GSCDataPoint } from '../lib/gscService';
+import { cn, getCountryName } from '../lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { Badge } from '../components/ui/badge';
+import { GSCTester } from '../components/GSCTester';
+import { ShareReportModal } from '../components/ShareReportModal';
+import { useToast } from '../hooks/use-toast';
+import { supabase } from '../lib/supabaseClient';
+import { GSCService } from '../lib/gscService';
+import { PROPERTY_CHANGE_EVENT } from '../components/PropertySelector';
+import { RenewalOverlay } from '../components/RenewalOverlay';
+import { useTabVisibility } from '../hooks/useTabVisibility';
 
 const PERFORMANCE_TREND_GRANULARITY_OPTIONS = [
   { label: 'Daily', value: 'daily' },

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { GoogleAuthService } from '@/lib/googleAuthService';
+import { subdomainService } from '@/config/subdomainConfig';
 
 // Development mode helper - creates a mock user for development
 const DEV_MODE = import.meta.env.DEV;
@@ -128,7 +129,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // and we're coming from login flow (home page or callback)
         if (!isInitialLoad && (window.location.pathname === '/' || window.location.pathname === '/auth/google/callback')) {
           console.log('Redirecting to dashboard after fresh login...');
-          navigate('/dashboard');
+          
+          // Redirect to app subdomain if we're on marketing site
+          const config = subdomainService.getConfig();
+          if (config.isMarketing && config.hostname.includes('datapulsify.com')) {
+            subdomainService.redirectToApp('/dashboard');
+          } else {
+            navigate('/dashboard');
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out, clearing data...');
@@ -250,7 +258,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem('user');
       localStorage.removeItem('gsc_token');
       localStorage.removeItem('gsc_property');
-      navigate('/');
+      
+      // Redirect to marketing site after logout
+      const config = subdomainService.getConfig();
+      if (config.isApp && config.hostname.includes('datapulsify.com')) {
+        subdomainService.redirectToMarketing('/');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       console.error('Error during logout:', error);
       throw error;

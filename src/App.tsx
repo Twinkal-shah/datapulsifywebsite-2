@@ -2,58 +2,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
-import { Suspense, useEffect, useState, lazy } from "react";
-import Index from "./pages/Index";
-import Waitlist from "./pages/Waitlist";
-import LifetimeDeal from "./pages/LifetimeDeal";
-import ThankYou from "./pages/ThankYou";
-import NotFound from "./pages/NotFound";
-import AccountDashboard from "./pages/AccountDashboard";
-import AboutUs from "./pages/AboutUs";
-import ContactUs from "./pages/ContactUs";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import RefundPolicy from "./pages/RefundPolicy";
-import TermsOfService from "./pages/TermsOfService";
-import Support from "./pages/Support";
-import GoogleSheetsAddon from "./pages/GoogleSheetsAddon";
-import QuickStartGuide from './pages/support/QuickStartGuide';
-import SettingUpGSC from './pages/support/SettingUpGSC';
-import GoogleAddon from './pages/support/GoogleAddon';
-import FirstDataExport from "./pages/support/FirstDataExport";
-import Documentation from "./pages/Documentation";
-import Pricing from "./pages/Pricing";
+import { Suspense, useEffect, useState } from "react";
 import { DevNavPanel } from "./components/DevNavPanel";
-import { LazyComponentWrapper } from "./components/LazyComponentWrapper";
 import { supabase } from "./lib/supabaseClient";
-import './App.css';
-import { GoogleCallback } from '@/pages/GoogleCallback';
-import TestGSC from './pages/TestGSC';
+import { subdomainService } from "./config/subdomainConfig";
+import { MarketingRoutes } from "./components/routing/MarketingRoutes";
+import { AppRoutes } from "./components/routing/AppRoutes";
+import { DashboardLayout } from "./components/DashboardLayout";
 import { navigationOptimizer } from './utils/navigationOptimizer';
-import TopGainersReport from './pages/TopGainersReport'; 
-// Enhanced lazy loading with retry on tab visibility
-const createLazyComponent = (importFn: () => Promise<any>) => {
-  const LazyComponent = lazy(importFn);
-  return (props: any) => (
-    <LazyComponentWrapper>
-      <LazyComponent {...props} />
-    </LazyComponentWrapper>
-  );
-};
-
-// Import core dashboard pages directly to prevent navigation blinking
-import Dashboard from './pages/Dashboard';
-import ClickGapIntelligence from './pages/ClickGapIntelligence';
-import RankTracker from './pages/RankTracker';
-import Settings from './pages/Settings';
-import CustomAIDashboard from './pages/CustomAIDashboard';
-
-
-// Keep lazy loading for less frequently used pages
-const DashboardShell = createLazyComponent(() => import('./components/DashboardShell'));
-const SharedReportPage = createLazyComponent(() => import('./pages/SharedReportPage'));
+import './App.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,14 +34,42 @@ const LoadingFallback = () => (
   </div>
 );
 
+// Subdomain Router Component
+const SubdomainRouter = () => {
+  const config = subdomainService.getConfig();
+  
+  // Check if user is on wrong subdomain and redirect if needed
+  useEffect(() => {
+    const shouldRedirect = () => {
+      // In production, enforce subdomain separation
+      if (config.hostname.includes('datapulsify.com')) {
+        if (config.isMarketing && subdomainService.shouldBeOnApp()) {
+          subdomainService.redirectToApp(window.location.pathname);
+          return true;
+        }
+        if (config.isApp && subdomainService.shouldBeOnMarketing()) {
+          subdomainService.redirectToMarketing(window.location.pathname);
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    if (shouldRedirect()) {
+      console.log('Redirecting to correct subdomain...');
+    }
+  }, [config]);
+  
+  // Render appropriate routes based on subdomain
+  return config.isApp ? <AppRoutes /> : <MarketingRoutes />;
+};
+
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCheckedSession, setHasCheckedSession] = useState(false);
-  const [showDevPanel, setShowDevPanel] = useState(false);
 
   // Initialize navigation optimizer
   useEffect(() => {
-    // Navigation optimizer is automatically initialized when imported
     console.log('Navigation optimizer initialized');
   }, []);
 
@@ -117,60 +105,9 @@ const App = () => {
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/waitlist" element={<Waitlist />} />
-                  <Route path="/lifetimedeal" element={<LifetimeDeal />} />
-                  <Route path="/thank-you" element={<ThankYou />} />
-                  <Route path="/about" element={<AboutUs />} />
-                  <Route path="/contact" element={<ContactUs />} />
-                  <Route path="/privacy" element={<PrivacyPolicy />} />
-                  <Route path="/refund" element={<RefundPolicy />} />
-                  <Route path="/terms" element={<TermsOfService />} />
-                  <Route path="/google-sheets-addon" element={<GoogleSheetsAddon />} />
-                  <Route path= "/support" element={<Support />} />
-                  <Route path= "/support/quick-start-guide" element={<QuickStartGuide />} />
-                  <Route path= "/support/setting-up-gsc" element={<SettingUpGSC />} />
-                  <Route path= "/support/google-addon" element={<GoogleAddon />} />
-                  <Route path= "/support/google-sheets-addon" element={<GoogleAddon />} />
-                  <Route path= "/support/first-data-export" element={<FirstDataExport />} />
-                  <Route path="/documentation" element={<Documentation />} />
-                  <Route path="/pricing" element={<Pricing />} />
-                  <Route path="/upgrade" element={<Pricing />} />
-                  
-                  {/* Account and New Dashboard Routes */}
-                  <Route path="/account" element={<AccountDashboard />} />
-                  <Route path="/account-dashboard" element={<AccountDashboard />} />
-                  
-                  {/* Restore original dashboard routes temporarily */}
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/click-gap-intelligence" element={<ClickGapIntelligence />} />
-                  <Route path="/rank-tracker" element={<RankTracker />} />
-                  <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
-                  
-        
-                  <Route path="/keyword-analysis" element={<Dashboard />} />
-                  <Route path="/gap-analysis" element={<Dashboard />} />
-                  <Route path="/keyword-clustering" element={<Dashboard />} />
-                  <Route path="/reports" element={<Dashboard />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/settings/accountdashboard" element={<Settings />} />
-                  <Route path="/settings/googlesearchconsole" element={<Settings />} />
-                  <Route path="/settings/accountsettings" element={<Settings />} />
-                  <Route path="/settings/notifications" element={<Settings />} />
-                  <Route path="/settings/keywordstype" element={<Settings />} />
-                  <Route path="/settings/keywordscategory" element={<Settings />} />
-                  
-                  <Route path="/auth/google/callback" element={<GoogleCallback />} />
-                  <Route path="/auth/google/callback" element={<GoogleCallback />} />
-                  <Route path="/test-gsc" element={<TestGSC />} />
-                  <Route path="/share/:token" element={<SharedReportPage />} />
-                  
-                  <Route path="/custom-ai-dashboard" element={<CustomAIDashboard />} />
-                  <Route path="/top-gainers-report" element={<TopGainersReport />} />
-                  
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                
+                {/* Render routes based on subdomain */}
+                <SubdomainRouter />
                 
                 {/* Development Navigation Panel (only visible in dev mode) */}
                 <DevNavPanel />
@@ -179,8 +116,6 @@ const App = () => {
           </AuthProvider>
         </Suspense>
       </BrowserRouter>
-      <Toaster />
-      <Sonner />
     </QueryClientProvider>
   );
 };

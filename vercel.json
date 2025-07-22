@@ -9,5 +9,92 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/dashboard",
+      "has": [
+        {
+          "type": "host",
+          "value": "datapulsify.com"
+        }
+      ],
+      "destination": "https://app.datapulsify.com/dashboard",
+      "permanent": false
+    },
+    {
+      "source": "/account",
+      "has": [
+        {
+          "type": "host",
+          "value": "datapulsify.com"
+        }
+      ],
+      "destination": "https://app.datapulsify.com/account",
+      "permanent": false
+    },
+    {
+      "source": "/settings",
+      "has": [
+        {
+          "type": "host",
+          "value": "datapulsify.com"
+        }
+      ],
+      "destination": "https://app.datapulsify.com/settings",
+      "permanent": false
+    },
+    {
+      "source": "/click-gap-intelligence",
+      "has": [
+        {
+          "type": "host",
+          "value": "datapulsify.com"
+        }
+      ],
+      "destination": "https://app.datapulsify.com/click-gap-intelligence",
+      "permanent": false
+    },
+    {
+      "source": "/rank-tracker",
+      "has": [
+        {
+          "type": "host",
+          "value": "datapulsify.com"
+        }
+      ],
+      "destination": "https://app.datapulsify.com/rank-tracker",
+      "permanent": false
+    },
+    {
+      "source": "/custom-ai-dashboard",
+      "has": [
+        {
+          "type": "host",
+          "value": "datapulsify.com"
+        }
+      ],
+      "destination": "https://app.datapulsify.com/custom-ai-dashboard",
+      "permanent": false
+    }
   ]
 }

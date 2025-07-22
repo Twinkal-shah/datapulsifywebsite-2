@@ -9,9 +9,11 @@ import {
   FileDown, 
   Settings,
   X,
-  Target
+  Target,
+  Bug
 } from 'lucide-react';
 import { Button } from './ui/button';
+import { testSubdomainConfiguration } from '@/utils/subdomainTest';
 
 /**
  * Development Navigation Panel - only shown in development mode
@@ -76,8 +78,19 @@ export const DevNavPanel = () => {
         ))}
       </div>
       
-      <div className="text-xs text-gray-400 mt-3 border-t border-gray-700 pt-2">
-        Dev mode: Using mock user
+      <div className="mt-3 border-t border-gray-700 pt-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-xs text-gray-300 hover:bg-gray-700 hover:text-yellow-300"
+          onClick={() => testSubdomainConfiguration()}
+        >
+          <Bug className="mr-2" size={12} />
+          Test Subdomain Config
+        </Button>
+        <div className="text-xs text-gray-400 mt-2">
+          Dev mode: Using mock user
+        </div>
       </div>
     </div>
   );

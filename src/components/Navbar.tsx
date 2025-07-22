@@ -5,6 +5,7 @@ import { Menu, X, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
+import { subdomainService } from '@/config/subdomainConfig';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -38,11 +39,13 @@ const Navbar = () => {
 
   const handleLogin = async () => {
     try {
-      // Make sure to redirect to the new dashboard
-      const baseUrl = import.meta.env.VITE_APP_ENV === 'development' 
-        ? 'http://localhost:8081' 
-        : 'https://datapulsify.com';
-      const redirectUrl = `${baseUrl}/dashboard`;
+      // Get the current URL's port for development
+      const currentPort = window.location.port;
+      
+      // In development, use the current port, in production use the subdomain
+      const redirectUrl = import.meta.env.DEV
+        ? `http://localhost:${currentPort}/dashboard`
+        : subdomainService.getAppUrl('/dashboard');
       
       console.log('Login redirect URL:', redirectUrl);
 
@@ -131,7 +134,14 @@ const Navbar = () => {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                  <DropdownMenuItem onClick={() => {
+                    const config = subdomainService.getConfig();
+                    if (config.isMarketing && config.hostname.includes('datapulsify.com')) {
+                      window.location.href = subdomainService.getAppUrl('/dashboard');
+                    } else {
+                      navigate('/dashboard');
+                    }
+                  }}>
                     <User className="mr-2 h-4 w-4" />
                     Dashboard
                   </DropdownMenuItem>
@@ -203,7 +213,12 @@ const Navbar = () => {
               </div>
               <button
                 onClick={() => {
-                  navigate('/dashboard');
+                  const config = subdomainService.getConfig();
+                  if (config.isMarketing && config.hostname.includes('datapulsify.com')) {
+                    window.location.href = subdomainService.getAppUrl('/dashboard');
+                  } else {
+                    navigate('/dashboard');
+                  }
                   toggleMenu();
                 }}
                 className="text-gray-300 hover:text-white py-2 transition-colors text-left"
