@@ -55,6 +55,28 @@ const SubdomainRouter = () => {
     }
   }, [config]);
   
+  // Additional check: if user has session but is on marketing site with app path, redirect
+  useEffect(() => {
+    const checkAuthAndRedirect = async () => {
+      if (config.isMarketing && subdomainService.shouldBeOnApp()) {
+        console.log('User on marketing site but should be on app, checking session...');
+        
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log('User has session and should be on app, redirecting...');
+            subdomainService.redirectToApp(window.location.pathname + window.location.search);
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking session for subdomain redirect:', error);
+        }
+      }
+    };
+    
+    checkAuthAndRedirect();
+  }, [config]);
+  
   // Render appropriate routes based on subdomain
   return config.isApp ? <AppRoutes /> : <MarketingRoutes />;
 };
@@ -115,6 +137,17 @@ const App = () => {
           
           if (config.isMarketing && shouldBeOnApp) {
             console.log('User has session but is on marketing site for app route, redirecting...');
+            subdomainService.redirectToApp(window.location.pathname + window.location.search);
+            return;
+          }
+          
+          // Also check if user is on marketing site with dashboard-like paths
+          if (config.isMarketing && (
+            window.location.pathname === '/dashboard' ||
+            window.location.pathname.startsWith('/account') ||
+            window.location.pathname.startsWith('/settings')
+          )) {
+            console.log('Authenticated user on marketing site with app path, redirecting to app...');
             subdomainService.redirectToApp(window.location.pathname + window.location.search);
             return;
           }

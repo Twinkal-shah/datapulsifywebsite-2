@@ -345,6 +345,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
     setUser(enhancedUserData);
     localStorage.setItem('user', JSON.stringify(enhancedUserData));
+    
+    // Check if user should be redirected to app subdomain
+    const config = subdomainService.getConfig();
+    if (config.isMarketing && subdomainService.shouldBeOnApp()) {
+      console.log('User logged in but on marketing site with app path, redirecting...');
+      subdomainService.redirectToApp(window.location.pathname + window.location.search);
+    }
   };
 
   const logout = async () => {
