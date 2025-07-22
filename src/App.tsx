@@ -109,33 +109,46 @@ const App = () => {
     const immediateRedirectCheck = async () => {
       const hostname = window.location.hostname;
       const isOnMarketing = hostname === 'datapulsify.com';
-      const isOnApp = hostname === 'app.datapulsify.com';
       const currentPath = window.location.pathname;
       
       console.log('Immediate redirect check:', {
-        hostname,
-        isOnMarketing,
-        isOnApp,
-        currentPath,
-        isDashboardPath: currentPath.startsWith('/dashboard') || currentPath.startsWith('/account') || currentPath.startsWith('/settings')
+        hostname: hostname,
+        isOnMarketing: isOnMarketing,
+        isOnApp: hostname === 'app.datapulsify.com',
+        currentPath: currentPath,
+        isDashboardPath: currentPath.startsWith('/dashboard') || currentPath.startsWith('/account') || currentPath.startsWith('/settings'),
+        fullUrl: window.location.href
       });
       
-      // If user is on marketing site but accessing dashboard paths, check session and redirect
-      if (isOnMarketing && (currentPath.startsWith('/dashboard') || currentPath.startsWith('/account') || currentPath.startsWith('/settings'))) {
-        console.log('User on marketing site with app path, checking session for immediate redirect...');
+      // AGGRESSIVE REDIRECT: If on datapulsify.com and NOT on home page, redirect to app
+      if (hostname === 'datapulsify.com' && currentPath !== '/' && currentPath !== '/pricing' && currentPath !== '/features') {
+        console.log('🚨 AGGRESSIVE REDIRECT: User on marketing site with non-marketing path, checking session...');
         
         try {
           const { data: { session } } = await supabase.auth.getSession();
+          console.log('Session check for aggressive redirect:', { hasSession: !!session });
+          
           if (session) {
-            console.log('Session found, immediately redirecting to app subdomain...');
+            console.log('🚀 SESSION FOUND - REDIRECTING IMMEDIATELY TO APP SUBDOMAIN');
             const redirectUrl = `https://app.datapulsify.com${currentPath}${window.location.search}`;
-            console.log('Immediate redirect to:', redirectUrl);
+            console.log('🔄 REDIRECTING TO:', redirectUrl);
+            
+            // Use multiple redirect methods to ensure it works
+            window.location.replace(redirectUrl);
             window.location.href = redirectUrl;
             return;
+          } else {
+            console.log('❌ No session found, staying on marketing site');
           }
         } catch (error) {
-          console.error('Error in immediate redirect check:', error);
+          console.error('❌ Error in aggressive redirect check:', error);
         }
+      } else {
+        console.log('ℹ️ No redirect needed:', {
+          reason: hostname !== 'datapulsify.com' ? 'Not on marketing site' : 'On marketing page',
+          hostname,
+          currentPath
+        });
       }
     };
     
