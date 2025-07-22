@@ -10,7 +10,7 @@ import CustomAIDashboard from '@/pages/CustomAIDashboard';
 import TopGainersReport from '@/pages/TopGainersReport';
 import TestGSC from '@/pages/TestGSC';
 import { GoogleCallback } from '@/pages/GoogleCallback';
-import { lazy } from 'react';
+import { lazy, useEffect, useState } from 'react';
 import { LazyComponentWrapper } from '@/components/LazyComponentWrapper';
 import NotFound from "@/pages/NotFound";
 
@@ -29,23 +29,49 @@ const SharedReportPage = createLazyComponent(() => import('@/pages/SharedReportP
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshSession } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshAttempted, setRefreshAttempted] = useState(false);
   
-  if (loading) {
+  useEffect(() => {
+    // If no user and not loading, try refreshing session once
+    if (!user && !loading && !refreshAttempted) {
+      setRefreshAttempted(true);
+      setIsRefreshing(true);
+      
+      refreshSession()
+        .then((success) => {
+          console.log('Protected route session refresh:', success ? 'success' : 'failed');
+        })
+        .catch((error) => {
+          console.error('Protected route session refresh error:', error);
+        })
+        .finally(() => {
+          setIsRefreshing(false);
+        });
+    }
+  }, [user, loading, refreshAttempted, refreshSession]);
+  
+  if (loading || isRefreshing) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900 flex items-center justify-center">
         <div className="text-white text-xl flex items-center gap-3">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-          Loading...
+          {isRefreshing ? 'Refreshing session...' : 'Loading...'}
         </div>
       </div>
     );
   }
   
   if (!user) {
-    // Redirect to marketing site for login
+    // After refresh attempt failed, redirect to marketing site for login
     const config = subdomainService.getConfig();
+    console.log('No user found after refresh attempt, redirecting to marketing site...');
+    
     if (config.hostname.includes('datapulsify.com')) {
+      // Clear any stale data before redirecting
+      localStorage.removeItem('user');
+      sessionStorage.clear();
       window.location.href = subdomainService.getMarketingUrl('/');
     } else {
       window.location.href = '/';
@@ -174,6 +200,7 @@ export const AppRoutes = () => {
       
       {/* Authentication callback - available on both subdomains */}
       <Route path="/auth/google/callback" element={<GoogleCallback />} />
+      <Route path="/auth/callback" element={<GoogleCallback />} />
       
       {/* Shared reports - available on both subdomains */}
       <Route path="/share/:token" element={<SharedReportPage />} />

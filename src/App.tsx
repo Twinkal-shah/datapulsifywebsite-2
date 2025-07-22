@@ -40,23 +40,18 @@ const SubdomainRouter = () => {
   
   // Check if user is on wrong subdomain and redirect if needed
   useEffect(() => {
-    const shouldRedirect = () => {
-      // In production, enforce subdomain separation
-      if (config.hostname.includes('datapulsify.com')) {
-        if (config.isMarketing && subdomainService.shouldBeOnApp()) {
-          subdomainService.redirectToApp(window.location.pathname);
-          return true;
-        }
-        if (config.isApp && subdomainService.shouldBeOnMarketing()) {
-          subdomainService.redirectToMarketing(window.location.pathname);
-          return true;
-        }
-      }
-      return false;
-    };
-    
-    if (shouldRedirect()) {
-      console.log('Redirecting to correct subdomain...');
+    try {
+      // Enforce correct subdomain in production
+      subdomainService.enforceCorrectSubdomain();
+      
+      console.log('Subdomain routing initialized:', {
+        hostname: config.hostname,
+        isApp: config.isApp,
+        isMarketing: config.isMarketing,
+        path: window.location.pathname
+      });
+    } catch (error) {
+      console.error('Subdomain routing error:', error);
     }
   }, [config]);
   
@@ -67,6 +62,7 @@ const SubdomainRouter = () => {
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCheckedSession, setHasCheckedSession] = useState(false);
+  const [sessionCheckRetries, setSessionCheckRetries] = useState(0);
 
   // Initialize navigation optimizer
   useEffect(() => {
@@ -76,13 +72,63 @@ const App = () => {
   useEffect(() => {
     const checkSession = async () => {
       try {
+        console.log('Initial session check starting...');
+        
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
           console.error('Error checking session:', error);
+          
+          // If we're on app subdomain and can't get session, might be a cross-domain issue
+          const config = subdomainService.getConfig();
+          if (config.isApp && config.hostname.includes('datapulsify.com') && sessionCheckRetries < 1) {
+            console.log('App subdomain session check failed, attempting recovery...');
+            setSessionCheckRetries(prev => prev + 1);
+            
+            // Try refreshing the session
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              if (refreshError || !refreshData.session) {
+                console.log('Session refresh failed, redirecting to marketing site...');
+                // Clear any stored auth data
+                localStorage.clear();
+                sessionStorage.clear();
+                // Redirect to marketing site for re-authentication
+                subdomainService.redirectToMarketing('/');
+                return;
+              }
+              console.log('Session recovered successfully');
+            } catch (refreshError) {
+              console.error('Session recovery failed:', refreshError);
+              subdomainService.redirectToMarketing('/');
+              return;
+            }
+          }
         }
+        
         console.log('Initial session check:', session ? 'Session exists' : 'No session');
+        
+        // If we have a session but user is on marketing site trying to access app routes
+        if (session) {
+          const config = subdomainService.getConfig();
+          const shouldBeOnApp = subdomainService.shouldBeOnApp();
+          
+          if (config.isMarketing && shouldBeOnApp) {
+            console.log('User has session but is on marketing site for app route, redirecting...');
+            subdomainService.redirectToApp(window.location.pathname + window.location.search);
+            return;
+          }
+        }
+        
       } catch (error) {
         console.error('Failed to check session:', error);
+        
+        // If critical error, clear everything and start fresh
+        if (sessionCheckRetries >= 2) {
+          console.log('Multiple session check failures, clearing all data...');
+          localStorage.clear();
+          sessionStorage.clear();
+        }
       } finally {
         setHasCheckedSession(true);
         setIsLoading(false);
@@ -90,9 +136,10 @@ const App = () => {
     };
 
     checkSession();
-  }, []);
+  }, [sessionCheckRetries]);
 
-  if (isLoading) {
+  // Show loading state while checking session
+  if (isLoading || !hasCheckedSession) {
     return <LoadingFallback />;
   }
 

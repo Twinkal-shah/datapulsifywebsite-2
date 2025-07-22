@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, refreshSessionIfNeeded } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { GoogleAuthService } from '@/lib/googleAuthService';
 import { subdomainService } from '@/config/subdomainConfig';
@@ -39,6 +39,7 @@ interface AuthContextType {
   getGSCProperty: () => string | null;
   connectGSC: () => Promise<void>;
   disconnectGSC: () => Promise<void>;
+  refreshSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -51,69 +52,165 @@ const AuthContext = createContext<AuthContextType>({
   getGSCProperty: () => null,
   connectGSC: async () => {},
   disconnectGSC: async () => {},
+  refreshSession: async () => false,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [sessionRetries, setSessionRetries] = useState(0);
   const navigate = useNavigate();
   const googleAuthService = new GoogleAuthService();
+
+  // Helper function to clear stored session data
+  const clearStoredSession = () => {
+    console.log('Clearing stored session data...');
+    setUser(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('gsc_token');
+    localStorage.removeItem('gsc_property');
+    // Clear any other auth-related storage
+    sessionStorage.removeItem('gsc_auth_in_progress');
+    sessionStorage.removeItem('gsc_auth_pending');
+    sessionStorage.removeItem('sb-access-token');
+    sessionStorage.removeItem('sb-refresh-token');
+    setLoading(false);
+    setSessionRetries(0);
+  };
+
+  // Enhanced session refresh with retry logic
+  const refreshSession = async (): Promise<boolean> => {
+    try {
+      console.log('Manual session refresh requested...');
+      const success = await refreshSessionIfNeeded();
+      
+      if (!success && sessionRetries < 2) {
+        console.log(`Session refresh failed, retrying... (${sessionRetries + 1}/2)`);
+        setSessionRetries(prev => prev + 1);
+        
+        // Try to refresh session directly
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.error('Direct session refresh failed:', error);
+          return false;
+        }
+        
+        if (data.session) {
+          console.log('Direct session refresh successful');
+          await handleUser(data.session.user);
+          setSessionRetries(0);
+          return true;
+        }
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('Session refresh error:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const checkSession = async (isBackgroundRefresh = false) => {
       try {
-        console.log('Checking session...');
+        console.log('Checking session...', isBackgroundRefresh ? '(background)' : '(initial)');
         // Only set loading to true if this is not a background refresh
         if (!isBackgroundRefresh) {
           setLoading(true);
         }
         
-        // Try to get session from localStorage first
+        // Try to get session from localStorage first for immediate UI feedback
         const storedUser = localStorage.getItem('user');
-        if (storedUser) {
+        if (storedUser && !user) {
           console.log('Found stored user data');
-          const userData = JSON.parse(storedUser);
-          setUser(userData);
+          try {
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+          } catch (parseError) {
+            console.error('Failed to parse stored user data:', parseError);
+            localStorage.removeItem('user');
+          }
         }
         
         // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          
+          // If we're on the app subdomain and session failed, try refreshing once
+          const config = subdomainService.getConfig();
+          if (config.isApp && sessionRetries < 1) {
+            console.log('App subdomain session error, attempting refresh...');
+            setSessionRetries(prev => prev + 1);
+            
+            const refreshSuccess = await refreshSession();
+            if (!refreshSuccess) {
+              clearStoredSession();
+            }
+            return;
+          }
+          
+          clearStoredSession();
+          return;
+        }
 
         console.log('Session status:', session ? 'Found session' : 'No session');
         
         if (session?.user) {
           console.log('User found in session, handling user data...');
           await handleUser(session.user);
+          setSessionRetries(0); // Reset retry counter on success
         } else {
-          // Try to refresh session if no active session
-          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-          if (refreshError) {
-            console.error('Failed to refresh session:', refreshError);
-            // Clear stored data if refresh fails
-            setUser(null);
-            localStorage.removeItem('user');
-            localStorage.removeItem('gsc_token');
-            localStorage.removeItem('gsc_property');
-          } else if (refreshedSession?.user) {
-            console.log('Session refreshed successfully');
-            await handleUser(refreshedSession.user);
+          // Check if we should try to refresh the session
+          const hasStoredUser = !!localStorage.getItem('user');
+          const hasRefreshToken = !!localStorage.getItem('sb-refresh-token') || 
+                                  !!sessionStorage.getItem('sb-refresh-token');
+          
+          if ((hasStoredUser || hasRefreshToken) && sessionRetries < 2) {
+            console.log('Attempting session recovery...');
+            setSessionRetries(prev => prev + 1);
+            
+            try {
+              const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+              if (refreshError) {
+                console.error('Failed to refresh session:', refreshError);
+                
+                // If we're on app subdomain and can't refresh, might be a cross-domain issue
+                const config = subdomainService.getConfig();
+                if (config.isApp && refreshError.message?.includes('session')) {
+                  console.log('Cross-domain session issue detected, redirecting to marketing site for re-auth...');
+                  clearStoredSession();
+                  subdomainService.redirectToMarketing('/');
+                  return;
+                }
+                
+                clearStoredSession();
+              } else if (refreshedSession?.user) {
+                console.log('Session refreshed successfully');
+                await handleUser(refreshedSession.user);
+                setSessionRetries(0);
+              } else {
+                console.log('No user after refresh, clearing session');
+                clearStoredSession();
+              }
+            } catch (refreshError) {
+              console.error('Session refresh exception:', refreshError);
+              clearStoredSession();
+            }
           } else {
-            console.log('No user in session, setting loading false');
-            setLoading(false);
+            console.log('No session recovery options available');
+            clearStoredSession();
           }
         }
       } catch (error) {
         console.error('Error checking session:', error);
-        // Clear stored data on error
-        setUser(null);
-        localStorage.removeItem('user');
-        localStorage.removeItem('gsc_token');
-        localStorage.removeItem('gsc_property');
-        setLoading(false);
+        clearStoredSession();
       } finally {
         setIsInitialLoad(false);
+        if (!isBackgroundRefresh) {
+          setLoading(false);
+        }
       }
     };
 
@@ -124,10 +221,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (event === 'SIGNED_IN' && session?.user) {
         console.log('User signed in, handling user data...');
         await handleUser(session.user);
+        setSessionRetries(0); // Reset retry counter on successful sign in
         
         // Only redirect to dashboard if this is a fresh login (not initial page load)
         // and we're coming from login flow (home page or callback)
-        if (!isInitialLoad && (window.location.pathname === '/' || window.location.pathname === '/auth/google/callback')) {
+        if (!isInitialLoad && (window.location.pathname === '/' || window.location.pathname.includes('/auth/'))) {
           console.log('Redirecting to dashboard after fresh login...');
           
           // Redirect to app subdomain if we're on marketing site
@@ -140,11 +238,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out, clearing data...');
-        setUser(null);
-        localStorage.removeItem('user');
-        localStorage.removeItem('gsc_token');
-        localStorage.removeItem('gsc_property');
-        setLoading(false);
+        clearStoredSession();
+      } else if (event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          console.log('Token refreshed, updating user data...');
+          await handleUser(session.user);
+        }
       }
     });
 
@@ -254,10 +353,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      setUser(null);
-      localStorage.removeItem('user');
-      localStorage.removeItem('gsc_token');
-      localStorage.removeItem('gsc_property');
+      clearStoredSession();
       
       // Redirect to marketing site after logout
       const config = subdomainService.getConfig();
@@ -349,7 +445,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     getGSCToken,
     getGSCProperty,
     connectGSC,
-    disconnectGSC
+    disconnectGSC,
+    refreshSession
   };
 
   return (

@@ -12,11 +12,36 @@
   ],
   "headers": [
     {
+      "source": "/auth/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://datapulsify.com"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie"
+        },
+        {
+          "key": "Vary",
+          "value": "Origin"
+        }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {
           "key": "X-Frame-Options",
-          "value": "DENY"
+          "value": "SAMEORIGIN"
         },
         {
           "key": "X-Content-Type-Options",
@@ -27,12 +52,24 @@
           "value": "strict-origin-when-cross-origin"
         },
         {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
           "key": "Access-Control-Allow-Credentials",
           "value": "true"
         },
         {
           "key": "Access-Control-Allow-Origin",
           "value": "https://datapulsify.com"
+        },
+        {
+          "key": "Vary",
+          "value": "Origin, Accept-Encoding"
         }
       ]
     }
@@ -102,6 +139,17 @@
         }
       ],
       "destination": "https://app.datapulsify.com/custom-ai-dashboard",
+      "permanent": false
+    },
+    {
+      "source": "/auth/google/callback",
+      "has": [
+        {
+          "type": "host",
+          "value": "datapulsify.com"
+        }
+      ],
+      "destination": "https://app.datapulsify.com/auth/google/callback",
       "permanent": false
     }
   ],

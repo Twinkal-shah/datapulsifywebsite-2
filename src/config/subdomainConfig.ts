@@ -19,7 +19,8 @@ class SubdomainService {
                   (hostname === 'localhost' || hostname.startsWith('localhost:')) && (
                     window.location.pathname.startsWith('/dashboard') ||
                     window.location.pathname.startsWith('/account') ||
-                    window.location.pathname.startsWith('/settings')
+                    window.location.pathname.startsWith('/settings') ||
+                    window.location.pathname.startsWith('/auth/')
                   );
     
     const isMarketing = !isApp;
@@ -73,10 +74,12 @@ class SubdomainService {
 
   // Redirect helpers
   redirectToApp(path = '/dashboard'): void {
+    console.log(`Redirecting to app subdomain: ${this.getAppUrl(path)}`);
     window.location.href = this.getAppUrl(path);
   }
 
   redirectToMarketing(path = ''): void {
+    console.log(`Redirecting to marketing subdomain: ${this.getMarketingUrl(path)}`);
     window.location.href = this.getMarketingUrl(path);
   }
 
@@ -95,7 +98,9 @@ class SubdomainService {
       '/gap-analysis',
       '/keyword-clustering',
       '/reports',
-      '/top-gainers-report'
+      '/top-gainers-report',
+      '/auth/google/callback', // Auth callbacks should be on app subdomain
+      '/auth/callback'
     ];
     
     return appPaths.some(appPath => path.startsWith(appPath));
@@ -104,6 +109,25 @@ class SubdomainService {
   // Check if current page should be on marketing subdomain
   shouldBeOnMarketing(): boolean {
     return !this.shouldBeOnApp();
+  }
+
+  // Helper to ensure user is on correct subdomain based on current path
+  enforceCorrectSubdomain(): void {
+    const isProduction = this.config.hostname.includes('datapulsify.com');
+    
+    // Only enforce in production
+    if (!isProduction) return;
+
+    const shouldBeApp = this.shouldBeOnApp();
+    const isCurrentlyApp = this.config.isApp;
+
+    if (shouldBeApp && !isCurrentlyApp) {
+      // Should be on app, but currently on marketing
+      this.redirectToApp(window.location.pathname + window.location.search);
+    } else if (!shouldBeApp && isCurrentlyApp) {
+      // Should be on marketing, but currently on app
+      this.redirectToMarketing(window.location.pathname + window.location.search);
+    }
   }
 }
 

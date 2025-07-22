@@ -17,21 +17,46 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 // Determine the environment and configure accordingly
 const isDev = import.meta.env.DEV;
-const currentPort = window.location.port || '8095';
-const baseUrl = isDev ? `http://localhost:${currentPort}` : 'https://app.datapulsify.com';
-const redirectUrl = `${baseUrl}/dashboard`;
+const isProduction = window.location.hostname.includes('datapulsify.com');
+const currentPort = window.location.port || '5173';
+
+// Set base URL based on environment and hostname
+let baseUrl: string;
+if (isDev) {
+  baseUrl = `http://localhost:${currentPort}`;
+} else if (isProduction) {
+  // Use the current hostname (app.datapulsify.com or datapulsify.com)
+  baseUrl = `https://${window.location.hostname}`;
+} else {
+  baseUrl = 'https://app.datapulsify.com';
+}
+
+const redirectUrl = `${baseUrl}/auth/google/callback`;
 
 console.log('Auth redirect URL:', redirectUrl);
 console.log('Environment:', isDev ? 'development' : 'production');
+console.log('Is Production:', isProduction);
 
 // Create Supabase client with environment-aware configuration
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
+    // Disable auto refresh to prevent cross-domain issues
+    autoRefreshToken: false,
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
     debug: isDev,
+    // Configure cookies for cross-subdomain access in production
+    ...(isProduction && {
+      cookieOptions: {
+        name: 'sb-auth-token',
+        domain: '.datapulsify.com', // Allow cookies across all subdomains
+        path: '/',
+        sameSite: 'lax',
+        secure: true,
+        httpOnly: false // Allow JS access for manual session management
+      }
+    }),
     storage: {
       getItem: (key) => {
         const item = localStorage.getItem(key);
@@ -41,19 +66,59 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       setItem: (key, value) => {
         console.log('Setting auth item:', key);
         localStorage.setItem(key, value);
+        
+        // Also set in sessionStorage for cross-tab communication
+        sessionStorage.setItem(key, value);
       },
       removeItem: (key) => {
         console.log('Removing auth item:', key);
         localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
       }
     }
   },
   global: {
     headers: {
       'X-Client-Info': 'datapulsify-web',
+      // Add origin header for CORS
+      ...(isProduction && {
+        'Origin': window.location.origin
+      })
     },
   },
 });
+
+// Enhanced session management with manual refresh
+let refreshTimer: NodeJS.Timeout | null = null;
+
+const scheduleTokenRefresh = (expiresAt: number) => {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
+  
+  // Refresh 5 minutes before expiry
+  const refreshTime = (expiresAt * 1000) - Date.now() - (5 * 60 * 1000);
+  
+  if (refreshTime > 0) {
+    refreshTimer = setTimeout(async () => {
+      console.log('Attempting scheduled token refresh...');
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.error('Scheduled refresh failed:', error);
+          // Clear session if refresh fails
+          await supabase.auth.signOut();
+        } else if (data.session) {
+          console.log('Token refreshed successfully');
+          scheduleTokenRefresh(data.session.expires_at!);
+        }
+      } catch (error) {
+        console.error('Token refresh exception:', error);
+        await supabase.auth.signOut();
+      }
+    }, refreshTime);
+  }
+};
 
 // Log Supabase auth state changes (for debugging)
 supabase.auth.onAuthStateChange((event, session) => {
@@ -67,4 +132,68 @@ supabase.auth.onAuthStateChange((event, session) => {
       refreshToken: session.refresh_token ? 'exists' : 'missing'
     });
   }
+  
+  // Schedule manual token refresh
+  if (session && session.expires_at) {
+    scheduleTokenRefresh(session.expires_at);
+  } else if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+  
+  // Handle token refresh events
+  if (event === 'TOKEN_REFRESHED') {
+    if (session) {
+      console.log('Token refreshed successfully');
+    } else {
+      console.warn('Token refresh failed - no session returned');
+    }
+  }
+  
+  // Handle sign out events
+  if (event === 'SIGNED_OUT') {
+    console.log('User signed out, clearing local storage');
+    localStorage.removeItem('user');
+    localStorage.removeItem('gsc_token');
+    localStorage.removeItem('gsc_property');
+    sessionStorage.clear();
+    
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+      refreshTimer = null;
+    }
+  }
 });
+
+// Helper function to manually refresh session if needed
+export const refreshSessionIfNeeded = async (): Promise<boolean> => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.log('No session to refresh');
+      return false;
+    }
+    
+    const now = Date.now() / 1000;
+    const expiresAt = session.expires_at || 0;
+    
+    // Refresh if expires in next 10 minutes
+    if (expiresAt - now < 600) {
+      console.log('Session expires soon, refreshing...');
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('Session refresh failed:', error);
+        return false;
+      }
+      
+      return !!data.session;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking session expiry:', error);
+    return false;
+  }
+};

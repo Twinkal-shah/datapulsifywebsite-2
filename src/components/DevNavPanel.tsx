@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { testSubdomainConfiguration } from '@/utils/subdomainTest';
+import { testAuth, clearAllAuth } from '@/utils/authTest';
 
 /**
  * Development Navigation Panel - only shown in development mode
@@ -78,7 +79,7 @@ export const DevNavPanel = () => {
         ))}
       </div>
       
-      <div className="mt-3 border-t border-gray-700 pt-2">
+      <div className="mt-3 border-t border-gray-700 pt-2 space-y-2">
         <Button
           variant="ghost"
           size="sm"
@@ -88,8 +89,29 @@ export const DevNavPanel = () => {
           <Bug className="mr-2" size={12} />
           Test Subdomain Config
         </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-xs text-gray-300 hover:bg-gray-700 hover:text-blue-300"
+          onClick={() => testAuth()}
+        >
+          <Bug className="mr-2" size={12} />
+          Test Auth Status
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-xs text-gray-300 hover:bg-gray-700 hover:text-red-300"
+          onClick={() => clearAllAuth()}
+        >
+          <X className="mr-2" size={12} />
+          Clear All Auth
+        </Button>
+        
         <div className="text-xs text-gray-400 mt-2">
-          Dev mode: Using mock user
+          Dev mode: Testing tools
         </div>
       </div>
     </div>
