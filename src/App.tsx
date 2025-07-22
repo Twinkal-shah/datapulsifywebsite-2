@@ -109,22 +109,31 @@ const App = () => {
     const immediateRedirectCheck = async () => {
       const hostname = window.location.hostname;
       const isOnMarketing = hostname === 'datapulsify.com';
+      const isOnApp = hostname === 'app.datapulsify.com';
       const currentPath = window.location.pathname;
       const isInAuthFlow = currentPath.includes('/auth/') || window.location.search.includes('code=');
       
       console.log('🔍 Immediate redirect check:', {
         hostname,
         isOnMarketing,
-        isOnApp: hostname === 'app.datapulsify.com',
+        isOnApp,
         currentPath,
         isInAuthFlow,
         fullUrl: window.location.href
       });
       
+      // If already on app subdomain, don't do anything
+      if (isOnApp) {
+        console.log('✅ Already on app subdomain, no redirect needed');
+        return;
+      }
+      
       // Check if we have a session
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const hasSession = !!session;
+        
+        console.log('🔐 Session check:', { hasSession, userEmail: session?.user?.email });
         
         // If we have a session and we're on marketing site
         if (hasSession && isOnMarketing) {
@@ -132,12 +141,20 @@ const App = () => {
           const marketingPaths = ['/', '/pricing', '/features', '/about', '/contact', '/privacy', '/terms'];
           const isMarketingPath = marketingPaths.some(path => currentPath === path);
           
+          console.log('📍 Path analysis:', { currentPath, isMarketingPath, marketingPaths });
+          
           if (!isMarketingPath && !isInAuthFlow) {
             console.log('🚨 Authenticated user on marketing site, redirecting to app...');
             const redirectUrl = `https://app.datapulsify.com${currentPath}${window.location.search}`;
             console.log('🔄 Redirecting to:', redirectUrl);
-            window.location.replace(redirectUrl); // Use replace instead of href
+            window.location.replace(redirectUrl);
             return;
+          } else {
+            console.log('ℹ️ No redirect needed:', { 
+              reason: isMarketingPath ? 'Marketing path' : 'In auth flow',
+              isMarketingPath,
+              isInAuthFlow
+            });
           }
         }
       } catch (error) {

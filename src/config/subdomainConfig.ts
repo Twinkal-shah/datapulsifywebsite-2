@@ -111,23 +111,47 @@ class SubdomainService {
 
     // First check if path is an app path
     const isAppPath = appPaths.some(appPath => path.startsWith(appPath));
-    if (isAppPath) return true;
+    console.log('🔍 shouldBeOnApp - Path check:', {
+      currentPath: path,
+      isAppPath,
+      appPaths
+    });
+    
+    if (isAppPath) {
+      console.log('✅ shouldBeOnApp: TRUE (app path)');
+      return true;
+    }
 
     // If not an app path, check if user has a session
     try {
       const authToken = localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token');
       const hasSession = !!authToken;
       
+      console.log('🔍 shouldBeOnApp - Session check:', {
+        hasSession,
+        authToken: authToken ? 'exists' : 'missing'
+      });
+      
       // If user has a session and is not on a marketing-only path, they should be on app
       if (hasSession) {
         const marketingOnlyPaths = ['/', '/pricing', '/features', '/about', '/contact', '/privacy', '/terms'];
         const isMarketingPath = marketingOnlyPaths.some(mPath => path === mPath);
-        return !isMarketingPath;
+        
+        console.log('🔍 shouldBeOnApp - Marketing path check:', {
+          currentPath: path,
+          isMarketingPath,
+          marketingOnlyPaths
+        });
+        
+        const result = !isMarketingPath;
+        console.log(result ? '✅ shouldBeOnApp: TRUE (authenticated, not marketing path)' : '❌ shouldBeOnApp: FALSE (marketing path)');
+        return result;
       }
     } catch (error) {
-      console.warn('Error checking auth session:', error);
+      console.warn('❌ Error checking auth session:', error);
     }
 
+    console.log('❌ shouldBeOnApp: FALSE (no session)');
     return false;
   }
 
