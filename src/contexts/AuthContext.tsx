@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, getAppUrl, getMarketingUrl } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { GoogleAuthService } from '@/lib/googleAuthService';
 
@@ -124,11 +124,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('User signed in, handling user data...');
         await handleUser(session.user);
         
-        // Redirect to app subdomain after login
+        // Only redirect to dashboard if this is a fresh login (not initial page load)
+        // and we're coming from login flow (home page or callback)
         if (!isInitialLoad && (window.location.pathname === '/' || window.location.pathname === '/auth/google/callback')) {
-          console.log('Redirecting to app subdomain dashboard...');
-          const appUrl = getAppUrl();
-          window.location.href = `${appUrl}/dashboard`;
+          console.log('Redirecting to dashboard after fresh login...');
+          navigate('/dashboard');
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out, clearing data...');
@@ -137,12 +137,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.removeItem('gsc_token');
         localStorage.removeItem('gsc_property');
         setLoading(false);
-        
-        // Redirect to marketing site on logout
-        const marketingUrl = getMarketingUrl();
-        if (window.location.origin !== marketingUrl) {
-          window.location.href = marketingUrl;
-        }
       }
     });
 
@@ -151,7 +145,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, isInitialLoad]);
+  }, [navigate]);
 
   const handleUser = async (supabaseUser: SupabaseUser) => {
     try {
@@ -256,9 +250,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem('user');
       localStorage.removeItem('gsc_token');
       localStorage.removeItem('gsc_property');
-      
-      // Redirect to marketing site on logout
-      window.location.href = getMarketingUrl();
+      navigate('/');
     } catch (error) {
       console.error('Error during logout:', error);
       throw error;

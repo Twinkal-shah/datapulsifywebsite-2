@@ -1,34 +1,32 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { getAppUrl } from '@/lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function AddonRedirect() {
+const AddonRedirect = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { login } = useAuth();
+  const auth = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleAddonAuth = async () => {
       try {
-        const params = new URLSearchParams(location.search);
+        // Get all parameters from URL
+        const params = new URLSearchParams(window.location.search);
         const email = params.get('email');
         const property = params.get('property');
         const accessToken = params.get('accessToken');
 
         if (!email || !property || !accessToken) {
-          throw new Error('Missing required parameters');
+          throw new Error('Missing required authentication parameters');
         }
 
-        // Store GSC token and property in localStorage
+        // Store GSC data
         localStorage.setItem('gsc_token', accessToken);
         localStorage.setItem('gsc_property', property);
 
-        // Log in the user with addon data
-        await login({
-          id: `addon-${email}`,
-          name: email.split('@')[0],
+        // Update user data in auth context
+        auth.login({
+          name: email.split('@')[0], // Use email username as display name
           email: email,
           member_since: new Date().toISOString(),
           current_plan: "GSC Plan",
@@ -36,8 +34,8 @@ export default function AddonRedirect() {
           isAddonUser: true
         });
 
-        // Redirect to app subdomain dashboard
-        window.location.href = `${getAppUrl()}/dashboard`;
+        // Redirect to dashboard
+        navigate('/dashboard');
       } catch (error) {
         console.error('Authentication failed:', error);
         setError('Authentication failed. Please try again: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -45,19 +43,19 @@ export default function AddonRedirect() {
     };
 
     handleAddonAuth();
-  }, [location, login, navigate]);
+  }, [navigate, auth]);
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-400 mb-4">Authentication Error</h1>
-          <p className="text-gray-300 mb-4">{error}</p>
-          <button
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
+        <div className="bg-[#1a1d23] p-6 rounded-2xl text-center">
+          <h2 className="text-xl text-white mb-4">Authentication Error</h2>
+          <p className="text-red-400">{error}</p>
+          <button 
             onClick={() => navigate('/')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Go to Home
+            Return to Home
           </button>
         </div>
       </div>
@@ -65,12 +63,10 @@ export default function AddonRedirect() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
-        <h1 className="text-xl font-semibold text-white mb-2">Authenticating...</h1>
-        <p className="text-gray-400">Please wait while we set up your account.</p>
-      </div>
+    <div className="min-h-screen gradient-bg flex items-center justify-center">
+      <div className="text-white text-xl">Authenticating...</div>
     </div>
   );
-} 
+};
+
+export default AddonRedirect; 

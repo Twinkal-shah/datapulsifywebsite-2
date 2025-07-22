@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cn, getSupabaseRedirectUrl } from '@/lib/utils';
 import { Menu, X, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase, getAppUrl } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -88,11 +88,6 @@ const Navbar = () => {
     }
   };
 
-  const handleDashboardClick = () => {
-    const appUrl = getAppUrl();
-    window.location.href = `${appUrl}/dashboard`;
-  };
-
   return (
     <nav
       className={cn(
@@ -136,7 +131,7 @@ const Navbar = () => {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleDashboardClick}>
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                     <User className="mr-2 h-4 w-4" />
                     Dashboard
                   </DropdownMenuItem>
@@ -208,7 +203,7 @@ const Navbar = () => {
               </div>
               <button
                 onClick={() => {
-                  handleDashboardClick();
+                  navigate('/dashboard');
                   toggleMenu();
                 }}
                 className="text-gray-300 hover:text-white py-2 transition-colors text-left"

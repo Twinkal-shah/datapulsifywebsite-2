@@ -13,10 +13,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase configuration is incomplete. Check your environment variables.');
 }
 
-// Determine the base URL and redirect URL based on environment
+// Determine the base URL and redirect URL more explicitly
 const isDev = import.meta.env.VITE_APP_ENV === 'development';
-const baseUrl = isDev ? 'http://localhost:8081' : 'https://app.datapulsify.com';
-const marketingUrl = isDev ? 'http://localhost:8081' : 'https://datapulsify.com';
+const baseUrl = isDev ? 'http://localhost:8081' : 'https://datapulsify.com';
 const redirectUrl = `${baseUrl}/dashboard`;
 
 console.log('Auth redirect URL:', redirectUrl);
@@ -30,7 +29,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     storageKey: 'datapulsify_auth',
     storage: window.localStorage,
     flowType: 'pkce',
-    debug: isDev
+    debug: true
   },
   global: {
     headers: {
@@ -39,11 +38,10 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
   }
 });
 
-// Export URLs for use in other components
-export const getAppUrl = () => baseUrl;
-export const getMarketingUrl = () => marketingUrl;
-
 // Set up auth state change listener
 supabase.auth.onAuthStateChange((event, session) => {
   console.log('Supabase Auth State Change:', event, session ? 'Session exists' : 'No session');
+  
+  // Only log the event, don't redirect automatically
+  // Redirects should be handled by the AuthContext or specific login flows
 }); 

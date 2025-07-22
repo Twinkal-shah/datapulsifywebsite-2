@@ -123,7 +123,7 @@ const PrivacyPolicy = () => {
               <h2 className="text-2xl font-bold mt-8 mb-4">9. How to Revoke Access or Delete Your Data</h2>
               <p className="mb-4">You can manage or revoke your data access at any time:</p>
               <ul className="list-disc pl-5 mb-4 space-y-2">
-                <li>Visit <a href="https://app.datapulsify.com/dashboard" className="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener noreferrer">app.datapulsify.com/dashboard</a> to manage or delete your account.</li>
+                <li>Visit <a href="https://datapulsify.com/dashboard" className="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener noreferrer">datapulsify.com/dashboard</a> to manage or delete your account.</li>
                 <li>Alternatively, contact us at <a href="mailto:harshshah419@gmail.com" className="text-blue-400 hover:text-blue-300">harshshah419@gmail.com</a> for any data-related requests.</li>
               </ul>
             </div>
