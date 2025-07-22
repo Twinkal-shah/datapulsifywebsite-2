@@ -48,7 +48,9 @@ const SubdomainRouter = () => {
         hostname: config.hostname,
         isApp: config.isApp,
         isMarketing: config.isMarketing,
-        path: window.location.pathname
+        path: window.location.pathname,
+        fullUrl: window.location.href,
+        shouldBeOnApp: subdomainService.shouldBeOnApp()
       });
     } catch (error) {
       console.error('Subdomain routing error:', error);
@@ -58,14 +60,25 @@ const SubdomainRouter = () => {
   // Additional check: if user has session but is on marketing site with app path, redirect
   useEffect(() => {
     const checkAuthAndRedirect = async () => {
+      console.log('Checking auth and redirect...', {
+        isMarketing: config.isMarketing,
+        shouldBeOnApp: subdomainService.shouldBeOnApp(),
+        currentPath: window.location.pathname,
+        currentHostname: window.location.hostname
+      });
+      
       if (config.isMarketing && subdomainService.shouldBeOnApp()) {
         console.log('User on marketing site but should be on app, checking session...');
         
         try {
           const { data: { session } } = await supabase.auth.getSession();
+          console.log('Session check result:', { hasSession: !!session });
+          
           if (session) {
             console.log('User has session and should be on app, redirecting...');
-            subdomainService.redirectToApp(window.location.pathname + window.location.search);
+            const redirectUrl = subdomainService.getAppUrl(window.location.pathname + window.location.search);
+            console.log('Redirecting to:', redirectUrl);
+            window.location.href = redirectUrl;
             return;
           }
         } catch (error) {
@@ -89,6 +102,44 @@ const App = () => {
   // Initialize navigation optimizer
   useEffect(() => {
     console.log('Navigation optimizer initialized');
+  }, []);
+
+  // Immediate redirect check for authenticated users on wrong subdomain
+  useEffect(() => {
+    const immediateRedirectCheck = async () => {
+      const hostname = window.location.hostname;
+      const isOnMarketing = hostname === 'datapulsify.com';
+      const isOnApp = hostname === 'app.datapulsify.com';
+      const currentPath = window.location.pathname;
+      
+      console.log('Immediate redirect check:', {
+        hostname,
+        isOnMarketing,
+        isOnApp,
+        currentPath,
+        isDashboardPath: currentPath.startsWith('/dashboard') || currentPath.startsWith('/account') || currentPath.startsWith('/settings')
+      });
+      
+      // If user is on marketing site but accessing dashboard paths, check session and redirect
+      if (isOnMarketing && (currentPath.startsWith('/dashboard') || currentPath.startsWith('/account') || currentPath.startsWith('/settings'))) {
+        console.log('User on marketing site with app path, checking session for immediate redirect...');
+        
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log('Session found, immediately redirecting to app subdomain...');
+            const redirectUrl = `https://app.datapulsify.com${currentPath}${window.location.search}`;
+            console.log('Immediate redirect to:', redirectUrl);
+            window.location.href = redirectUrl;
+            return;
+          }
+        } catch (error) {
+          console.error('Error in immediate redirect check:', error);
+        }
+      }
+    };
+    
+    immediateRedirectCheck();
   }, []);
 
   useEffect(() => {
