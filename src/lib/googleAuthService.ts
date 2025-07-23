@@ -8,8 +8,8 @@ interface GoogleAuthConfig {
 interface AuthResult {
   success: boolean;
   error?: string;
-  token?: string;
-  message?: string;
+  guidance?: string;
+  recoveryAction?: string;
 }
 
 export class GoogleAuthService {
@@ -21,7 +21,7 @@ export class GoogleAuthService {
     this.config = {
       clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
       clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || (
+      redirectUri: import.meta.env.VITE_GSC_REDIRECT_URI || (
         import.meta.env.DEV 
           ? `http://localhost:${window.location.port}/auth/google/callback`
           : 'https://app.datapulsify.com/auth/google/callback'
@@ -29,37 +29,152 @@ export class GoogleAuthService {
       scope: ['https://www.googleapis.com/auth/webmasters.readonly', 'https://www.googleapis.com/auth/webmasters']
     };
     
-    // Validate required configuration
-    if (!this.config.clientId) {
-      console.error('VITE_GOOGLE_CLIENT_ID not configured');
+    this.validateConfig();
+  }
+
+  // Validate OAuth configuration
+  private validateConfig() {
+    const required = ['clientId', 'clientSecret', 'redirectUri'];
+    const missing = required.filter(key => !this.config[key as keyof GoogleAuthConfig]);
+    
+    if (missing.length > 0) {
+      console.error('❌ Missing OAuth configuration:', missing);
+      throw new Error(`Missing OAuth configuration: ${missing.join(', ')}`);
     }
-    if (!this.config.clientSecret) {
-      console.error('VITE_GOOGLE_CLIENT_SECRET not configured');
+    
+    console.log('✅ OAuth configuration validated');
+  }
+
+  // Enhanced auth state checking with timestamp validation
+  isAuthInProgress(): boolean {
+    const inProgress = sessionStorage.getItem('gsc_auth_in_progress') === 'true';
+    const timestamp = sessionStorage.getItem('gsc_oauth_timestamp');
+    
+    if (!inProgress) {
+      return false;
     }
+    
+    if (!timestamp) {
+      // If flag exists but no timestamp, clear stale state
+      console.log('🧹 Clearing auth state without timestamp');
+      this.clearAuthState();
+      return false;
+    }
+    
+    const now = Date.now();
+    const authTime = parseInt(timestamp);
+    const fiveMinutes = 5 * 60 * 1000;
+    
+    // If auth is older than 5 minutes, clear stale state
+    if (now - authTime > fiveMinutes) {
+      console.log('🧹 Clearing stale auth state (>5 minutes old)');
+      this.clearAuthState();
+      return false;
+    }
+    
+    console.log('⏳ Valid auth in progress', {
+      startTime: new Date(authTime).toISOString(),
+      elapsed: Math.round((now - authTime) / 1000) + 's'
+    });
+    
+    return true;
+  }
+
+  // Comprehensive auth state cleanup
+  clearAuthState() {
+    const authKeys = [
+      'gsc_oauth_state', 'gsc_oauth_timestamp', 'gsc_auth_in_progress',
+      'gsc_auth_pending', 'gsc_callback_processing'
+    ];
+    
+    authKeys.forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+    
+    console.log('🧹 Cleared all GSC auth state');
+  }
+
+  // Enhanced error handling with user guidance
+  private getErrorGuidance(error: string): { message: string; guidance: string; recoveryAction: string } {
+    const errorMappings = {
+      'invalid_grant': {
+        message: 'The authorization code has expired or been used already.',
+        guidance: 'This usually happens when:\n• You waited too long to complete authentication\n• You tried to connect multiple times\n• Your browser was closed during authentication',
+        recoveryAction: 'clear_and_retry'
+      },
+      'invalid_client': {
+        message: 'OAuth configuration error detected.',
+        guidance: 'This indicates a configuration problem:\n• Client ID or secret may be incorrect\n• OAuth app may not be properly configured\n• Contact support if this persists',
+        recoveryAction: 'contact_support'
+      },
+      'access_denied': {
+        message: 'You denied access to Google Search Console.',
+        guidance: 'To connect GSC, you need to:\n• Grant permission to access your GSC data\n• Make sure you\'re signed into the correct Google account\n• Try the connection process again',
+        recoveryAction: 'retry_with_permissions'
+      },
+      'redirect_uri_mismatch': {
+        message: 'OAuth redirect configuration error.',
+        guidance: 'This is a technical configuration issue:\n• The redirect URL doesn\'t match Google Console settings\n• Please contact support for assistance',
+        recoveryAction: 'contact_support'
+      }
+    };
+    
+    return errorMappings[error] || {
+      message: 'An unexpected error occurred during authentication.',
+      guidance: 'Try the following steps:\n• Clear your browser cache and cookies\n• Make sure you\'re signed into Google\n• Try connecting again\n• Contact support if the problem persists',
+      recoveryAction: 'clear_and_retry'
+    };
+  }
+
+  // Debug logging method
+  private logDebugInfo(context: string) {
+    console.log(`🔍 GSC Auth Debug (${context}):`, {
+      timestamp: new Date().toISOString(),
+      authInProgress: this.isAuthInProgress(),
+      storedState: localStorage.getItem('gsc_oauth_state'),
+      storedTimestamp: localStorage.getItem('gsc_oauth_timestamp'),
+      sessionAuthFlag: sessionStorage.getItem('gsc_auth_in_progress'),
+      allAuthKeys: Object.keys(localStorage).filter(k => k.includes('gsc')),
+      currentUrl: window.location.href,
+      userAgent: navigator.userAgent.substring(0, 100) + '...'
+    });
   }
 
   async initiateGSCAuth() {
+    this.logDebugInfo('initiate_start');
+    
     if (!this.config.clientId) {
       throw new Error('Google Client ID not configured');
     }
+
+    // Clear any previous auth state to prevent conflicts
+    this.clearAuthState();
 
     // Generate a more robust state parameter with additional entropy
     const timestamp = Date.now().toString(36);
     const random1 = Math.random().toString(36).substring(2);
     const random2 = Math.random().toString(36).substring(2);
-    const state = `${timestamp}-${random1}-${random2}`;
+    const state = `gsc-${timestamp}-${random1}-${random2}`;
     
     // Store state in both localStorage and sessionStorage for redundancy
     const stateKey = 'gsc_oauth_state';
     const timestampKey = 'gsc_oauth_timestamp';
+    const currentTime = Date.now().toString();
     
     localStorage.setItem(stateKey, state);
-    localStorage.setItem(timestampKey, Date.now().toString());
+    localStorage.setItem(timestampKey, currentTime);
     sessionStorage.setItem(stateKey, state);
-    sessionStorage.setItem(timestampKey, Date.now().toString());
+    sessionStorage.setItem(timestampKey, currentTime);
     
     // Store a flag to indicate auth is in progress
     sessionStorage.setItem('gsc_auth_in_progress', 'true');
+
+    console.log('🚀 Starting GSC OAuth flow', {
+      state: state.substring(0, 20) + '...',
+      redirectUri: this.config.redirectUri,
+      timestamp: new Date().toISOString()
+    });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${this.config.clientId}` +
@@ -69,21 +184,29 @@ export class GoogleAuthService {
       `&state=${state}` +
       `&access_type=offline` +
       `&prompt=consent`;
+    
+    this.logDebugInfo('initiate_redirect');
     window.location.href = authUrl;
   }
 
   async handleCallback(code: string, state: string): Promise<AuthResult> {
+    this.logDebugInfo('callback_start');
+    
     // Prevent concurrent callback processing with global flag
     const globalFlag = 'gsc_callback_processing';
     if (this.isProcessingCallback || sessionStorage.getItem(globalFlag) === 'true') {
-      throw new Error('Authentication already in progress');
+      return {
+        success: false,
+        error: 'Authentication already in progress',
+        guidance: 'Please wait for the current authentication to complete.',
+        recoveryAction: 'wait_or_refresh'
+      };
     }
     
     this.isProcessingCallback = true;
     sessionStorage.setItem(globalFlag, 'true');
     
     try {
-      
       // Verify state to prevent CSRF attacks - check both localStorage and sessionStorage
       const stateKey = 'gsc_oauth_state';
       const timestampKey = 'gsc_oauth_timestamp';
@@ -91,6 +214,12 @@ export class GoogleAuthService {
       let storedState = localStorage.getItem(stateKey) || sessionStorage.getItem(stateKey);
       let stateTimestamp = localStorage.getItem(timestampKey) || sessionStorage.getItem(timestampKey);
       
+      console.log('🔍 State validation:', {
+        receivedState: state ? state.substring(0, 20) + '...' : 'missing',
+        storedState: storedState ? storedState.substring(0, 20) + '...' : 'missing',
+        hasTimestamp: !!stateTimestamp
+      });
+
       // Clean up stored state from both storages
       localStorage.removeItem(stateKey);
       localStorage.removeItem(timestampKey);
@@ -105,41 +234,36 @@ export class GoogleAuthService {
         const allowBypass = isDevelopment && window.location.hostname === 'localhost';
         
         if (allowBypass && code) {
-          console.warn('STATE VALIDATION BYPASSED IN DEVELOPMENT MODE');
+          console.warn('⚠️ STATE VALIDATION BYPASSED IN DEVELOPMENT MODE');
         } else {
           // Clear any pending auth flags on error
           sessionStorage.removeItem('gsc_auth_pending');
           
-          // Provide more detailed error message with troubleshooting steps
+          let errorType = 'state_validation_failed';
           let errorMessage = 'Authentication state validation failed. ';
           
           if (!storedState) {
-            errorMessage += 'No stored authentication state found. This usually happens when:\n';
-            errorMessage += '• The authentication was started in a different browser tab or window\n';
-            errorMessage += '• Browser storage was cleared during the authentication process\n';
-            errorMessage += '• The browser was closed and reopened during authentication\n';
-            errorMessage += '• You waited too long to complete the authentication';
+            errorType = 'no_stored_state';
+            errorMessage += 'No stored authentication state found.';
           } else if (state !== storedState) {
-            errorMessage += 'Authentication state mismatch detected. This may indicate:\n';
-            errorMessage += '• Multiple authentication attempts were made simultaneously\n';
-            errorMessage += '• The authentication flow was corrupted or tampered with\n';
-            errorMessage += '• A security issue (CSRF attack attempt)';
+            errorType = 'state_mismatch';
+            errorMessage += 'Authentication state mismatch detected.';
           }
           
-          errorMessage += '\n\nPlease try the following:\n';
-          errorMessage += '1. Close all browser tabs and start fresh\n';
-          errorMessage += '2. Clear your browser cache and cookies for this site\n';
-          errorMessage += '3. Try connecting from the Settings page again\n';
-          errorMessage += '4. Make sure you complete the authentication in the same browser tab';
+          const errorInfo = this.getErrorGuidance(errorType);
           
-          throw new Error(errorMessage);
+          return {
+            success: false,
+            error: errorMessage,
+            guidance: errorInfo.guidance,
+            recoveryAction: errorInfo.recoveryAction
+          };
         }
       }
       
-      console.log('State validation successful, proceeding with token exchange...');
+      console.log('✅ State validation successful, proceeding with token exchange...');
 
       // Exchange code for tokens using fetch
-      // Exchange code for tokens - simplified approach 
       console.log('🔄 Starting token exchange...');
       
       const tokenRequestBody = {
@@ -173,31 +297,32 @@ export class GoogleAuthService {
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.json().catch(() => ({}));
         
-        let errorMessage = 'Token exchange failed';
-        if (errorData.error_description) {
-          errorMessage += `: ${errorData.error_description}`;
-        } else if (errorData.error) {
-          errorMessage += `: ${errorData.error}`;
-        } else {
-          errorMessage += `: ${tokenResponse.statusText}`;
-        }
+        console.error('❌ Token exchange failed:', {
+          status: tokenResponse.status,
+          statusText: tokenResponse.statusText,
+          errorData
+        });
         
-        // Add specific guidance for common OAuth errors
-        if (errorData.error === 'invalid_grant') {
-          errorMessage += '\n\nThis usually means:\n• The authorization code has expired (try connecting again)\n• The redirect URI doesn\'t match your Google Console configuration\n• The code has already been used';
-        } else if (errorData.error === 'invalid_client') {
-          errorMessage += '\n\nThis usually means:\n• The client ID or client secret is incorrect\n• The OAuth app is not configured properly in Google Console';
-        } else if (tokenResponse.status === 400) {
-          errorMessage += '\n\nPossible causes:\n• OAuth configuration mismatch\n• Expired authorization code\n• Incorrect redirect URI\n• Missing or invalid client credentials';
-        }
+        const errorType = errorData.error || 'token_exchange_failed';
+        const errorInfo = this.getErrorGuidance(errorType);
         
-        throw new Error(errorMessage);
+        return {
+          success: false,
+          error: errorInfo.message,
+          guidance: errorInfo.guidance,
+          recoveryAction: errorInfo.recoveryAction
+        };
       }
 
       const tokens = await tokenResponse.json();
       
       if (!tokens.access_token) {
-        throw new Error('Token exchange completed but no access token received');
+        return {
+          success: false,
+          error: 'No access token received',
+          guidance: 'The authentication completed but no access token was provided.\nThis may be a temporary issue with Google\'s servers.',
+          recoveryAction: 'retry_later'
+        };
       }
       
       // Store tokens
@@ -209,65 +334,47 @@ export class GoogleAuthService {
       // Verify storage
       const storedToken = localStorage.getItem('gsc_token');
       if (!storedToken) {
-        throw new Error('Failed to store authentication token');
+        return {
+          success: false,
+          error: 'Failed to store authentication token',
+          guidance: 'The token was received but couldn\'t be saved.\nThis may be due to browser storage restrictions.',
+          recoveryAction: 'check_storage'
+        };
       }
 
+      console.log('✅ GSC authentication successful!', {
+        hasAccessToken: !!tokens.access_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        tokenLength: tokens.access_token?.length || 0
+      });
+
       this.isProcessingCallback = false;
       sessionStorage.removeItem('gsc_callback_processing');
+      
+      return { 
+        success: true,
+        guidance: 'Successfully connected to Google Search Console!'
+      };
+      
+    } catch (error) {
+      console.error('❌ GSC callback error:', error);
+      
+      // Clear all auth state on error
+      this.clearAuthState();
+      sessionStorage.removeItem('gsc_callback_processing');
+      this.isProcessingCallback = false;
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorInfo = this.getErrorGuidance('callback_exception');
       
       return {
-        success: true,
-        message: 'Authentication successful'
+        success: false,
+        error: errorMessage,
+        guidance: errorInfo.guidance,
+        recoveryAction: errorInfo.recoveryAction
       };
-    } catch (error: any) {
-      // Clean up any remaining auth state on error
-      this.isProcessingCallback = false;
-      sessionStorage.removeItem('gsc_callback_processing');
-      
-      localStorage.removeItem('gsc_token');
-      localStorage.removeItem('gsc_refresh_token');
-      sessionStorage.removeItem('gsc_auth_pending');
-      
-      // Re-throw with enhanced context
-      throw new Error(`Authentication failed: ${error.message}`);
     }
   }
-
-  clearAuth() {
-    if (this.tokenRefreshTimeout) {
-      clearTimeout(this.tokenRefreshTimeout);
-    }
-    
-    // Clear all GSC-related storage items
-    localStorage.removeItem('gsc_token');
-    localStorage.removeItem('gsc_refresh_token');
-    localStorage.removeItem('gsc_property');
-    localStorage.removeItem('gsc_oauth_state');
-    localStorage.removeItem('gsc_oauth_timestamp');
-    
-    // Clear session storage items
-    sessionStorage.removeItem('gsc_oauth_state');
-    sessionStorage.removeItem('gsc_oauth_timestamp');
-    sessionStorage.removeItem('gsc_auth_in_progress');
-    sessionStorage.removeItem('gsc_auth_pending');
-  }
-
-  // Add a method to check if authentication is in progress
-  isAuthInProgress(): boolean {
-    return sessionStorage.getItem('gsc_auth_in_progress') === 'true';
-  }
-
-  // Clear auth state (useful for troubleshooting)
-  clearAuthState() {
-    localStorage.removeItem('gsc_oauth_state');
-    localStorage.removeItem('gsc_oauth_timestamp');
-    sessionStorage.removeItem('gsc_oauth_state');
-    sessionStorage.removeItem('gsc_oauth_timestamp');
-    sessionStorage.removeItem('gsc_auth_in_progress');
-    sessionStorage.removeItem('gsc_auth_pending');
-  }
-
-
 
   async fetchGSCProperties(): Promise<{ siteUrl: string }[]> {
     const token = localStorage.getItem('gsc_token');

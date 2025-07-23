@@ -93,8 +93,8 @@ export const GoogleCallback: React.FC = () => {
         console.log('🔄 Processing OAuth callback with code...');
         setStatus('Processing authentication...');
 
-        // Check for GSC OAuth (has state parameter)
-        if (state) {
+        // Check for GSC OAuth (has state parameter that starts with 'gsc-')
+        if (state && state.startsWith('gsc-')) {
           console.log('🔄 Processing Google Search Console OAuth...');
           setStatus('Connecting to Google Search Console...');
           
@@ -102,9 +102,29 @@ export const GoogleCallback: React.FC = () => {
           const result = await authService.handleCallback(code, state);
 
           if (!result.success) {
-            throw new Error(result.error || 'Failed to authenticate with Google Search Console');
+            console.error('❌ GSC authentication failed:', result.error);
+            setError(result.error || 'Failed to authenticate with Google Search Console');
+            setStatus('GSC connection failed');
+            
+            // Show detailed guidance to user
+            if (result.guidance) {
+              const guidanceLines = result.guidance.split('\n');
+              const guidanceHtml = guidanceLines.map(line => 
+                line.trim() ? `<p class="mb-2">${line}</p>` : '<br/>'
+              ).join('');
+              
+              setTimeout(() => {
+                const errorElement = document.querySelector('.error-guidance');
+                if (errorElement) {
+                  errorElement.innerHTML = guidanceHtml;
+                }
+              }, 100);
+            }
+            
+            return;
           }
 
+          console.log('✅ GSC authentication successful!');
           setStatus('GSC connection successful! Redirecting to settings...');
           setTimeout(() => {
             navigate('/settings/googlesearchconsole');
@@ -207,22 +227,29 @@ export const GoogleCallback: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
+            <div className="mx-auto h-12 w-12 text-red-600">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-2.186-.833-2.956 0L3.857 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Authentication Error
+              Authentication Failed
             </h2>
-            <p className="mt-2 text-sm text-gray-600 whitespace-pre-line">
+            <p className="mt-2 text-sm text-gray-600">
               {error}
             </p>
+            
+            {/* Detailed guidance section */}
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+              <div className="error-guidance text-left text-sm text-gray-700">
+                {/* Guidance will be inserted here by JavaScript */}
+              </div>
+            </div>
+            
             <div className="mt-6 space-y-3">
               <button
-                onClick={() => navigate('/dashboard')}
-                className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Go to Dashboard
-              </button>
-              <button
                 onClick={() => {
-                  // Clear all auth state and try again
+                  // Clear auth state and try again
                   const allCodeVerifierKeys = Object.keys(localStorage).filter(key => 
                     key.includes('auth-token-code-verifier')
                   );
@@ -233,18 +260,31 @@ export const GoogleCallback: React.FC = () => {
                   );
                   allAuthTokenKeys.forEach(key => localStorage.removeItem(key));
                   
+                  // Clear GSC auth state
+                  const gscAuthKeys = [
+                    'gsc_oauth_state', 'gsc_oauth_timestamp', 'gsc_auth_in_progress',
+                    'gsc_auth_pending', 'gsc_callback_processing'
+                  ];
+                  gscAuthKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                  });
+                  
                   sessionStorage.clear();
-                  window.location.href = 'https://datapulsify.com';
+                  window.location.href = '/';
                 }}
-                className="w-full inline-flex justify-center items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md shadow-sm text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
-                Clear Auth State & Try Again
+                Clear State & Try Again
               </button>
+              
               <button
-                onClick={() => window.location.href = 'https://datapulsify.com'}
-                className="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                onClick={() => {
+                  window.location.href = '/settings/googlesearchconsole';
+                }}
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
-                Return to Home
+                Back to Settings
               </button>
             </div>
           </div>

@@ -639,43 +639,80 @@ export default function Settings() {
     }
   };
 
-  // Handle OAuth with Google
+  // Handle OAuth with Google - Enhanced version with better UX
   const handleGoogleAuth = async () => {
     try {
       setLoading(true);
       const googleAuth = new GoogleAuthService();
       
-      // Check if authentication is already in progress
-      if (googleAuth.isAuthInProgress()) {
+      // Enhanced auth state checking with automatic cleanup
+      const authInProgress = googleAuth.isAuthInProgress();
+      
+      if (authInProgress) {
+        // Show user-friendly message about clearing stale state
         toast({
-          title: 'Authentication in Progress',
-          description: 'An authentication process is already running. Please wait or refresh the page if stuck.',
+          title: 'Clearing Previous Attempt',
+          description: 'Found a previous authentication attempt. Clearing it and starting fresh...',
           variant: 'default'
         });
-        setLoading(false);
-        return;
+        
+        // Clear stale state and wait a moment
+        googleAuth.clearAuthState();
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      // Clear any previous auth state to prevent conflicts
-      googleAuth.clearAuthState();
-      
-      // Show guidance to user
+      // Show clear guidance to user
       toast({
         title: 'Connecting to Google',
-        description: 'Please complete the authentication in the popup window. Do not close this tab.',
+        description: 'You\'ll be redirected to Google for authentication. Please complete the process and don\'t close this tab.',
         variant: 'default'
       });
       
+      console.log('🚀 Initiating GSC authentication...');
       await googleAuth.initiateGSCAuth();
+      
     } catch (error) {
-      console.error('Error connecting to GSC:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to connect to Google Search Console';
+      console.error('❌ Error connecting to GSC:', error);
+      
+      // Enhanced error handling with specific guidance
+      let title = 'Connection Error';
+      let description = 'Failed to connect to Google Search Console';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Client ID not configured')) {
+          title = 'Configuration Error';
+          description = 'Google OAuth is not properly configured. Please contact support.';
+        } else if (error.message.includes('network')) {
+          title = 'Network Error';
+          description = 'Please check your internet connection and try again.';
+        } else {
+          description = error.message;
+        }
+      }
       
       toast({
-        title: 'Connection Error',
-        description: errorMessage,
-        variant: 'destructive'
+        title,
+        description,
+        variant: 'destructive',
+        action: (
+          <button
+            onClick={() => {
+              // Clear all auth state and allow retry
+              const googleAuth = new GoogleAuthService();
+              googleAuth.clearAuthState();
+              toast({
+                title: 'State Cleared',
+                description: 'You can now try connecting again.',
+                variant: 'default'
+              });
+            }}
+            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+          >
+            Clear & Retry
+          </button>
+        )
       });
+      
       setLoading(false);
     }
   };
@@ -754,7 +791,7 @@ export default function Settings() {
     try {
       const googleAuth = new GoogleAuthService();
       await disconnectGSC();
-      googleAuth.clearAuth();
+                     googleAuth.clearAuthState();
       setGscProperties([]);
       toast({
         title: "Success",
