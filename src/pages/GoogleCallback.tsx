@@ -29,10 +29,17 @@ export const GoogleCallback: React.FC = () => {
         }
 
         // Get the code verifier from storage
-        const codeVerifier = localStorage.getItem('supabase.auth.token.code_verifier');
+        // Supabase stores the code verifier with a project-specific key
+        const codeVerifierKey = Object.keys(localStorage).find(key => 
+          key.includes('auth-token-code-verifier')
+        );
+        const codeVerifier = codeVerifierKey ? localStorage.getItem(codeVerifierKey) : null;
+        
         console.log('🔍 Auth parameters:', {
           hasCode: !!code,
           hasCodeVerifier: !!codeVerifier,
+          codeVerifierKey: codeVerifierKey || 'not found',
+          allStorageKeys: Object.keys(localStorage).filter(key => key.includes('auth')),
           url: window.location.href
         });
 
@@ -57,7 +64,9 @@ export const GoogleCallback: React.FC = () => {
         });
 
         // Clear the code verifier
-        localStorage.removeItem('supabase.auth.token.code_verifier');
+        if (codeVerifierKey) {
+          localStorage.removeItem(codeVerifierKey);
+        }
         
         // Store success flag
         sessionStorage.setItem('auth_success', 'true');
@@ -80,8 +89,16 @@ export const GoogleCallback: React.FC = () => {
         setError(`${errorMessage}. Please try logging in again.`);
         
         // Clear any stale auth state
-        localStorage.removeItem('supabase.auth.token.code_verifier');
-        localStorage.removeItem('supabase.auth.token');
+        const allCodeVerifierKeys = Object.keys(localStorage).filter(key => 
+          key.includes('auth-token-code-verifier')
+        );
+        allCodeVerifierKeys.forEach(key => localStorage.removeItem(key));
+        
+        const allAuthTokenKeys = Object.keys(localStorage).filter(key => 
+          key.includes('auth-token') && !key.includes('code-verifier')
+        );
+        allAuthTokenKeys.forEach(key => localStorage.removeItem(key));
+        
         sessionStorage.clear();
       }
     };
@@ -110,8 +127,16 @@ export const GoogleCallback: React.FC = () => {
               <button
                 onClick={() => {
                   // Clear auth state and try again
-                  localStorage.removeItem('supabase.auth.token.code_verifier');
-                  localStorage.removeItem('supabase.auth.token');
+                  const allCodeVerifierKeys = Object.keys(localStorage).filter(key => 
+                    key.includes('auth-token-code-verifier')
+                  );
+                  allCodeVerifierKeys.forEach(key => localStorage.removeItem(key));
+                  
+                  const allAuthTokenKeys = Object.keys(localStorage).filter(key => 
+                    key.includes('auth-token') && !key.includes('code-verifier')
+                  );
+                  allAuthTokenKeys.forEach(key => localStorage.removeItem(key));
+                  
                   sessionStorage.clear();
                   window.location.href = '/';
                 }}
