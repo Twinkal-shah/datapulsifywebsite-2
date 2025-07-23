@@ -24,11 +24,9 @@ const currentPort = window.location.port || '5173';
 let redirectUrl: string;
 if (isDev) {
   redirectUrl = `http://localhost:${currentPort}/auth/google/callback`;
-} else if (isProduction) {
-  // Always redirect to app subdomain, regardless of which subdomain initiated login
-  redirectUrl = 'https://app.datapulsify.com/auth/google/callback';
 } else {
-  redirectUrl = 'https://app.datapulsify.com/auth/google/callback';
+  // Use environment variable for production redirect URL
+  redirectUrl = import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'https://app.datapulsify.com/auth/google/callback';
 }
 
 console.log('Auth redirect URL:', redirectUrl);
@@ -38,8 +36,7 @@ console.log('Is Production:', isProduction);
 // Create Supabase client with environment-aware configuration
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Disable auto refresh to prevent cross-domain issues
-    autoRefreshToken: false,
+    autoRefreshToken: true, // Enable auto refresh
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
@@ -52,7 +49,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
         path: '/',
         sameSite: 'lax',
         secure: true,
-        httpOnly: false // Allow JS access for manual session management
+        httpOnly: true // Make cookies more secure
       }
     }),
     storage: {

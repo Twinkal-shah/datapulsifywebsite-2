@@ -20,7 +20,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://datapulsify.com"
+          "value": "https://app.datapulsify.com"
         },
         {
           "key": "Access-Control-Allow-Methods",
@@ -65,7 +65,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://datapulsify.com"
+          "value": "https://app.datapulsify.com"
         },
         {
           "key": "Vary",
@@ -154,6 +154,7 @@
     }
   ],
   "env": {
-    "VITE_APP_ENV": "production"
+    "VITE_APP_ENV": "production",
+    "VITE_GOOGLE_REDIRECT_URI": "https://app.datapulsify.com/auth/google/callback"
   }
 }
