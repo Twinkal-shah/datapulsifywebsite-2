@@ -36,7 +36,7 @@ console.log('Is Production:', isProduction);
 // Create Supabase client with environment-aware configuration
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true, // Enable auto refresh
+    autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
@@ -45,30 +45,43 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     ...(isProduction && {
       cookieOptions: {
         name: 'sb-auth-token',
-        domain: '.datapulsify.com', // Allow cookies across all subdomains
+        domain: '.datapulsify.com',
         path: '/',
         sameSite: 'lax',
         secure: true,
-        httpOnly: true // Make cookies more secure
+        httpOnly: true
       }
     }),
     storage: {
       getItem: (key) => {
-        const item = localStorage.getItem(key);
-        console.log('Getting auth item:', key, item ? 'exists' : 'missing');
-        return item;
+        try {
+          const item = localStorage.getItem(key);
+          console.log('Getting auth item:', key, item ? 'exists' : 'missing');
+          return item;
+        } catch (error) {
+          console.error('Error getting auth item:', error);
+          return null;
+        }
       },
       setItem: (key, value) => {
-        console.log('Setting auth item:', key);
-        localStorage.setItem(key, value);
-        
-        // Also set in sessionStorage for cross-tab communication
-        sessionStorage.setItem(key, value);
+        try {
+          console.log('Setting auth item:', key);
+          localStorage.setItem(key, value);
+          
+          // Also set in sessionStorage for cross-tab communication
+          sessionStorage.setItem(key, value);
+        } catch (error) {
+          console.error('Error setting auth item:', error);
+        }
       },
       removeItem: (key) => {
-        console.log('Removing auth item:', key);
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
+        try {
+          console.log('Removing auth item:', key);
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        } catch (error) {
+          console.error('Error removing auth item:', error);
+        }
       }
     }
   },
@@ -77,7 +90,8 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       'X-Client-Info': 'datapulsify-web',
       // Add origin header for CORS
       ...(isProduction && {
-        'Origin': window.location.origin
+        'Origin': window.location.origin,
+        'X-Supabase-Auth-Flow': 'pkce'
       })
     },
   },

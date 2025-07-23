@@ -14,27 +14,31 @@ export const GoogleCallback: React.FC = () => {
 
   // Listen for auth state changes
   useEffect(() => {
-    if (user && !hasRedirected && !error) {
-      console.log('🔐 User authenticated via auth context:', { email: user.email });
-      setHasRedirected(true);
-      setStatus('Authentication successful! Redirecting to dashboard...');
-      
-      // Store a flag to prevent redirect loops
-      sessionStorage.setItem('auth_success', 'true');
-      
-      // Use window.location.replace for a clean redirect
-      const appUrl = window.location.hostname === 'app.datapulsify.com'
-        ? '/dashboard'
-        : 'https://app.datapulsify.com/dashboard';
-      
-      console.log('🔄 Redirecting to:', appUrl);
-      
-      if (appUrl.startsWith('http')) {
-        window.location.replace(appUrl);
-      } else {
-        navigate(appUrl);
+    const handleAuthChange = async () => {
+      if (user && !hasRedirected && !error) {
+        console.log('🔐 User authenticated via auth context:', { email: user.email });
+        setHasRedirected(true);
+        setStatus('Authentication successful! Redirecting to dashboard...');
+        
+        // Store a flag to prevent redirect loops
+        sessionStorage.setItem('auth_success', 'true');
+        
+        // Ensure we're on the app subdomain
+        const currentHostname = window.location.hostname;
+        const isAppDomain = currentHostname === 'app.datapulsify.com';
+        
+        if (!isAppDomain) {
+          const appUrl = 'https://app.datapulsify.com/dashboard';
+          console.log('🔄 Redirecting to app subdomain:', appUrl);
+          window.location.replace(appUrl);
+        } else {
+          console.log('✅ Already on app subdomain, using React Router');
+          navigate('/dashboard');
+        }
       }
-    }
+    };
+
+    handleAuthChange();
   }, [user, hasRedirected, error, navigate]);
 
   // Add logging for debugging
@@ -97,25 +101,25 @@ export const GoogleCallback: React.FC = () => {
           console.log('🔄 Processing Supabase OAuth callback...');
           setStatus('Completing sign-in...');
           
-          // Get current session
-          const { data: { session } } = await supabase.auth.getSession();
+          // First, try to exchange the code for a session
+          const { data: authData, error: authError } = await supabase.auth.exchangeCodeForSession(code || '');
           
-          if (session?.user) {
-            console.log('✅ Session found immediately:', { email: session.user.email });
-            // The useEffect above will handle the redirect
-          } else {
-            // Wait a bit longer for session to be established
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Check session again
-            const { data: { session: retrySession } } = await supabase.auth.getSession();
-            
-            if (!retrySession?.user) {
-              throw new Error('No session established after waiting');
-            }
+          if (authError) {
+            throw new Error(`Failed to exchange code for session: ${authError.message}`);
           }
+          
+          if (!authData.session) {
+            throw new Error('No session returned from code exchange');
+          }
+          
+          console.log('✅ Session established:', { 
+            user: authData.session.user.email,
+            expiresAt: new Date(authData.session.expires_at! * 1000).toISOString()
+          });
+          
+          // The useEffect above will handle the redirect once the user is set
         } else if (state) {
-          // Handle GSC auth as before...
+          // Handle GSC auth
           console.log('🔄 Processing GSC OAuth callback...');
           setStatus('Connecting to Google Search Console...');
           
