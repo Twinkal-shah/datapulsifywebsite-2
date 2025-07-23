@@ -42,12 +42,24 @@ const Navbar = () => {
       // Get the current URL's port for development
       const currentPort = window.location.port;
       
+      // Check if we're on the marketing site and need to redirect to app subdomain first
+      const isOnMarketingSite = window.location.hostname === 'datapulsify.com';
+      
+      if (isOnMarketingSite) {
+        // If we're on the marketing site, redirect to app subdomain to initiate OAuth
+        // This ensures the code verifier is stored in the same domain as the callback
+        const appLoginUrl = `https://app.datapulsify.com/auth/login`;
+        console.log('🔄 Redirecting to app subdomain for OAuth initiation:', appLoginUrl);
+        window.location.href = appLoginUrl;
+        return;
+      }
+      
       // Always redirect to the OAuth callback endpoint, which will then handle the session
       const redirectUrl = import.meta.env.DEV
         ? `http://localhost:${currentPort}/auth/google/callback`
         : 'https://app.datapulsify.com/auth/google/callback';
       
-      console.log('Login redirect URL:', redirectUrl);
+      console.log('🚀 Starting OAuth flow from app subdomain, redirect URL:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

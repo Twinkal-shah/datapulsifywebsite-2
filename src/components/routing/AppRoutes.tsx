@@ -15,6 +15,60 @@ import { LazyComponentWrapper } from '@/components/LazyComponentWrapper';
 import NotFound from "@/pages/NotFound";
 import { supabase } from "@/lib/supabaseClient";
 
+// Login component for app subdomain OAuth initiation
+const AppLogin = () => {
+  useEffect(() => {
+    const initiateOAuth = async () => {
+      try {
+        const redirectUrl = 'https://app.datapulsify.com/auth/google/callback';
+        console.log('🚀 Initiating OAuth from app subdomain, redirect URL:', redirectUrl);
+
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent'
+            },
+            skipBrowserRedirect: false
+          }
+        });
+
+        if (error) {
+          console.error('OAuth initiation error:', error);
+          // Redirect back to marketing site on error
+          window.location.href = 'https://datapulsify.com';
+        }
+      } catch (error) {
+        console.error('Error during OAuth initiation:', error);
+        // Redirect back to marketing site on error
+        window.location.href = 'https://datapulsify.com';
+      }
+    };
+
+    initiateOAuth();
+  }, []);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            Initiating Login
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Redirecting to Google for authentication...
+          </p>
+          <div className="mt-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Enhanced lazy loading with retry on tab visibility
 const createLazyComponent = (importFn: () => Promise<any>) => {
   const LazyComponent = lazy(importFn);
@@ -236,6 +290,9 @@ export const AppRoutes = () => {
       <Route path="/auth/google/callback" element={<GoogleCallback />} />
       <Route path="/auth/callback" element={<GoogleCallback />} />
       
+      {/* Login route for app subdomain OAuth initiation */}
+      <Route path="/auth/login" element={<AppLogin />} />
+      
       {/* Shared reports - available on both subdomains */}
       <Route path="/share/:token" element={<SharedReportPage />} />
       
@@ -245,7 +302,7 @@ export const AppRoutes = () => {
           <TestGSC />
         </ProtectedRoute>
       } />
-      
+
       {/* Catch-all for 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
