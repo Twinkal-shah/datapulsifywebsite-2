@@ -23,8 +23,8 @@ export class GoogleAuthService {
       clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
       redirectUri: import.meta.env.VITE_GSC_REDIRECT_URI || (
         import.meta.env.DEV 
-          ? `http://localhost:${window.location.port}/auth/google/callback`
-          : 'https://app.datapulsify.com/auth/google/callback'
+          ? `http://localhost:${window.location.port}/auth/gsc/callback`
+          : 'https://app.datapulsify.com/auth/gsc/callback'
       ),
       scope: ['https://www.googleapis.com/auth/webmasters.readonly', 'https://www.googleapis.com/auth/webmasters']
     };

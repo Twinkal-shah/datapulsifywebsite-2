@@ -10,6 +10,7 @@ import CustomAIDashboard from '@/pages/CustomAIDashboard';
 import TopGainersReport from '@/pages/TopGainersReport';
 import TestGSC from '@/pages/TestGSC';
 import { GoogleCallback } from '@/pages/GoogleCallback';
+import { GSCCallback } from '@/pages/GSCCallback';
 import { lazy, useEffect, useState } from 'react';
 import { LazyComponentWrapper } from '@/components/LazyComponentWrapper';
 import NotFound from "@/pages/NotFound";
@@ -289,6 +290,7 @@ export const AppRoutes = () => {
       {/* Authentication callback - available on both subdomains */}
       <Route path="/auth/google/callback" element={<GoogleCallback />} />
       <Route path="/auth/callback" element={<GoogleCallback />} />
+      <Route path="/auth/gsc/callback" element={<GSCCallback />} />
       
       {/* Login route for app subdomain OAuth initiation */}
       <Route path="/auth/login" element={<AppLogin />} />
