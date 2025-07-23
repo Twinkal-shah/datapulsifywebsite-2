@@ -44,7 +44,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     // Configure cookies for cross-subdomain access in production
     ...(isProduction && {
       cookieOptions: {
-        name: 'sb-auth-token',
+        name: 'supabase.auth.token',
         domain: '.datapulsify.com',
         path: '/',
         sameSite: 'lax',

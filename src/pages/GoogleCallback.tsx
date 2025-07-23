@@ -12,18 +12,57 @@ export const GoogleCallback: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasRedirected, setHasRedirected] = useState(false);
 
-  // Listen for auth state changes
   useEffect(() => {
-    const handleAuthChange = async () => {
-      if (user && !hasRedirected && !error) {
-        console.log('🔐 User authenticated via auth context:', { email: user.email });
-        setHasRedirected(true);
-        setStatus('Authentication successful! Redirecting to dashboard...');
+    const handleCallback = async () => {
+      if (isProcessing) return;
+      setIsProcessing(true);
+      
+      try {
+        setStatus('Verifying authentication...');
         
-        // Store a flag to prevent redirect loops
+        // Get the code from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        
+        if (!code) {
+          throw new Error('No code found in URL');
+        }
+
+        // Get the code verifier from storage
+        const codeVerifier = localStorage.getItem('supabase.auth.token.code_verifier');
+        console.log('🔍 Auth parameters:', {
+          hasCode: !!code,
+          hasCodeVerifier: !!codeVerifier,
+          url: window.location.href
+        });
+
+        if (!codeVerifier) {
+          throw new Error('No code verifier found. Please try logging in again.');
+        }
+
+        // Exchange the code for a session
+        const { data: authData, error: authError } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (authError) {
+          throw new Error(`Failed to exchange code for session: ${authError.message}`);
+        }
+        
+        if (!authData.session) {
+          throw new Error('No session returned from code exchange');
+        }
+        
+        console.log('✅ Session established:', { 
+          user: authData.session.user.email,
+          expiresAt: new Date(authData.session.expires_at! * 1000).toISOString()
+        });
+
+        // Clear the code verifier
+        localStorage.removeItem('supabase.auth.token.code_verifier');
+        
+        // Store success flag
         sessionStorage.setItem('auth_success', 'true');
         
-        // Ensure we're on the app subdomain
+        // Redirect to app subdomain if needed
         const currentHostname = window.location.hostname;
         const isAppDomain = currentHostname === 'app.datapulsify.com';
         
@@ -35,117 +74,20 @@ export const GoogleCallback: React.FC = () => {
           console.log('✅ Already on app subdomain, using React Router');
           navigate('/dashboard');
         }
-      }
-    };
-
-    handleAuthChange();
-  }, [user, hasRedirected, error, navigate]);
-
-  // Add logging for debugging
-  useEffect(() => {
-    console.log('GoogleCallback component state:', {
-      user: !!user,
-      hasRedirected,
-      error: !!error,
-      isProcessing,
-      status,
-      url: window.location.href
-    });
-  }, [user, hasRedirected, error, isProcessing, status]);
-
-  // Add direct Supabase auth listener for debugging
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('GoogleCallback: Supabase auth state change:', event, {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        userEmail: session?.user?.email
-      });
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleCallback = async () => {
-      if (isProcessing) return;
-      setIsProcessing(true);
-      
-      try {
-        setStatus('Verifying authentication...');
-        
-        // Extract query parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const code = urlParams.get('code') || hashParams.get('code');
-        const state = urlParams.get('state') || hashParams.get('state');
-        const oauthError = urlParams.get('error') || hashParams.get('error');
-        
-        console.log('🔍 OAuth callback parameters:', {
-          hasCode: !!code,
-          hasState: !!state,
-          hasError: !!oauthError,
-          url: window.location.href
-        });
-
-        if (oauthError) {
-          throw new Error(`OAuth error: ${oauthError}`);
-        }
-
-        // Check if this is a Supabase OAuth callback
-        const isSupabaseOAuth = !state;
-        
-        if (isSupabaseOAuth) {
-          console.log('🔄 Processing Supabase OAuth callback...');
-          setStatus('Completing sign-in...');
-          
-          // First, try to exchange the code for a session
-          const { data: authData, error: authError } = await supabase.auth.exchangeCodeForSession(code || '');
-          
-          if (authError) {
-            throw new Error(`Failed to exchange code for session: ${authError.message}`);
-          }
-          
-          if (!authData.session) {
-            throw new Error('No session returned from code exchange');
-          }
-          
-          console.log('✅ Session established:', { 
-            user: authData.session.user.email,
-            expiresAt: new Date(authData.session.expires_at! * 1000).toISOString()
-          });
-          
-          // The useEffect above will handle the redirect once the user is set
-        } else if (state) {
-          // Handle GSC auth
-          console.log('🔄 Processing GSC OAuth callback...');
-          setStatus('Connecting to Google Search Console...');
-          
-          if (!code) {
-            throw new Error('Missing authorization code');
-          }
-
-          const authService = new GoogleAuthService();
-          const result = await authService.handleCallback(code, state);
-
-          if (!result.success) {
-            throw new Error(result.error || 'Failed to authenticate with Google');
-          }
-
-          setStatus('GSC connection successful! Redirecting...');
-          navigate('/settings/googlesearchconsole');
-        }
       } catch (error) {
         console.error('❌ Authentication error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
         setError(`${errorMessage}. Please try logging in again.`);
+        
+        // Clear any stale auth state
+        localStorage.removeItem('supabase.auth.token.code_verifier');
+        localStorage.removeItem('supabase.auth.token');
+        sessionStorage.clear();
       }
     };
 
     handleCallback();
-  }, [navigate, login]);
+  }, [navigate]);
 
   if (error) {
     return (
@@ -166,27 +108,22 @@ export const GoogleCallback: React.FC = () => {
                 Go to Dashboard
               </button>
               <button
-                onClick={() => navigate('/settings/googlesearchconsole')}
-                className="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Go to Settings
-              </button>
-              <button
                 onClick={() => {
-                  // Clear authentication state and redirect to settings
-                  const authService = new GoogleAuthService();
-                  authService.clearAuthState();
-                  navigate('/settings/googlesearchconsole');
+                  // Clear auth state and try again
+                  localStorage.removeItem('supabase.auth.token.code_verifier');
+                  localStorage.removeItem('supabase.auth.token');
+                  sessionStorage.clear();
+                  window.location.href = '/';
                 }}
                 className="w-full inline-flex items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md shadow-sm text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
               >
                 Clear Auth State & Try Again
               </button>
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/')}
                 className="w-full inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
-                Return to Dashboard
+                Return to Home
               </button>
             </div>
           </div>
