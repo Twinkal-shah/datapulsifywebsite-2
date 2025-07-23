@@ -93,43 +93,113 @@ export const GoogleCallback: React.FC = () => {
         console.log('🔄 Processing OAuth callback with code...');
         setStatus('Processing authentication...');
 
-        // Check for GSC OAuth (has state parameter that starts with 'gsc-')
-        if (state && state.startsWith('gsc-')) {
+        // Check for GSC OAuth using multiple detection methods
+        const isGSCOAuth = (
+          (state && state.startsWith('gsc-')) ||  // Our state parameter
+          (urlParams.get('scope') && urlParams.get('scope').includes('webmasters')) ||  // Google's scope parameter
+          (sessionStorage.getItem('gsc_auth_in_progress') === 'true')  // Our auth flag
+        );
+
+        console.log('🔍 OAuth Type Detection:', {
+          hasState: !!state,
+          stateStartsWithGSC: state ? state.startsWith('gsc-') : false,
+          scope: urlParams.get('scope'),
+          hasWebmastersScope: urlParams.get('scope') ? urlParams.get('scope').includes('webmasters') : false,
+          gscAuthInProgress: sessionStorage.getItem('gsc_auth_in_progress'),
+          isGSCOAuth
+        });
+
+        if (isGSCOAuth) {
           console.log('🔄 Processing Google Search Console OAuth...');
           setStatus('Connecting to Google Search Console...');
           
-          const authService = new GoogleAuthService();
-          const result = await authService.handleCallback(code, state);
+          try {
+            // Process GSC OAuth directly here
+            const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+            const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+            const redirectUri = 'https://app.datapulsify.com/auth/gsc/callback';
 
-          if (!result.success) {
-            console.error('❌ GSC authentication failed:', result.error);
-            setError(result.error || 'Failed to authenticate with Google Search Console');
-            setStatus('GSC connection failed');
-            
-            // Show detailed guidance to user
-            if (result.guidance) {
-              const guidanceLines = result.guidance.split('\n');
-              const guidanceHtml = guidanceLines.map(line => 
-                line.trim() ? `<p class="mb-2">${line}</p>` : '<br/>'
-              ).join('');
-              
-              setTimeout(() => {
-                const errorElement = document.querySelector('.error-guidance');
-                if (errorElement) {
-                  errorElement.innerHTML = guidanceHtml;
-                }
-              }, 100);
+            if (!clientId || !clientSecret) {
+              throw new Error('Google OAuth credentials not configured');
             }
+
+            console.log('🔄 Exchanging GSC code for token...', {
+              clientId: clientId.substring(0, 20) + '...',
+              redirectUri,
+              hasCode: !!code
+            });
+
+            // Exchange code for tokens
+            const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                code,
+                client_id: clientId,
+                client_secret: clientSecret,
+                redirect_uri: redirectUri,
+                grant_type: 'authorization_code',
+              }),
+            });
+
+            if (!tokenResponse.ok) {
+              const errorData = await tokenResponse.json().catch(() => ({}));
+              console.error('❌ GSC token exchange failed:', errorData);
+              
+              let errorMessage = 'Failed to exchange authorization code for access token';
+              if (errorData.error_description) {
+                errorMessage += `: ${errorData.error_description}`;
+              } else if (errorData.error) {
+                errorMessage += `: ${errorData.error}`;
+              }
+              
+              throw new Error(errorMessage);
+            }
+
+            const tokens = await tokenResponse.json();
+            console.log('✅ GSC token exchange successful:', {
+              hasAccessToken: !!tokens.access_token,
+              hasRefreshToken: !!tokens.refresh_token
+            });
+
+            if (!tokens.access_token) {
+              throw new Error('No access token received from Google');
+            }
+
+            // Store GSC tokens
+            localStorage.setItem('gsc_token', tokens.access_token);
+            if (tokens.refresh_token) {
+              localStorage.setItem('gsc_refresh_token', tokens.refresh_token);
+            }
+
+            // Clear GSC auth state
+            const gscAuthKeys = [
+              'gsc_oauth_state', 'gsc_oauth_timestamp', 'gsc_auth_in_progress',
+              'gsc_auth_pending', 'gsc_callback_processing'
+            ];
+            gscAuthKeys.forEach(key => {
+              localStorage.removeItem(key);
+              sessionStorage.removeItem(key);
+            });
+
+            console.log('✅ GSC authentication completed successfully!');
+            setStatus('GSC connected successfully! Redirecting to settings...');
+            setHasRedirected(true);
             
+            setTimeout(() => {
+              navigate('/settings/googlesearchconsole');
+            }, 1500);
+            return;
+
+          } catch (error) {
+            console.error('❌ GSC authentication failed:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to authenticate with Google Search Console';
+            setError(errorMessage);
+            setStatus('GSC authentication failed');
             return;
           }
-
-          console.log('✅ GSC authentication successful!');
-          setStatus('GSC connection successful! Redirecting to settings...');
-          setTimeout(() => {
-            navigate('/settings/googlesearchconsole');
-          }, 1000);
-          return;
         }
 
         // STEP 6: Process Supabase OAuth (no state parameter)

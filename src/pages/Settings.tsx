@@ -645,6 +645,8 @@ export default function Settings() {
       setLoading(true);
       const googleAuth = new GoogleAuthService();
       
+      console.log('🚀 Starting GSC authentication process...');
+      
       // Enhanced auth state checking with automatic cleanup
       const authInProgress = googleAuth.isAuthInProgress();
       
@@ -656,23 +658,35 @@ export default function Settings() {
           variant: 'default'
         });
         
+        console.log('🧹 Clearing stale GSC auth state...');
         // Clear stale state and wait a moment
         googleAuth.clearAuthState();
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
+      // Set auth in progress flag for detection in callback
+      sessionStorage.setItem('gsc_auth_in_progress', 'true');
+      sessionStorage.setItem('gsc_oauth_timestamp', Date.now().toString());
+      
       // Show clear guidance to user
       toast({
-        title: 'Connecting to Google',
-        description: 'You\'ll be redirected to Google for authentication. Please complete the process and don\'t close this tab.',
+        title: 'Connecting to Google Search Console',
+        description: 'You\'ll be redirected to Google for authentication. The page will redirect to /auth/gsc/callback after authorization.',
         variant: 'default'
       });
       
-      console.log('🚀 Initiating GSC authentication...');
+      console.log('🔄 Initiating GSC OAuth flow...', {
+        timestamp: new Date().toISOString()
+      });
+      
       await googleAuth.initiateGSCAuth();
       
     } catch (error) {
       console.error('❌ Error connecting to GSC:', error);
+      
+      // Clear any auth state on error
+      const googleAuth = new GoogleAuthService();
+      googleAuth.clearAuthState();
       
       // Enhanced error handling with specific guidance
       let title = 'Connection Error';
@@ -700,6 +714,11 @@ export default function Settings() {
               // Clear all auth state and allow retry
               const googleAuth = new GoogleAuthService();
               googleAuth.clearAuthState();
+              
+              // Also clear any session flags
+              sessionStorage.removeItem('gsc_auth_in_progress');
+              sessionStorage.removeItem('gsc_oauth_timestamp');
+              
               toast({
                 title: 'State Cleared',
                 description: 'You can now try connecting again.',
