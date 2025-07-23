@@ -13,6 +13,7 @@ import { GoogleCallback } from '@/pages/GoogleCallback';
 import { lazy, useEffect, useState } from 'react';
 import { LazyComponentWrapper } from '@/components/LazyComponentWrapper';
 import NotFound from "@/pages/NotFound";
+import { supabase } from "@/lib/supabaseClient";
 
 // Enhanced lazy loading with retry on tab visibility
 const createLazyComponent = (importFn: () => Promise<any>) => {
@@ -35,29 +36,47 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [hasCheckedSession, setHasCheckedSession] = useState(false);
   
   useEffect(() => {
-    // If no user and not loading, try refreshing session once
-    if (!user && !loading && !refreshAttempted && !hasCheckedSession) {
-      console.log('🔄 ProtectedRoute: No user found, attempting session refresh...');
-      setRefreshAttempted(true);
-      setIsRefreshing(true);
+    const checkSession = async () => {
+      // Skip if we're already loading or have a user
+      if (loading || user || isRefreshing) return;
       
-      refreshSession()
-        .then((success) => {
-          console.log('🔄 ProtectedRoute session refresh:', success ? 'SUCCESS' : 'FAILED');
-          setHasCheckedSession(true);
-        })
-        .catch((error) => {
-          console.error('❌ ProtectedRoute session refresh error:', error);
-          setHasCheckedSession(true);
-        })
-        .finally(() => {
+      // Check if we just completed authentication
+      const authSuccess = sessionStorage.getItem('auth_success');
+      if (authSuccess) {
+        console.log('🔐 Recent authentication detected, waiting for session...');
+        // Give more time for session to establish
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      // If no user and not loading, try refreshing session
+      if (!user && !refreshAttempted && !hasCheckedSession) {
+        console.log('🔄 ProtectedRoute: Attempting session refresh...');
+        setRefreshAttempted(true);
+        setIsRefreshing(true);
+        
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            console.log('✅ Session found:', { email: session.user.email });
+            // AuthContext will handle setting the user
+          } else {
+            const success = await refreshSession();
+            console.log('🔄 Session refresh result:', success ? 'SUCCESS' : 'FAILED');
+          }
+        } catch (error) {
+          console.error('❌ Session refresh error:', error);
+        } finally {
           setIsRefreshing(false);
-        });
-    }
-  }, [user, loading, refreshAttempted, refreshSession, hasCheckedSession]);
+          setHasCheckedSession(true);
+        }
+      }
+    };
+    
+    checkSession();
+  }, [user, loading, refreshAttempted, refreshSession, hasCheckedSession, isRefreshing]);
   
   // Show loading while checking authentication
-  if (loading || isRefreshing || !hasCheckedSession) {
+  if (loading || isRefreshing || (!hasCheckedSession && !user)) {
     console.log('⏳ ProtectedRoute: Loading state', { loading, isRefreshing, hasCheckedSession, hasUser: !!user });
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900 flex items-center justify-center">
@@ -71,37 +90,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   
   // Only redirect if we've completed all checks and still no user
   if (!user && hasCheckedSession) {
-    console.log('❌ ProtectedRoute: No user after all checks, redirecting to marketing site...');
-    console.log('🔍 ProtectedRoute final state check:', {
-      user: !!user,
-      loading,
-      isRefreshing,
-      hasCheckedSession,
-      refreshAttempted,
-      currentUrl: window.location.href,
-      userInLocalStorage: !!localStorage.getItem('user'),
-      sessionInLocalStorage: !!sessionStorage.getItem('sb-auth-token')
-    });
+    console.log('❌ ProtectedRoute: No user after all checks');
     
-    // Give a small delay to prevent immediate redirects during auth flow
-    setTimeout(() => {
-      const config = subdomainService.getConfig();
-      console.log('🔄 Final redirect decision:', {
-        hostname: config.hostname,
-        includesDatapulsify: config.hostname.includes('datapulsify.com'),
-        redirectTo: subdomainService.getMarketingUrl('/')
-      });
-      
-      if (config.hostname.includes('datapulsify.com')) {
-        // Clear any stale data before redirecting
-        localStorage.removeItem('user');
-        sessionStorage.clear();
-        console.log('🔄 Redirecting to marketing site:', subdomainService.getMarketingUrl('/'));
-        window.location.href = subdomainService.getMarketingUrl('/');
-      } else {
-        window.location.href = '/';
-      }
-    }, 100); // Small delay to prevent race conditions
+    // Clear any stale auth data
+    sessionStorage.removeItem('auth_success');
+    localStorage.removeItem('user');
+    sessionStorage.clear();
+    
+    // Redirect to marketing site
+    const redirectUrl = window.location.hostname === 'app.datapulsify.com'
+      ? 'https://datapulsify.com'
+      : '/';
+    
+    console.log('🔄 Redirecting to:', redirectUrl);
+    window.location.replace(redirectUrl);
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#0f1115] to-gray-900 flex items-center justify-center">
@@ -110,7 +112,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
   
-  console.log('✅ ProtectedRoute: User authenticated, rendering protected content');
+  console.log('✅ ProtectedRoute: User authenticated, rendering content');
   return <>{children}</>;
 };
 

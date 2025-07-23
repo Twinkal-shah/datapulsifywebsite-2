@@ -15,12 +15,25 @@ export const GoogleCallback: React.FC = () => {
   // Listen for auth state changes
   useEffect(() => {
     if (user && !hasRedirected && !error) {
-      console.log('User authenticated via auth context, redirecting to dashboard...');
+      console.log('🔐 User authenticated via auth context:', { email: user.email });
       setHasRedirected(true);
       setStatus('Authentication successful! Redirecting to dashboard...');
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
+      
+      // Store a flag to prevent redirect loops
+      sessionStorage.setItem('auth_success', 'true');
+      
+      // Use window.location.replace for a clean redirect
+      const appUrl = window.location.hostname === 'app.datapulsify.com'
+        ? '/dashboard'
+        : 'https://app.datapulsify.com/dashboard';
+      
+      console.log('🔄 Redirecting to:', appUrl);
+      
+      if (appUrl.startsWith('http')) {
+        window.location.replace(appUrl);
+      } else {
+        navigate(appUrl);
+      }
     }
   }, [user, hasRedirected, error, navigate]);
 
@@ -53,139 +66,77 @@ export const GoogleCallback: React.FC = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Prevent multiple executions (React StrictMode protection)
-      if (isProcessing) {
-        console.log('⚠️ Callback already processing, skipping...');
-        return;
-      }
-      
+      if (isProcessing) return;
       setIsProcessing(true);
+      
       try {
         setStatus('Verifying authentication...');
         
-        // Extract query parameters from URL (for OAuth code flow)
+        // Extract query parameters
         const urlParams = new URLSearchParams(window.location.search);
-        
-        // Also check URL hash (Supabase sometimes uses hash for OAuth)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        
         const code = urlParams.get('code') || hashParams.get('code');
         const state = urlParams.get('state') || hashParams.get('state');
         const oauthError = urlParams.get('error') || hashParams.get('error');
         
-        console.log('OAuth callback parameters:', {
+        console.log('🔍 OAuth callback parameters:', {
           hasCode: !!code,
           hasState: !!state,
           hasError: !!oauthError,
           url: window.location.href
         });
 
-        // Check for OAuth errors first
         if (oauthError) {
-          setError(`OAuth error: ${oauthError}`);
-          return;
+          throw new Error(`OAuth error: ${oauthError}`);
         }
 
-        // Check if this is a Supabase OAuth callback (no state parameter)
-        // or a GSC callback (has state parameter)
+        // Check if this is a Supabase OAuth callback
         const isSupabaseOAuth = !state;
-        const isGSCAuth = !!state;
-
+        
         if (isSupabaseOAuth) {
-          console.log('Processing Supabase OAuth callback...');
+          console.log('🔄 Processing Supabase OAuth callback...');
           setStatus('Completing sign-in...');
           
-          // For Supabase OAuth, let the auth context handle the authentication
-          // We'll just wait and let the useEffect above handle the redirect when user is set
-          console.log('Waiting for auth context to process authentication...');
-          setStatus('Finalizing authentication...');
+          // Get current session
+          const { data: { session } } = await supabase.auth.getSession();
           
-          // Check if we already have a session immediately
-          try {
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-            console.log('Immediate session check:', { 
-              hasSession: !!session, 
-              hasUser: !!session?.user,
-              error: sessionError?.message 
-            });
+          if (session?.user) {
+            console.log('✅ Session found immediately:', { email: session.user.email });
+            // The useEffect above will handle the redirect
+          } else {
+            // Wait a bit longer for session to be established
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            if (session?.user) {
-              console.log('Session found immediately, setting user...');
-              // The useEffect will handle the redirect
+            // Check session again
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            
+            if (!retrySession?.user) {
+              throw new Error('No session established after waiting');
             }
-          } catch (error) {
-            console.error('Error checking immediate session:', error);
           }
-          
-          // Set a longer timeout as fallback in case auth context doesn't update
-          setTimeout(() => {
-            if (!user && !hasRedirected && !error) {
-              console.error('Authentication timeout - no user session established after 15 seconds');
-              console.log('Final state check:', {
-                user: !!user,
-                hasRedirected,
-                error: !!error,
-                url: window.location.href
-              });
-              setError('Authentication timed out. This might be due to a configuration issue. Please try logging in again.');
-            }
-          }, 15000); // Increased to 15 seconds
-        } else if (isGSCAuth) {
-          console.log('Processing GSC OAuth callback...');
+        } else if (state) {
+          // Handle GSC auth as before...
+          console.log('🔄 Processing GSC OAuth callback...');
           setStatus('Connecting to Google Search Console...');
           
-          // Validate required parameters for GSC
-          if (!code || !state) {
-            setError('Missing required authentication parameters. Please try connecting again.');
-            return;
+          if (!code) {
+            throw new Error('Missing authorization code');
           }
 
-          setStatus('Exchanging authorization code...');
-          
           const authService = new GoogleAuthService();
           const result = await authService.handleCallback(code, state);
 
           if (!result.success) {
-            setError(result.error || 'Failed to authenticate with Google');
-            return;
+            throw new Error(result.error || 'Failed to authenticate with Google');
           }
 
-          // Check if token was stored
-          const token = localStorage.getItem('gsc_token');
-          if (!token) {
-            setError('Authentication completed but no token was stored. Please try connecting again.');
-            return;
-          }
-
-          setStatus('Authentication successful! Redirecting to settings...');
-          
-          // Set a flag to indicate recent authentication
-          sessionStorage.setItem('gsc_auth_pending', 'true');
-          
-          // Wait a moment to ensure navigation is ready
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Redirect to GSC settings page
+          setStatus('GSC connection successful! Redirecting...');
           navigate('/settings/googlesearchconsole');
         }
       } catch (error) {
-        setIsProcessing(false); // Reset on error
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred during authentication';
-        
-        // Check if this is a state validation error and provide detailed guidance
-        if (errorMessage.includes('Authentication state validation failed') || 
-            errorMessage.includes('Invalid authentication state')) {
-          setError(errorMessage);
-        } else {
-          // For other errors, provide basic guidance
-          setError(`${errorMessage}
-
-If this problem persists, try:
-1. Clearing your browser cache and cookies
-2. Disabling browser extensions temporarily
-3. Using an incognito/private browsing window
-4. Contacting support if the issue continues`);
-        }
+        console.error('❌ Authentication error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+        setError(`${errorMessage}. Please try logging in again.`);
       }
     };
 
