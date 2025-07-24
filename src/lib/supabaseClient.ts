@@ -49,13 +49,29 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
         path: '/',
         sameSite: 'lax',
         secure: true,
-        httpOnly: true
+        httpOnly: false // Set to false so JavaScript can read for cross-domain sync
       }
     }),
     storage: {
       getItem: (key) => {
         try {
-          const item = localStorage.getItem(key);
+          // First try localStorage
+          let item = localStorage.getItem(key);
+          
+          // If not found in localStorage and we're in production, try cookies
+          if (!item && isProduction) {
+            const cookieName = `supabase-auth-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const cookies = document.cookie.split(';');
+            const cookie = cookies.find(c => c.trim().startsWith(`${cookieName}=`));
+            if (cookie) {
+              item = decodeURIComponent(cookie.split('=')[1]);
+              // Sync back to localStorage for faster access
+              if (item) {
+                localStorage.setItem(key, item);
+              }
+            }
+          }
+          
           console.log('Getting auth item:', key, item ? 'exists' : 'missing');
           return item;
         } catch (error) {
@@ -66,10 +82,19 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       setItem: (key, value) => {
         try {
           console.log('Setting auth item:', key);
-          localStorage.setItem(key, value);
           
-          // Also set in sessionStorage for cross-tab communication
+          // Always set in localStorage for current domain
+          localStorage.setItem(key, value);
           sessionStorage.setItem(key, value);
+          
+          // In production, also set as cookie for cross-subdomain access
+          if (isProduction) {
+            const cookieName = `supabase-auth-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const expires = new Date();
+            expires.setDate(expires.getDate() + 7); // 7 days
+            
+            document.cookie = `${cookieName}=${encodeURIComponent(value)}; domain=.datapulsify.com; path=/; expires=${expires.toUTCString()}; secure; samesite=lax`;
+          }
         } catch (error) {
           console.error('Error setting auth item:', error);
         }
@@ -77,8 +102,16 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
       removeItem: (key) => {
         try {
           console.log('Removing auth item:', key);
+          
+          // Remove from localStorage and sessionStorage
           localStorage.removeItem(key);
           sessionStorage.removeItem(key);
+          
+          // In production, also remove cookie
+          if (isProduction) {
+            const cookieName = `supabase-auth-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            document.cookie = `${cookieName}=; domain=.datapulsify.com; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
+          }
         } catch (error) {
           console.error('Error removing auth item:', error);
         }

@@ -23,11 +23,19 @@ export class GoogleAuthService {
       clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
       redirectUri: import.meta.env.VITE_GSC_REDIRECT_URI || (
         import.meta.env.DEV 
-          ? `http://localhost:${window.location.port}/auth/gsc/callback`
+          ? `http://localhost:8081/auth/gsc/callback`
           : 'https://app.datapulsify.com/auth/gsc/callback'
       ),
       scope: ['https://www.googleapis.com/auth/webmasters.readonly', 'https://www.googleapis.com/auth/webmasters']
     };
+    
+    // Log configuration for debugging
+    console.log('🔧 GSC OAuth Configuration:', {
+      clientId: this.config.clientId ? `${this.config.clientId.substring(0, 10)}...` : 'missing',
+      redirectUri: this.config.redirectUri,
+      scope: this.config.scope,
+      isDev: import.meta.env.DEV
+    });
     
     this.validateConfig();
   }
@@ -192,78 +200,15 @@ export class GoogleAuthService {
   async handleCallback(code: string, state: string): Promise<AuthResult> {
     this.logDebugInfo('callback_start');
     
-    // Prevent concurrent callback processing with global flag
-    const globalFlag = 'gsc_callback_processing';
-    if (this.isProcessingCallback || sessionStorage.getItem(globalFlag) === 'true') {
-      return {
-        success: false,
-        error: 'Authentication already in progress',
-        guidance: 'Please wait for the current authentication to complete.',
-        recoveryAction: 'wait_or_refresh'
-      };
-    }
-    
-    this.isProcessingCallback = true;
-    sessionStorage.setItem(globalFlag, 'true');
-    
     try {
-      // Verify state to prevent CSRF attacks - check both localStorage and sessionStorage
-      const stateKey = 'gsc_oauth_state';
-      const timestampKey = 'gsc_oauth_timestamp';
-      
-      let storedState = localStorage.getItem(stateKey) || sessionStorage.getItem(stateKey);
-      let stateTimestamp = localStorage.getItem(timestampKey) || sessionStorage.getItem(timestampKey);
-      
-      console.log('🔍 State validation:', {
-        receivedState: state ? state.substring(0, 20) + '...' : 'missing',
-        storedState: storedState ? storedState.substring(0, 20) + '...' : 'missing',
-        hasTimestamp: !!stateTimestamp
+      // Log the incoming parameters
+      console.log('📥 Callback parameters:', {
+        code: code ? `${code.substring(0, 10)}...` : 'missing',
+        state: state ? `${state.substring(0, 10)}...` : 'missing',
+        url: window.location.href
       });
 
-      // Clean up stored state from both storages
-      localStorage.removeItem(stateKey);
-      localStorage.removeItem(timestampKey);
-      sessionStorage.removeItem(stateKey);
-      sessionStorage.removeItem(timestampKey);
-      sessionStorage.removeItem('gsc_auth_in_progress');
-      
-      // Check if state is valid
-      if (!storedState || state !== storedState) {
-        // Check if we're in development mode and allow bypass for testing
-        const isDevelopment = import.meta.env.DEV;
-        const allowBypass = isDevelopment && window.location.hostname === 'localhost';
-        
-        if (allowBypass && code) {
-          console.warn('⚠️ STATE VALIDATION BYPASSED IN DEVELOPMENT MODE');
-        } else {
-          // Clear any pending auth flags on error
-          sessionStorage.removeItem('gsc_auth_pending');
-          
-          let errorType = 'state_validation_failed';
-          let errorMessage = 'Authentication state validation failed. ';
-          
-          if (!storedState) {
-            errorType = 'no_stored_state';
-            errorMessage += 'No stored authentication state found.';
-          } else if (state !== storedState) {
-            errorType = 'state_mismatch';
-            errorMessage += 'Authentication state mismatch detected.';
-          }
-          
-          const errorInfo = this.getErrorGuidance(errorType);
-          
-          return {
-            success: false,
-            error: errorMessage,
-            guidance: errorInfo.guidance,
-            recoveryAction: errorInfo.recoveryAction
-          };
-        }
-      }
-      
-      console.log('✅ State validation successful, proceeding with token exchange...');
-
-      // Exchange code for tokens using fetch
+      // Exchange code for tokens
       console.log('🔄 Starting token exchange...');
       
       const tokenRequestBody = {
@@ -274,15 +219,15 @@ export class GoogleAuthService {
         grant_type: 'authorization_code',
       };
       
+      // Log the full request for debugging (except secret)
       console.log('🔄 Token exchange request:', {
         url: 'https://oauth2.googleapis.com/token',
         method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: {
-          code: code ? `${code.substring(0, 10)}...` : 'missing',
-          client_id: this.config.clientId ? `${this.config.clientId.substring(0, 10)}...` : 'missing',
-          client_secret: this.config.clientSecret ? 'present' : 'missing',
-          redirect_uri: this.config.redirectUri,
-          grant_type: 'authorization_code'
+          ...tokenRequestBody,
+          client_secret: '[REDACTED]',
+          code: code ? `${code.substring(0, 10)}...` : 'missing'
         }
       });
       
@@ -290,89 +235,86 @@ export class GoogleAuthService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
         },
         body: new URLSearchParams(tokenRequestBody),
       });
 
+      // Log the response status and headers
+      console.log('🔄 Token exchange response:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        headers: Object.fromEntries(tokenResponse.headers.entries())
+      });
+
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.json().catch(() => ({}));
-        
         console.error('❌ Token exchange failed:', {
           status: tokenResponse.status,
           statusText: tokenResponse.statusText,
-          errorData
+          errorData,
+          requestBody: {
+            ...tokenRequestBody,
+            client_secret: '[REDACTED]',
+            code: code ? `${code.substring(0, 10)}...` : 'missing'
+          }
         });
         
-        const errorType = errorData.error || 'token_exchange_failed';
-        const errorInfo = this.getErrorGuidance(errorType);
-        
-        return {
-          success: false,
-          error: errorInfo.message,
-          guidance: errorInfo.guidance,
-          recoveryAction: errorInfo.recoveryAction
-        };
+        throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`);
       }
 
       const tokens = await tokenResponse.json();
-      
-      if (!tokens.access_token) {
-        return {
-          success: false,
-          error: 'No access token received',
-          guidance: 'The authentication completed but no access token was provided.\nThis may be a temporary issue with Google\'s servers.',
-          recoveryAction: 'retry_later'
-        };
-      }
-      
+      console.log('✅ Token exchange successful:', {
+        hasAccessToken: !!tokens.access_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        tokenLength: tokens.access_token?.length || 0,
+        expiresIn: tokens.expires_in
+      });
+
       // Store tokens
       localStorage.setItem('gsc_token', tokens.access_token);
       if (tokens.refresh_token) {
         localStorage.setItem('gsc_refresh_token', tokens.refresh_token);
       }
-      
-      // Verify storage
-      const storedToken = localStorage.getItem('gsc_token');
-      if (!storedToken) {
-        return {
-          success: false,
-          error: 'Failed to store authentication token',
-          guidance: 'The token was received but couldn\'t be saved.\nThis may be due to browser storage restrictions.',
-          recoveryAction: 'check_storage'
-        };
-      }
 
-      console.log('✅ GSC authentication successful!', {
-        hasAccessToken: !!tokens.access_token,
-        hasRefreshToken: !!tokens.refresh_token,
-        tokenLength: tokens.access_token?.length || 0
+      // Verify the token works by making a test API call
+      console.log('🔍 Verifying token with test API call...');
+      const testResponse = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+        },
       });
 
-      this.isProcessingCallback = false;
-      sessionStorage.removeItem('gsc_callback_processing');
-      
+      if (!testResponse.ok) {
+        console.error('❌ Token verification failed:', {
+          status: testResponse.status,
+          statusText: testResponse.statusText
+        });
+        throw new Error('Token verification failed - the token was received but does not work with GSC API');
+      }
+
+      console.log('✅ Token verified successfully!');
+
       return { 
         success: true,
         guidance: 'Successfully connected to Google Search Console!'
       };
-      
     } catch (error) {
       console.error('❌ GSC callback error:', error);
       
-      // Clear all auth state on error
+      // Clear any stale auth state
       this.clearAuthState();
-      sessionStorage.removeItem('gsc_callback_processing');
-      this.isProcessingCallback = false;
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      const errorInfo = this.getErrorGuidance('callback_exception');
       
       return {
         success: false,
-        error: errorMessage,
-        guidance: errorInfo.guidance,
-        recoveryAction: errorInfo.recoveryAction
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        guidance: 'Failed to exchange authorization code for access token. Please try again.',
+        recoveryAction: 'retry'
       };
+    } finally {
+      // Clean up processing flags
+      this.isProcessingCallback = false;
+      sessionStorage.removeItem('gsc_callback_processing');
     }
   }
 

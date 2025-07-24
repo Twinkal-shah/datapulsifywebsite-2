@@ -75,6 +75,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     sessionStorage.removeItem('gsc_auth_pending');
     sessionStorage.removeItem('sb-access-token');
     sessionStorage.removeItem('sb-refresh-token');
+    
+    // In production, also clear cross-subdomain auth cookies
+    const config = subdomainService.getConfig();
+    if (config.hostname.includes('datapulsify.com')) {
+      console.log('🧹 Clearing cross-subdomain auth cookies...');
+      
+      // Clear any Supabase auth cookies and user data cookie
+      const cookies = document.cookie.split(';');
+      cookies.forEach(cookie => {
+        const cookieName = cookie.trim().split('=')[0];
+        if (cookieName.includes('supabase-auth-') || 
+            cookieName.includes('sb-') || 
+            cookieName === 'supabase.auth.token' ||
+            cookieName === 'datapulsify-user') {
+          document.cookie = `${cookieName}=; domain=.datapulsify.com; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
+        }
+      });
+    }
+    
     setLoading(false);
     setSessionRetries(0);
   };
@@ -133,6 +152,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
         
+        // If no user in localStorage but we're in production, check for user data cookie
+        const config = subdomainService.getConfig();
+        if (!user && !storedUser && config.hostname.includes('datapulsify.com')) {
+          const cookies = document.cookie.split(';');
+          const userCookie = cookies.find(cookie => cookie.trim().startsWith('datapulsify-user='));
+          if (userCookie) {
+            try {
+              const cookieValue = userCookie.split('=')[1];
+              const userData = JSON.parse(decodeURIComponent(cookieValue));
+              console.log('🍪 Found user data in cross-subdomain cookie, setting user immediately');
+              setUser(userData);
+              // Also sync to localStorage for future use
+              localStorage.setItem('user', JSON.stringify(userData));
+            } catch (error) {
+              console.warn('⚠️ Failed to parse user data from cookie:', error);
+            }
+          }
+        }
+        
         // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
@@ -167,7 +205,66 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const hasRefreshToken = !!localStorage.getItem('sb-refresh-token') || 
                                   !!sessionStorage.getItem('sb-refresh-token');
           
-          if ((hasStoredUser || hasRefreshToken) && sessionRetries < 2) {
+          // Cross-subdomain session check - look for auth data in cookies
+          const config = subdomainService.getConfig();
+          let hasCrossSubdomainAuth = false;
+          
+          if (config.hostname.includes('datapulsify.com')) {
+            console.log('🔍 Checking for cross-subdomain authentication...');
+            
+            // Check for Supabase auth cookies that might exist from other subdomain
+            const cookies = document.cookie.split(';');
+            const authCookies = cookies.filter(cookie => 
+              cookie.trim().includes('supabase-auth-') || 
+              cookie.trim().includes('sb-') ||
+              cookie.trim().includes('supabase.auth.token')
+            );
+            
+            if (authCookies.length > 0) {
+              console.log('🔍 Found potential cross-subdomain auth cookies:', authCookies.length);
+              hasCrossSubdomainAuth = true;
+              
+                             // Try to extract session data from cookies and sync to localStorage
+               authCookies.forEach(cookie => {
+                 const cookieParts = cookie.trim().split('=');
+                 const name = cookieParts[0];
+                 const value = cookieParts.slice(1).join('='); // Handle values with = signs
+                
+                if (value && name) {
+                  try {
+                    // Convert cookie name back to localStorage key format
+                    const storageKey = name
+                      .replace('supabase-auth-', '')
+                      .replace(/-/g, '.');
+                    
+                    const decodedValue = decodeURIComponent(value);
+                    
+                    // Only sync if we don't already have this key in localStorage
+                    if (!localStorage.getItem(storageKey)) {
+                      console.log('🔄 Syncing auth data from cookie to localStorage:', storageKey);
+                      localStorage.setItem(storageKey, decodedValue);
+                      sessionStorage.setItem(storageKey, decodedValue);
+                    }
+                  } catch (error) {
+                    console.warn('⚠️ Failed to sync cookie to localStorage:', error);
+                  }
+                }
+              });
+              
+              // After syncing cookies, try to get session again
+              console.log('🔄 Attempting to get session after cookie sync...');
+              const { data: { session: syncedSession }, error: syncError } = await supabase.auth.getSession();
+              
+              if (!syncError && syncedSession?.user) {
+                console.log('✅ Successfully retrieved session after cross-subdomain sync!');
+                await handleUser(syncedSession.user);
+                setSessionRetries(0);
+                return;
+              }
+            }
+          }
+          
+          if ((hasStoredUser || hasRefreshToken || hasCrossSubdomainAuth) && sessionRetries < 2) {
             console.log('Attempting session recovery...');
             setSessionRetries(prev => prev + 1);
             
@@ -326,6 +423,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Setting existing user data:', userData);
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
+        
+        // In production, also store user data in cross-subdomain cookie
+        const config = subdomainService.getConfig();
+        if (config.hostname.includes('datapulsify.com')) {
+          try {
+            const userCookieValue = encodeURIComponent(JSON.stringify(userData));
+            const expires = new Date();
+            expires.setDate(expires.getDate() + 7); // 7 days
+            
+            document.cookie = `datapulsify-user=${userCookieValue}; domain=.datapulsify.com; path=/; expires=${expires.toUTCString()}; secure; samesite=lax`;
+          } catch (error) {
+            console.warn('⚠️ Failed to store user data in cookie:', error);
+          }
+        }
       }
     } catch (error) {
       console.error('Error handling user data:', error);
@@ -346,8 +457,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(enhancedUserData);
     localStorage.setItem('user', JSON.stringify(enhancedUserData));
     
-    // Check if user should be redirected to app subdomain
+    // In production, also store user data in cross-subdomain cookie for faster login detection
     const config = subdomainService.getConfig();
+    if (config.hostname.includes('datapulsify.com')) {
+      try {
+        const userCookieValue = encodeURIComponent(JSON.stringify(enhancedUserData));
+        const expires = new Date();
+        expires.setDate(expires.getDate() + 7); // 7 days
+        
+        document.cookie = `datapulsify-user=${userCookieValue}; domain=.datapulsify.com; path=/; expires=${expires.toUTCString()}; secure; samesite=lax`;
+        console.log('🍪 Stored user data in cross-subdomain cookie');
+      } catch (error) {
+        console.warn('⚠️ Failed to store user data in cookie:', error);
+      }
+    }
+    
+    // Check if user should be redirected to app subdomain
     if (config.isMarketing && subdomainService.shouldBeOnApp()) {
       console.log('User logged in but on marketing site with app path, redirecting...');
       subdomainService.redirectToApp(window.location.pathname + window.location.search);
@@ -386,7 +511,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const disconnectGSC = async () => {
     try {
-      googleAuthService.clearAuth();
+      googleAuthService.clearAuthState();
       
       // Update user state
       if (user) {

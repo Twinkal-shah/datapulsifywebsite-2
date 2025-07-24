@@ -45,36 +45,73 @@ export const GSCCallback: React.FC = () => {
         // Get Google OAuth credentials from environment
         const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
         const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-        const redirectUri = 'https://app.datapulsify.com/auth/gsc/callback';
+        const redirectUri = import.meta.env.VITE_GSC_REDIRECT_URI || (
+          import.meta.env.DEV 
+            ? `http://localhost:8081/auth/gsc/callback`
+            : 'https://app.datapulsify.com/auth/gsc/callback'
+        );
 
         if (!clientId || !clientSecret) {
           throw new Error('Google OAuth credentials not configured');
         }
 
-        console.log('🔄 Exchanging code for token...', {
-          clientId: clientId.substring(0, 20) + '...',
+        // Log full configuration for debugging
+        console.log('🔧 GSC OAuth Configuration:', {
+          clientId: clientId ? `${clientId.substring(0, 10)}...` : 'missing',
           redirectUri,
-          hasCode: !!code
+          scope,
+          isDev: import.meta.env.DEV,
+          currentUrl: window.location.href
         });
 
         // Exchange code for tokens
+        const tokenRequestBody = {
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        };
+
+        console.log('🔄 Token exchange request:', {
+          url: 'https://oauth2.googleapis.com/token',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: {
+            ...tokenRequestBody,
+            client_secret: '[REDACTED]',
+            code: code ? `${code.substring(0, 10)}...` : 'missing'
+          }
+        });
+
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
           },
-          body: new URLSearchParams({
-            code,
-            client_id: clientId,
-            client_secret: clientSecret,
-            redirect_uri: redirectUri,
-            grant_type: 'authorization_code',
-          }),
+          body: new URLSearchParams(tokenRequestBody),
+        });
+
+        // Log response status and headers
+        console.log('🔄 Token exchange response:', {
+          status: tokenResponse.status,
+          statusText: tokenResponse.statusText,
+          headers: Object.fromEntries(tokenResponse.headers.entries())
         });
 
         if (!tokenResponse.ok) {
           const errorData = await tokenResponse.json().catch(() => ({}));
-          console.error('❌ Token exchange failed:', errorData);
+          console.error('❌ Token exchange failed:', {
+            status: tokenResponse.status,
+            statusText: tokenResponse.statusText,
+            errorData,
+            requestBody: {
+              ...tokenRequestBody,
+              client_secret: '[REDACTED]',
+              code: code ? `${code.substring(0, 10)}...` : 'missing'
+            }
+          });
           
           let errorMessage = 'Failed to exchange authorization code for access token';
           if (errorData.error_description) {
@@ -89,7 +126,9 @@ export const GSCCallback: React.FC = () => {
         const tokens = await tokenResponse.json();
         console.log('✅ Token exchange successful:', {
           hasAccessToken: !!tokens.access_token,
-          hasRefreshToken: !!tokens.refresh_token
+          hasRefreshToken: !!tokens.refresh_token,
+          tokenLength: tokens.access_token?.length || 0,
+          expiresIn: tokens.expires_in
         });
 
         if (!tokens.access_token) {
@@ -111,6 +150,22 @@ export const GSCCallback: React.FC = () => {
           localStorage.removeItem(key);
           sessionStorage.removeItem(key);
         });
+
+        // Verify the token works by making a test API call
+        console.log('🔍 Verifying token with test API call...');
+        const testResponse = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+          },
+        });
+
+        if (!testResponse.ok) {
+          console.error('❌ Token verification failed:', {
+            status: testResponse.status,
+            statusText: testResponse.statusText
+          });
+          throw new Error('Token verification failed - the token was received but does not work with GSC API');
+        }
 
         console.log('✅ GSC authentication completed successfully!');
         setStatus('GSC connected successfully! Redirecting to settings...');
