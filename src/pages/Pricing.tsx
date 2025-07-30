@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import LemonSqueezyCheckout from '@/components/LemonSqueezyCheckout';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/hooks/use-toast';
-import { subdomainService } from '@/config/subdomainConfig';
 
 const Pricing: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('monthly');
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -24,29 +21,6 @@ const Pricing: React.FC = () => {
     setCheckoutSuccess(false);
   };
 
-  const handleBackToDashboard = (e: React.MouseEvent) => {
-    e.preventDefault();
-    
-    if (!user) {
-      toast({
-        title: "Access Denied",
-        description: "Please log in to access the dashboard",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Always use the subdomain service for consistent navigation
-    const config = subdomainService.getConfig();
-    if (config.hostname.includes('datapulsify.com')) {
-      // In production, use the improved redirect
-      subdomainService.redirectToApp('/dashboard');
-    } else {
-      // In development, use React Router
-      navigate('/dashboard');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header */}
@@ -55,7 +29,6 @@ const Pricing: React.FC = () => {
           <Link 
             to="/dashboard" 
             className="flex items-center text-gray-400 hover:text-white transition-colors"
-            onClick={handleBackToDashboard}
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Dashboard
