@@ -138,13 +138,15 @@ class SubdomainService {
     // If not an app path, check if user has a session
     try {
       // Check both localStorage and cookies for auth token
-      const authToken = localStorage.getItem('sb-auth-token') || 
-                       document.cookie.split(';').find(c => c.trim().startsWith('sb-auth-token='));
+      const authToken = localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token') || 
+                       document.cookie.split(';').find(c => c.trim().startsWith('sb-yevkfoxoefssdgsodtzd-auth-token='));
       const hasSession = !!authToken;
       
       console.log('🔍 shouldBeOnApp - Session check:', {
         hasSession,
-        authToken: authToken ? 'exists' : 'missing'
+        authToken: authToken ? 'exists' : 'missing',
+        localStorage: !!localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token'),
+        cookieExists: !!document.cookie.split(';').find(c => c.trim().startsWith('sb-yevkfoxoefssdgsodtzd-auth-token='))
       });
       
       // If user has a session and is not on a marketing-only path, they should be on app
@@ -191,8 +193,8 @@ class SubdomainService {
       shouldBeApp,
       isCurrentlyApp,
       currentPath,
-      hasSession: !!localStorage.getItem('sb-auth-token') || 
-                 !!document.cookie.split(';').find(c => c.trim().startsWith('sb-auth-token='))
+      hasSession: !!localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token') || 
+                 !!document.cookie.split(';').find(c => c.trim().startsWith('sb-yevkfoxoefssdgsodtzd-auth-token='))
     });
 
     // Don't redirect during OAuth callback
