@@ -44,12 +44,12 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     // Configure cookies for cross-subdomain access in production
     ...(isProduction && {
       cookieOptions: {
-        name: 'supabase.auth.token',
+        name: 'sb-auth-token',
         domain: '.datapulsify.com',
         path: '/',
         sameSite: 'lax',
         secure: true,
-        httpOnly: false // Set to false so JavaScript can read for cross-domain sync
+        httpOnly: false // Allow JavaScript access for cross-domain sync
       }
     }),
     storage: {
@@ -60,7 +60,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
           
           // If not found in localStorage and we're in production, try cookies
           if (!item && isProduction) {
-            const cookieName = `supabase-auth-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const cookieName = `sb-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
             const cookies = document.cookie.split(';');
             const cookie = cookies.find(c => c.trim().startsWith(`${cookieName}=`));
             if (cookie) {
@@ -89,7 +89,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
           
           // In production, also set as cookie for cross-subdomain access
           if (isProduction) {
-            const cookieName = `supabase-auth-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const cookieName = `sb-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
             const expires = new Date();
             expires.setDate(expires.getDate() + 7); // 7 days
             
@@ -109,7 +109,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
           
           // In production, also remove cookie
           if (isProduction) {
-            const cookieName = `supabase-auth-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const cookieName = `sb-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
             document.cookie = `${cookieName}=; domain=.datapulsify.com; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
           }
         } catch (error) {

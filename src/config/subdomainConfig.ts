@@ -26,7 +26,7 @@ class SubdomainService {
     const isMarketing = !isApp;
 
     // Get the current port in development
-    const currentPort = window.location.port || '5173';
+    const currentPort = window.location.port || '8081';
     
     // Set URLs based on environment
     const baseUrl = isProduction 
@@ -49,6 +49,18 @@ class SubdomainService {
       appUrl,
       marketingUrl
     };
+
+    // Log configuration for debugging
+    console.log('🔧 Subdomain Configuration:', {
+      isApp,
+      isMarketing,
+      hostname,
+      baseUrl,
+      appUrl,
+      marketingUrl,
+      isProduction,
+      currentPort
+    });
   }
 
   getConfig(): SubdomainConfig {
@@ -106,7 +118,8 @@ class SubdomainService {
       '/reports',
       '/top-gainers-report',
       '/auth/google/callback',
-      '/auth/callback'
+      '/auth/callback',
+      '/auth/gsc/callback'
     ];
 
     // First check if path is an app path
@@ -124,7 +137,9 @@ class SubdomainService {
 
     // If not an app path, check if user has a session
     try {
-      const authToken = localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token');
+      // Check both localStorage and cookies for auth token
+      const authToken = localStorage.getItem('sb-auth-token') || 
+                       document.cookie.split(';').find(c => c.trim().startsWith('sb-auth-token='));
       const hasSession = !!authToken;
       
       console.log('🔍 shouldBeOnApp - Session check:', {
@@ -176,8 +191,15 @@ class SubdomainService {
       shouldBeApp,
       isCurrentlyApp,
       currentPath,
-      hasSession: !!localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token')
+      hasSession: !!localStorage.getItem('sb-auth-token') || 
+                 !!document.cookie.split(';').find(c => c.trim().startsWith('sb-auth-token='))
     });
+
+    // Don't redirect during OAuth callback
+    if (currentPath.includes('/auth/callback') || currentPath.includes('/auth/google/callback')) {
+      console.log('🔄 Skipping redirect during OAuth callback');
+      return;
+    }
 
     if (shouldBeApp && !isCurrentlyApp) {
       // Should be on app, but currently on marketing
