@@ -21,13 +21,7 @@ const AppLogin = () => {
   useEffect(() => {
     const initiateOAuth = async () => {
       try {
-        const isDev = import.meta.env.DEV;
-        const currentPort = window.location.port || '5173';
-        
-        const redirectUrl = isDev 
-          ? `http://localhost:${currentPort}/auth/google/callback`
-          : 'https://app.datapulsify.com/auth/google/callback';
-          
+        const redirectUrl = 'https://app.datapulsify.com/auth/google/callback';
         console.log('🚀 Initiating OAuth from app subdomain, redirect URL:', redirectUrl);
 
         const { data, error } = await supabase.auth.signInWithOAuth({
@@ -44,21 +38,13 @@ const AppLogin = () => {
 
         if (error) {
           console.error('OAuth initiation error:', error);
-          // Redirect back to home on error
-          const homeUrl = isDev 
-            ? `http://localhost:${currentPort}`
-            : 'https://datapulsify.com';
-          window.location.href = homeUrl;
+          // Redirect back to marketing site on error
+          window.location.href = 'https://datapulsify.com';
         }
       } catch (error) {
         console.error('Error during OAuth initiation:', error);
-        // Redirect back to home on error
-        const isDev = import.meta.env.DEV;
-        const currentPort = window.location.port || '5173';
-        const homeUrl = isDev 
-          ? `http://localhost:${currentPort}`
-          : 'https://datapulsify.com';
-        window.location.href = homeUrl;
+        // Redirect back to marketing site on error
+        window.location.href = 'https://datapulsify.com';
       }
     };
 

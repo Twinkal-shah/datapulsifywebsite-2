@@ -74,7 +74,7 @@ export class LemonSqueezyService {
    */
   async createCheckoutSession(
     planType: 'lifetime' | 'monthly',
-    userEmail?: string,
+    userEmail: string,
     customData?: Record<string, any>
   ): Promise<CheckoutData> {
     try {
@@ -118,21 +118,13 @@ export class LemonSqueezyService {
           logo: true,
         },
         checkoutData: {
-          ...(userEmail && {
-            email: userEmail,
-            name: userEmail.split('@')[0], // Use email prefix as name fallback
-            custom: {
-              user_email: userEmail,
-              plan_type: planType,
-              ...customData
-            }
-          }),
-          ...(!userEmail && {
-            custom: {
-              plan_type: planType,
-              ...customData
-            }
-          })
+          email: userEmail,
+          name: userEmail.split('@')[0], // Use email prefix as name fallback
+          custom: {
+            user_email: userEmail,
+            plan_type: planType,
+            ...customData
+          }
         },
         expiresAt: null,
         preview: false,
