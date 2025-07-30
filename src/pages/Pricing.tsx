@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import LemonSqueezyCheckout from '@/components/LemonSqueezyCheckout';
-import LemonSqueezyDebugTest from '@/components/LemonSqueezyDebugTest';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
+import { subdomainService } from '@/config/subdomainConfig';
 
 const Pricing: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('monthly');
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
 
   const handleCheckoutSuccess = () => {
     setCheckoutSuccess(true);
@@ -23,6 +24,29 @@ const Pricing: React.FC = () => {
     setCheckoutSuccess(false);
   };
 
+  const handleBackToDashboard = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      toast({
+        title: "Access Denied",
+        description: "Please log in to access the dashboard",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Always use the subdomain service for consistent navigation
+    const config = subdomainService.getConfig();
+    if (config.hostname.includes('datapulsify.com')) {
+      // In production, use the improved redirect
+      subdomainService.redirectToApp('/dashboard');
+    } else {
+      // In development, use React Router
+      navigate('/dashboard');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header */}
@@ -31,6 +55,7 @@ const Pricing: React.FC = () => {
           <Link 
             to="/dashboard" 
             className="flex items-center text-gray-400 hover:text-white transition-colors"
+            onClick={handleBackToDashboard}
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Dashboard
@@ -38,23 +63,6 @@ const Pricing: React.FC = () => {
           <h1 className="text-3xl font-bold text-white">Upgrade Your Plan</h1>
           <div className="w-24"></div> {/* Spacer for centering */}
         </div>
-
-        {/* Debug Toggle */}
-        <div className="mb-6 text-center">
-          <button
-            onClick={() => setShowDebug(!showDebug)}
-            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
-          >
-            {showDebug ? '🔧 Hide Debug Panel' : '🔧 Show Debug Panel'}
-          </button>
-        </div>
-
-        {/* Debug Panel */}
-        {showDebug && (
-          <div className="mb-8">
-            <LemonSqueezyDebugTest />
-          </div>
-        )}
 
         {/* Success/Error Messages */}
         {checkoutSuccess && (
@@ -78,94 +86,25 @@ const Pricing: React.FC = () => {
       </div>
 
       {/* FAQ Section */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-white text-center mb-12">
-            Frequently Asked Questions
-          </h2>
-          
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  What's included in the Monthly Pro plan?
-                </h3>
-                <p className="text-gray-400">
-                  Unlimited keyword tracking, advanced analytics, data export capabilities, 
-                  and priority customer support. Cancel anytime with no long-term commitment.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  How does the Lifetime Deal work?
-                </h3>
-                <p className="text-gray-400">
-                  Pay once and get access to all premium features forever. Includes all 
-                  future updates and no recurring fees. Perfect for long-term SEO professionals.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Can I cancel my subscription?
-                </h3>
-                <p className="text-gray-400">
-                  Yes, you can cancel your Monthly Pro subscription at any time. 
-                  Your access will continue until the end of your current billing period.
-                </p>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Is there a money-back guarantee?
-                </h3>
-                <p className="text-gray-400">
-                  Yes, we offer a 60-day money-back guarantee on all plans. 
-                  If you're not satisfied, we'll refund your payment in full.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  What payment methods do you accept?
-                </h3>
-                <p className="text-gray-400">
-                  We accept all major credit cards, PayPal, and other secure payment 
-                  methods through our payment processor LemonSqueezy.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Do you offer refunds?
-                </h3>
-                <p className="text-gray-400">
-                  Yes, we provide full refunds within 60 days of purchase if you're 
-                  not completely satisfied with DataPulsify.
-                </p>
-              </div>
-            </div>
+      <div className="container mx-auto px-6 py-12">
+        <h2 className="text-2xl font-bold text-white mb-8">Frequently Asked Questions</h2>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-3">What's included in the plan?</h3>
+            <p className="text-gray-300">Our plan includes full access to all features, including keyword tracking, performance analytics, and custom reports. You'll also get priority support and early access to new features.</p>
           </div>
-        </div>
-      </div>
-
-      {/* Support Section */}
-      <div className="border-t border-gray-800">
-        <div className="container mx-auto px-4 py-12 text-center">
-          <h3 className="text-xl font-semibold text-white mb-4">
-            Need Help Choosing?
-          </h3>
-          <p className="text-gray-400 mb-6">
-            Our team is here to help you select the perfect plan for your needs.
-          </p>
-          <Link to="/contact-us">
-            <Button variant="outline" className="border-gray-600 text-black hover:bg-gray-800 hover:text-white">
-              Contact Support
-            </Button>
-          </Link>
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-3">Can I cancel anytime?</h3>
+            <p className="text-gray-300">Yes, you can cancel your subscription at any time. If you cancel, you'll continue to have access until the end of your current billing period.</p>
+          </div>
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-3">Is there a free trial?</h3>
+            <p className="text-gray-300">Yes! We offer a 14-day free trial so you can test all our features and see how Datapulsify can help your business grow.</p>
+          </div>
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-3">What payment methods do you accept?</h3>
+            <p className="text-gray-300">We accept all major credit cards (Visa, Mastercard, American Express) and PayPal. All payments are processed securely through LemonSqueezy.</p>
+          </div>
         </div>
       </div>
     </div>

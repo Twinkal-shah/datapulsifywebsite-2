@@ -78,7 +78,28 @@ class SubdomainService {
       from: window.location.href,
       to: this.getAppUrl(path)
     });
-    window.location.href = this.getAppUrl(path);
+
+    // Ensure the path starts with a slash
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    
+    // In development, use React Router navigation
+    if (!this.config.hostname.includes('datapulsify.com')) {
+      window.location.href = `${this.config.baseUrl}${normalizedPath}`;
+      return;
+    }
+
+    // In production, ensure we're on the app subdomain
+    const targetUrl = new URL(this.config.appUrl);
+    targetUrl.pathname = normalizedPath;
+    
+    // Preserve any query parameters
+    const currentSearch = window.location.search;
+    if (currentSearch) {
+      targetUrl.search = currentSearch;
+    }
+
+    // Use window.location.replace to prevent the 404 flash
+    window.location.replace(targetUrl.toString());
   }
 
   redirectToMarketing(path = ''): void {
