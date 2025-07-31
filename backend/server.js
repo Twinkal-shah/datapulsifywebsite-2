@@ -10,21 +10,20 @@ app.use(express.json());
 
 app.post('/create-checkout-session', async (req, res) => {
   try {
-    const { variantId, email, planType, customData, storeId, apiKey, productionUrl, isAnonymous = false } = req.body;
+    const { variantId, email, planType, customData, storeId, apiKey, productionUrl } = req.body;
 
     console.log('📥 Backend received checkout request:', {
       variantId,
-      email: email || 'Anonymous (will be collected by LemonSqueezy)',
+      email,
       planType,
-      isAnonymous,
       hasCustomData: !!customData,
       hasStoreId: !!storeId,
       hasApiKey: !!apiKey
     });
 
-    if (!variantId) {
+    if (!variantId || !email) {
       return res.status(400).json({ 
-        error: 'Missing required parameter: variantId is required' 
+        error: 'Missing required parameters: variantId and email are required' 
       });
     }
 
@@ -37,21 +36,6 @@ app.post('/create-checkout-session', async (req, res) => {
       return res.status(400).json({ 
         error: 'Missing LemonSqueezy configuration: storeId and apiKey are required' 
       });
-    }
-
-    // Prepare checkout data - email is optional for anonymous purchases
-    const checkoutData = {
-      custom: {
-        plan_type: planType,
-        is_anonymous: isAnonymous,
-        ...customData
-      }
-    };
-
-    // Only add email if provided (for logged-in users)
-    if (email && email.trim()) {
-      checkoutData.email = email.trim();
-      checkoutData.custom.user_email = email.trim();
     }
 
     const response = await axios.post(
@@ -72,7 +56,14 @@ app.post('/create-checkout-session', async (req, res) => {
               media: true,
               logo: true,
             },
-            checkout_data: checkoutData,
+            checkout_data: {
+              email: email,
+              custom: {
+                user_email: email,
+                plan_type: planType,
+                ...customData
+              }
+            },
             expires_at: null,
             preview: false,
             test_mode: false
