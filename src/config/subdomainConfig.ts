@@ -53,6 +53,19 @@ class SubdomainService {
       appUrl,
       marketingUrl
     };
+
+    // Log configuration for debugging
+    console.log('🔧 Subdomain Configuration:', {
+      isApp,
+      isMarketing,
+      hostname,
+      baseUrl,
+      appUrl,
+      marketingUrl,
+      isProduction,
+      currentPort,
+      currentPath: window.location.pathname
+    });
   }
 
   getConfig(): SubdomainConfig {
@@ -78,10 +91,18 @@ class SubdomainService {
 
   // Redirect helpers
   redirectToApp(path = '/dashboard'): void {
+    console.log(`🔄 Redirecting to app subdomain:`, {
+      from: window.location.href,
+      to: this.getAppUrl(path)
+    });
     window.location.href = this.getAppUrl(path);
   }
 
   redirectToMarketing(path = ''): void {
+    console.log(`🔄 Redirecting to marketing subdomain:`, {
+      from: window.location.href,
+      to: this.getMarketingUrl(path)
+    });
     window.location.href = this.getMarketingUrl(path);
   }
 
@@ -173,23 +194,35 @@ class SubdomainService {
     const currentPath = window.location.pathname;
     const currentSearch = window.location.search;
 
+    console.log('🔍 Enforcing subdomain:', {
+      shouldBeApp,
+      isCurrentlyApp,
+      currentPath,
+      hasSession: !!localStorage.getItem('sb-yevkfoxoefssdgsodtzd-auth-token') || 
+                 !!document.cookie.split(';').find(c => c.trim().startsWith('sb-yevkfoxoefssdgsodtzd-auth-token='))
+    });
+
     // Don't redirect during any authentication processes
     if (currentPath.includes('/auth/') || 
         currentPath.includes('/callback') ||
         currentPath === '/auth/login') {
+      console.log('🔄 Skipping redirect during authentication process');
       return;
     }
 
     // Don't redirect if we're in the middle of an OAuth flow
     if (currentSearch.includes('code=') || currentSearch.includes('state=')) {
+      console.log('🔄 Skipping redirect during OAuth callback');
       return;
     }
 
     if (shouldBeApp && !isCurrentlyApp) {
       // Should be on app, but currently on marketing
+      console.log('🔄 Should be on app subdomain, redirecting...');
       this.redirectToApp(currentPath + currentSearch);
     } else if (!shouldBeApp && isCurrentlyApp) {
       // Should be on marketing, but currently on app
+      console.log('🔄 Should be on marketing subdomain, redirecting...');
       this.redirectToMarketing(currentPath + currentSearch);
     }
   }
