@@ -21,10 +21,42 @@ import { supabase } from "@/lib/supabaseClient";
 const AppLogin = () => {
   const [status, setStatus] = useState('Initiating login...');
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     const initiateOAuth = async () => {
       try {
+        console.log('🚀 AppLogin: Starting OAuth initiation...', {
+          hostname: window.location.hostname,
+          pathname: window.location.pathname,
+          timestamp: new Date().toISOString()
+        });
+
+        setStatus('Connecting to Google...');
+
+        // Add debug information
+        const envDebug = {
+          supabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+          supabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+          isDev: import.meta.env.DEV,
+          mode: import.meta.env.MODE
+        };
+        
+        console.log('🔍 Environment debug:', envDebug);
+        setDebugInfo(envDebug);
+
+        // Check if Supabase is properly initialized
+        const { data: session, error: sessionError } = await supabase.auth.getSession();
+        console.log('📊 Current session status:', {
+          hasSession: !!session?.session,
+          sessionError: sessionError?.message,
+          user: session?.session?.user?.email
+        });
+
+        if (sessionError) {
+          console.warn('⚠️ Session check error:', sessionError);
+        }
+
         setStatus('Redirecting to Google for authentication...');
 
         const { data, error } = await supabase.auth.signInWithOAuth({
@@ -39,21 +71,52 @@ const AppLogin = () => {
           }
         });
 
+        console.log('📤 OAuth response:', {
+          hasData: !!data,
+          hasError: !!error,
+          dataUrl: data?.url,
+          errorMessage: error?.message,
+          errorCode: error?.status
+        });
+
         if (error) {
+          console.error('❌ OAuth initiation error:', error);
           throw new Error(`Authentication failed: ${error.message}`);
         }
 
+        if (!data?.url) {
+          console.error('❌ No OAuth URL returned from Supabase');
+          throw new Error('No authentication URL received. Please check your configuration.');
+        }
+
         setStatus('Redirecting to Google...');
+        console.log('✅ OAuth URL received, redirecting...', {
+          url: data.url.substring(0, 100) + '...'
+        });
+
+        // Give a moment for the redirect to happen
+        setTimeout(() => {
+          if (window.location.href.includes('/auth/login')) {
+            console.warn('⚠️ Still on login page after redirect attempt');
+            throw new Error('Redirect to Google failed. Please try again.');
+          }
+        }, 5000);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
-        console.error('OAuth error:', error);
+        console.error('💥 OAuth error:', {
+          error,
+          message: errorMessage,
+          stack: error instanceof Error ? error.stack : 'No stack trace'
+        });
+        
         setError(errorMessage);
         
-        // Redirect back to marketing site after error
+        // Show error for longer before redirecting
         setTimeout(() => {
+          console.log('🔄 Redirecting back to marketing site after error...');
           window.location.href = 'https://datapulsify.com?error=login_failed';
-        }, 3000);
+        }, 8000); // Increased from 3 seconds to 8 seconds
       }
     };
 
@@ -76,9 +139,21 @@ const AppLogin = () => {
             <p className="mt-2 text-sm text-gray-600">
               {error}
             </p>
+            {debugInfo && (
+              <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
+                <strong>Debug info:</strong>
+                <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+              </div>
+            )}
             <p className="mt-4 text-xs text-gray-500">
-              Redirecting back to homepage...
+              Redirecting back to homepage in 8 seconds...
             </p>
+            <button 
+              onClick={() => window.location.href = 'https://datapulsify.com'}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Go Back Now
+            </button>
           </div>
         </div>
       </div>
@@ -98,6 +173,15 @@ const AppLogin = () => {
           <div className="mt-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
           </div>
+          {debugInfo && (
+            <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
+              <strong>Environment:</strong>
+              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          )}
+          <p className="mt-4 text-xs text-gray-500">
+            If this takes too long, please check the browser console for errors.
+          </p>
         </div>
       </div>
     </div>

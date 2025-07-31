@@ -15,10 +15,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LoginDiagnostics } from '@/components/LoginDiagnostics';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const navigate = useNavigate();
   const auth = useAuth();
   const { toast } = useToast();
@@ -52,29 +54,54 @@ const Navbar = () => {
     }
   }, [toast]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+Shift+D to open diagnostics
+      if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+        event.preventDefault();
+        setShowDiagnostics(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
   const handleLogin = async () => {
     try {
+      console.log('🚀 Navbar: Login button clicked', {
+        hostname: window.location.hostname,
+        isProduction: window.location.hostname.includes('datapulsify.com'),
+        timestamp: new Date().toISOString()
+      });
+
       // Determine the correct app login URL based on environment
       const isProduction = window.location.hostname.includes('datapulsify.com');
       const appLoginUrl = isProduction 
         ? 'https://app.datapulsify.com/auth/login'
         : 'http://localhost:8081/auth/login';
       
+      console.log('🔄 Redirecting to app login URL:', appLoginUrl);
+      
       toast({
-        title: "Redirecting...",
-        description: "Taking you to the secure login page...",
-        duration: 2000
+        title: "Connecting to Google",
+        description: "Redirecting to secure authentication...",
+        duration: 3000
       });
+      
+      // Store a flag to track login attempt
+      sessionStorage.setItem('login_attempt_from', window.location.href);
+      sessionStorage.setItem('login_attempt_timestamp', Date.now().toString());
       
       // Direct redirect to app subdomain login page
       window.location.href = appLoginUrl;
       
     } catch (error) {
-      console.error('Error during login redirect:', error);
+      console.error('❌ Error during login redirect:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to redirect to login";
       
       toast({
@@ -283,6 +310,11 @@ const Navbar = () => {
           </Link>
         </div>
       </div>
+      
+      {/* Login Diagnostics Modal */}
+      {showDiagnostics && (
+        <LoginDiagnostics onClose={() => setShowDiagnostics(false)} />
+      )}
     </nav>
   );
 };

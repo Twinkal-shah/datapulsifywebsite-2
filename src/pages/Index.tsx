@@ -11,8 +11,38 @@ import PricingSection from '@/components/PricingSection';
 import FaqSection from '@/components/FaqSection';
 import FinalCtaSection from '@/components/FinalCtaSection';
 import Footer from '@/components/Footer';
+import { toast } from '@/components/ui/use-toast';
 
 const Index = () => {
+  // Check for login errors and show user feedback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const loginAttemptFrom = sessionStorage.getItem('login_attempt_from');
+    const loginAttemptTimestamp = sessionStorage.getItem('login_attempt_timestamp');
+    
+    if (error === 'login_failed' && loginAttemptFrom) {
+      console.log('🔍 Detected login failure redirect:', {
+        error,
+        attemptFrom: loginAttemptFrom,
+        attemptTimestamp: loginAttemptTimestamp,
+        timeSinceAttempt: loginAttemptTimestamp ? Date.now() - parseInt(loginAttemptTimestamp) : 'unknown'
+      });
+      
+      toast({
+        title: "Login Issue Detected",
+        description: "We're having trouble connecting to Google. Please check the browser console for details and try again. If the issue persists, please contact support.",
+        variant: "destructive",
+        duration: 10000
+      });
+      
+      // Clean up the URL and session storage
+      window.history.replaceState({}, document.title, window.location.pathname);
+      sessionStorage.removeItem('login_attempt_from');
+      sessionStorage.removeItem('login_attempt_timestamp');
+    }
+  }, []);
+
   // This effect helps with the scroll animations
   useEffect(() => {
     const observer = new IntersectionObserver(
