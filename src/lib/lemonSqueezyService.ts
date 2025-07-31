@@ -41,14 +41,17 @@ export class LemonSqueezyService {
   private static instance: LemonSqueezyService;
   private productId: string;
   private storeId: string;
+  private backendUrl: string;
 
   private constructor() {
     this.productId = import.meta.env.VITE_LEMONSQUEEZY_PRODUCT_ID;
     this.storeId = import.meta.env.VITE_LEMONSQUEEZY_STORE_ID;
+    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://app.datapulsify.com/api';
     
     console.log('🏪 LemonSqueezy Service initialized with:', {
       productId: this.productId,
       storeId: this.storeId,
+      backendUrl: this.backendUrl,
       apiKeyPresent: !!import.meta.env.VITE_LEMONSQUEEZY_API_KEY,
       lifetimeVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_LIFETIME,
       monthlyVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_MONTHLY
@@ -103,72 +106,60 @@ export class LemonSqueezyService {
         userEmail
       });
 
-      const checkoutData = {
-        productOptions: {
-          name: plan.name,
-          description: `DataPulsify ${plan.name} - Access to all premium features`,
-          media: [],
-          redirectUrl: `${import.meta.env.VITE_PRODUCTION_URL}/thank-you?plan=${planType}`,
-          receiptButtonText: 'Go to Dashboard',
-          receiptLinkUrl: `${import.meta.env.VITE_PRODUCTION_URL}/dashboard`,
-        },
-        checkoutOptions: {
-          embed: false,
-          media: true,
-          logo: true,
-        },
-        checkoutData: {
-          email: userEmail,
-          name: userEmail.split('@')[0], // Use email prefix as name fallback
-          custom: {
-            user_email: userEmail,
-            plan_type: planType,
-            ...customData
-          }
-        },
-        expiresAt: null,
-        preview: false,
-        testMode: false,
-      };
-
-      console.log('📤 Sending checkout request to LemonSqueezy...');
+      // Use backend API instead of direct LemonSqueezy API call
+      console.log('📤 Sending checkout request to backend...');
       
-      const response = await createCheckout(
-        this.storeId,
-        plan.variantId,
-        checkoutData
-      );
-
-      console.log('📥 LemonSqueezy response:', {
-        hasError: !!response.error,
-        hasData: !!response.data,
-        dataType: typeof response.data,
-        error: response.error
+      const response = await fetch(`${this.backendUrl}/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          variantId: plan.variantId,
+          email: userEmail,
+          planType: planType,
+          customData: customData
+        }),
       });
 
-      if (response.error) {
-        console.error('❌ LemonSqueezy API Error:', response.error);
-        throw new Error(`Checkout creation failed: ${JSON.stringify(response.error)}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Backend API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
       }
 
-      if (!response.data?.data?.attributes?.url) {
-        console.error('❌ Invalid response structure from LemonSqueezy:', {
-          hasData: !!response.data,
-          hasDataData: !!response.data?.data,
-          hasAttributes: !!response.data?.data?.attributes,
-          hasUrl: !!response.data?.data?.attributes?.url,
-          fullResponse: response
+      const result = await response.json();
+      
+      console.log('📥 Backend response:', {
+        hasError: !!result.error,
+        hasUrl: !!result.url,
+        fullResponse: result
+      });
+
+      if (result.error) {
+        console.error('❌ Backend API Error:', result.error);
+        throw new Error(`Checkout creation failed: ${result.error}`);
+      }
+
+      if (!result.url) {
+        console.error('❌ Invalid response structure from backend:', {
+          hasUrl: !!result.url,
+          fullResponse: result
         });
         throw new Error('Invalid response from payment processor - no checkout URL received');
       }
 
-      const result = {
-        checkoutUrl: response.data.data.attributes.url,
-        checkoutId: response.data.data.id || ''
+      const checkoutData = {
+        checkoutUrl: result.url,
+        checkoutId: result.checkoutId || ''
       };
 
-      console.log('✅ Checkout session created successfully:', result);
-      return result;
+      console.log('✅ Checkout session created successfully:', checkoutData);
+      return checkoutData;
       
     } catch (error) {
       console.error('💥 Error in createCheckoutSession:', {
