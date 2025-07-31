@@ -272,7 +272,12 @@ export class LemonSqueezyService {
       throw error;
     }
   }
+  
 }
+console.log('🏪 LemonSqueezy Service initialized with:', {
+  lifetimeVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_LIFETIME,
+});
+
 
 // Export singleton instance
 export const lemonSqueezyService = LemonSqueezyService.getInstance(); 
