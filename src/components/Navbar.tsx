@@ -41,13 +41,17 @@ const Navbar = () => {
     // Also check sessionStorage for OAuth errors
     const storedError = sessionStorage.getItem('oauth_error');
     
+    // Check localStorage for persistent debugging errors
+    const persistentError = localStorage.getItem('oauth_error_persistent');
+    const debugLogs = localStorage.getItem('oauth_debug_logs');
+    
     if (loginError) {
       console.error('🔴 Login error from URL:', loginError);
       toast({
         title: "Login Failed",
         description: decodeURIComponent(loginError),
         variant: "destructive",
-        duration: 5000
+        duration: 8000
       });
       
       // Clean up URL
@@ -62,7 +66,7 @@ const Navbar = () => {
           title: "Login Failed",
           description: errorData.error || "Authentication failed. Please try again.",
           variant: "destructive",
-          duration: 5000
+          duration: 8000
         });
         
         // Clear the stored error
@@ -70,6 +74,31 @@ const Navbar = () => {
       } catch (error) {
         console.warn('Failed to parse stored error:', error);
         sessionStorage.removeItem('oauth_error');
+      }
+    } else if (persistentError) {
+      try {
+        const errorData = JSON.parse(persistentError);
+        console.error('🔴 Persistent login error found:', errorData);
+        
+        // Show detailed error for debugging
+        toast({
+          title: "🚨 DEBUG: Persistent Login Error Detected",
+          description: `Error: ${errorData.error}. Check browser console for details.`,
+          variant: "destructive",
+          duration: 10000
+        });
+        
+        console.group('🐛 PERSISTENT OAUTH ERROR DEBUG INFO');
+        console.log('Error Data:', errorData);
+        if (debugLogs) {
+          console.log('Debug Logs:', JSON.parse(debugLogs));
+        }
+        console.groupEnd();
+        
+        // Don't auto-clear persistent errors - leave for debugging
+      } catch (error) {
+        console.warn('Failed to parse persistent error:', error);
+        localStorage.removeItem('oauth_error_persistent');
       }
     }
   }, [toast]);

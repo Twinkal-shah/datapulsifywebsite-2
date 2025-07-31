@@ -21,116 +21,155 @@ const AppLogin = () => {
   const [status, setStatus] = useState('Initializing login...');
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}`;
+    console.log('🐛 DEBUG:', logEntry);
+    setDebugLogs(prev => [...prev, logEntry]);
+    
+    // Also store in localStorage for persistence
+    const existingLogs = JSON.parse(localStorage.getItem('oauth_debug_logs') || '[]');
+    existingLogs.push(logEntry);
+    localStorage.setItem('oauth_debug_logs', JSON.stringify(existingLogs.slice(-20))); // Keep last 20 logs
+  };
 
   useEffect(() => {
+    // Clear previous debug logs
+    localStorage.removeItem('oauth_debug_logs');
+    setDebugLogs([]);
+
     const initiateOAuth = async () => {
       try {
-        console.log('🚀 AppLogin: Starting OAuth initiation...', {
-          hostname: window.location.hostname,
-          pathname: window.location.pathname,
-          timestamp: new Date().toISOString()
-        });
+        addDebugLog('🚀 AppLogin: Starting OAuth initiation process');
+        addDebugLog(`Current hostname: ${window.location.hostname}`);
+        addDebugLog(`Current pathname: ${window.location.pathname}`);
+        addDebugLog(`Current URL: ${window.location.href}`);
 
         setStatus('Checking environment configuration...');
 
-        // Check environment variables
-        const requiredEnvVars = {
+        // Check environment variables with detailed logging
+        const envVars = {
           VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
           VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
           VITE_GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID
         };
 
-        const missingVars = Object.entries(requiredEnvVars)
+        addDebugLog('Environment variables check:');
+        Object.entries(envVars).forEach(([key, value]) => {
+          addDebugLog(`  ${key}: ${value ? 'SET ✅' : 'MISSING ❌'}`);
+        });
+
+        const missingVars = Object.entries(envVars)
           .filter(([key, value]) => !value)
           .map(([key]) => key);
 
         if (missingVars.length > 0) {
-          throw new Error(`Missing environment variables: ${missingVars.join(', ')}`);
+          const errorMsg = `Missing environment variables: ${missingVars.join(', ')}`;
+          addDebugLog(`❌ ${errorMsg}`);
+          throw new Error(errorMsg);
         }
 
-        console.log('✅ Environment variables check passed', {
-          supabaseUrl: requiredEnvVars.VITE_SUPABASE_URL ? 'present' : 'missing',
-          supabaseKey: requiredEnvVars.VITE_SUPABASE_ANON_KEY ? 'present' : 'missing',
-          googleClientId: requiredEnvVars.VITE_GOOGLE_CLIENT_ID ? 'present' : 'missing'
-        });
-
+        addDebugLog('✅ All environment variables present');
         setStatus('Preparing OAuth configuration...');
 
         const redirectUrl = 'https://app.datapulsify.com/auth/google/callback';
-        console.log('🔧 OAuth Configuration:', {
-          provider: 'google',
-          redirectUrl,
-          origin: window.location.origin
-        });
+        addDebugLog(`OAuth redirect URL: ${redirectUrl}`);
+        addDebugLog(`Current origin: ${window.location.origin}`);
 
-        setDebugInfo({
+        const configInfo = {
           hostname: window.location.hostname,
           redirectUrl,
           timestamp: new Date().toISOString(),
-          userAgent: navigator.userAgent
-        });
+          userAgent: navigator.userAgent.substring(0, 100) + '...',
+          supabaseUrl: envVars.VITE_SUPABASE_URL,
+          hasGoogleClientId: !!envVars.VITE_GOOGLE_CLIENT_ID
+        };
 
-        setStatus('Redirecting to Google for authentication...');
+        setDebugInfo(configInfo);
+        addDebugLog('Debug info set successfully');
 
-        console.log('📞 Calling supabase.auth.signInWithOAuth...');
+        setStatus('Initiating OAuth with Supabase...');
+        addDebugLog('📞 About to call supabase.auth.signInWithOAuth');
 
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: redirectUrl,
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'consent'
-            },
-            skipBrowserRedirect: false
-          }
-        });
+        // Add a small delay to ensure logs are visible
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        console.log('📥 OAuth response:', {
-          hasData: !!data,
-          hasError: !!error,
-          error: error?.message,
-          data: data ? 'present' : 'missing'
-        });
+                 const oauthParams = {
+           provider: 'google' as const,
+           options: {
+             redirectTo: redirectUrl,
+             queryParams: {
+               access_type: 'offline',
+               prompt: 'consent'
+             },
+             skipBrowserRedirect: false
+           }
+         };
 
+         addDebugLog(`OAuth parameters: ${JSON.stringify(oauthParams, null, 2)}`);
+
+         const { data, error } = await supabase.auth.signInWithOAuth(oauthParams);
+
+        addDebugLog('📥 OAuth response received');
+        addDebugLog(`Has data: ${!!data}`);
+        addDebugLog(`Has error: ${!!error}`);
+        
         if (error) {
-          console.error('❌ OAuth initiation error:', error);
-          throw new Error(`OAuth initiation failed: ${error.message}`);
+          addDebugLog(`Error message: ${error.message}`);
+          addDebugLog(`Error code: ${error.status || 'no code'}`);
+          addDebugLog(`Full error: ${JSON.stringify(error, null, 2)}`);
         }
 
-        console.log('✅ OAuth initiation successful, waiting for redirect...');
-        setStatus('OAuth initiated successfully! Redirecting to Google...');
+        if (data) {
+          addDebugLog(`Data keys: ${Object.keys(data).join(', ')}`);
+        }
 
-        // If we reach here without a redirect after 5 seconds, something went wrong
+        if (error) {
+          const errorMsg = `OAuth initiation failed: ${error.message}`;
+          addDebugLog(`❌ ${errorMsg}`);
+          throw new Error(errorMsg);
+        }
+
+        addDebugLog('✅ OAuth initiation successful - should redirect to Google');
+        setStatus('OAuth initiated successfully! Should redirect to Google...');
+
+        // Extended timeout for redirect detection
         setTimeout(() => {
-          console.warn('⚠️ OAuth redirect did not occur within 5 seconds');
-          setError('OAuth redirect taking longer than expected. If you are not redirected soon, please try again.');
-        }, 5000);
+          addDebugLog('⚠️ Still on same page after 10 seconds - possible redirect issue');
+          setError('OAuth redirect did not occur. This might indicate a configuration issue.');
+        }, 10000);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        console.error('💥 Error during OAuth initiation:', {
-          error,
-          message: errorMessage,
-          stack: error instanceof Error ? error.stack : 'No stack trace',
-          timestamp: new Date().toISOString()
-        });
+        addDebugLog(`💥 CAUGHT ERROR: ${errorMessage}`);
+        
+        if (error instanceof Error) {
+          addDebugLog(`Error stack: ${error.stack}`);
+        }
         
         setError(errorMessage);
-        setStatus('Authentication failed');
+        setStatus('Authentication failed - see debug information below');
 
-        // Store error in sessionStorage so it persists across redirects
-        sessionStorage.setItem('oauth_error', JSON.stringify({
+        // Store comprehensive error info
+        const errorInfo = {
           error: errorMessage,
           timestamp: new Date().toISOString(),
-          location: 'AppLogin'
-        }));
+          location: 'AppLogin',
+          debugLogs: debugLogs,
+          url: window.location.href,
+          userAgent: navigator.userAgent
+        };
 
-        // Redirect back to marketing site after showing error for a few seconds
+        sessionStorage.setItem('oauth_error', JSON.stringify(errorInfo));
+        localStorage.setItem('oauth_error_persistent', JSON.stringify(errorInfo));
+
+        // Much longer delay before redirect (30 seconds) to allow debugging
         setTimeout(() => {
-          console.log('🔄 Redirecting back to marketing site due to error...');
+          addDebugLog('🔄 Redirecting back to marketing site due to error...');
           window.location.href = 'https://datapulsify.com?login_error=' + encodeURIComponent(errorMessage);
-        }, 3000);
+        }, 30000);
       }
     };
 
@@ -139,29 +178,65 @@ const AppLogin = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-lg w-full space-y-8 p-6">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-4xl w-full space-y-8">
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 text-red-600">
+            <div className="mx-auto h-16 w-16 text-red-600">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-2.186-.833-2.956 0L3.857 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Login Error
+              OAuth Login Error - DEBUG MODE
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-lg text-red-600 font-semibold">
               {error}
             </p>
-            <div className="mt-4 p-4 bg-gray-100 rounded-md text-left">
-              <h3 className="text-sm font-medium text-gray-900 mb-2">Debug Information:</h3>
-              <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
+            
+            {/* Debug Information */}
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Configuration Info */}
+              {debugInfo && (
+                <div className="p-4 bg-blue-50 rounded-md text-left">
+                  <h3 className="text-sm font-bold text-blue-900 mb-2">Configuration:</h3>
+                  <pre className="text-xs text-blue-800 whitespace-pre-wrap overflow-auto">
+                    {JSON.stringify(debugInfo, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Debug Logs */}
+              <div className="p-4 bg-gray-50 rounded-md text-left">
+                <h3 className="text-sm font-bold text-gray-900 mb-2">Debug Logs:</h3>
+                <div className="text-xs text-gray-700 max-h-64 overflow-auto">
+                  {debugLogs.map((log, index) => (
+                    <div key={index} className="mb-1 font-mono">
+                      {log}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <p className="mt-4 text-xs text-gray-500">
-              Redirecting back to homepage in a few seconds...
-            </p>
+
+            {/* Instructions */}
+            <div className="mt-6 p-4 bg-yellow-50 rounded-md">
+              <h3 className="text-sm font-bold text-yellow-900 mb-2">🚨 DEBUG INSTRUCTIONS:</h3>
+              <div className="text-sm text-yellow-800 text-left space-y-2">
+                <p><strong>1. Take a screenshot of this entire page</strong></p>
+                <p><strong>2. Copy the error message and debug logs</strong></p>
+                <p><strong>3. Check your browser's Network tab for failed requests</strong></p>
+                <p><strong>4. Verify your production environment variables are set</strong></p>
+                <p><strong>5. Check Google Cloud Console OAuth configuration</strong></p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-red-50 rounded-md">
+              <p className="text-sm text-red-700">
+                <strong>This page will redirect back to the homepage in 30 seconds.</strong>
+                <br />
+                Use this time to capture the debug information above.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -170,23 +245,39 @@ const AppLogin = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8">
+      <div className="max-w-2xl w-full space-y-8 p-6">
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Initiating Login
+            Initiating Google Login
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-lg text-gray-600">
             {status}
           </p>
           <div className="mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
           </div>
+          
+          {/* Show debug info during processing */}
           {debugInfo && (
             <div className="mt-6 p-4 bg-gray-100 rounded-md text-left">
               <h3 className="text-sm font-medium text-gray-900 mb-2">Configuration:</h3>
               <pre className="text-xs text-gray-600 whitespace-pre-wrap">
                 {JSON.stringify(debugInfo, null, 2)}
               </pre>
+            </div>
+          )}
+
+          {/* Live debug logs */}
+          {debugLogs.length > 0 && (
+            <div className="mt-6 p-4 bg-green-50 rounded-md text-left">
+              <h3 className="text-sm font-medium text-green-900 mb-2">Live Debug Logs:</h3>
+              <div className="text-xs text-green-800 max-h-40 overflow-auto">
+                {debugLogs.map((log, index) => (
+                  <div key={index} className="mb-1 font-mono">
+                    {log}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
