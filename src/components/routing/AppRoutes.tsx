@@ -9,6 +9,7 @@ import Settings from '@/pages/Settings';
 import CustomAIDashboard from '@/pages/CustomAIDashboard';
 import TopGainersReport from '@/pages/TopGainersReport';
 import TestGSC from '@/pages/TestGSC';
+import ThankYou from '@/pages/ThankYou';
 import { GoogleCallback } from '@/pages/GoogleCallback';
 import { GSCCallback } from '@/pages/GSCCallback';
 import { lazy, useEffect, useState } from 'react';
@@ -330,6 +331,9 @@ export const AppRoutes = () => {
       
       {/* Shared reports - available on both subdomains */}
       <Route path="/share/:token" element={<SharedReportPage />} />
+      
+      {/* Thank you page - for payment completion */}
+      <Route path="/thank-you" element={<ThankYou />} />
       
       {/* Development/Testing routes */}
       <Route path="/test-gsc" element={

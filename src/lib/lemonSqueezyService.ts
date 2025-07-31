@@ -37,6 +37,15 @@ export const PLANS: Record<string, PlanConfig> = {
   }
 };
 
+// Debug logging for environment variables
+console.log('🔍 LemonSqueezy Environment Variables:', {
+  lifetimeVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_LIFETIME || 'MISSING',
+  monthlyVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_MONTHLY || 'MISSING',
+  storeId: import.meta.env.VITE_LEMONSQUEEZY_STORE_ID || 'MISSING',
+  productId: import.meta.env.VITE_LEMONSQUEEZY_PRODUCT_ID || 'MISSING',
+  apiKeyPresent: !!import.meta.env.VITE_LEMONSQUEEZY_API_KEY
+});
+
 export class LemonSqueezyService {
   private static instance: LemonSqueezyService;
   private productId: string;
@@ -95,7 +104,16 @@ export class LemonSqueezyService {
       }
 
       if (!plan.variantId) {
-        throw new Error(`No variant ID found for plan: ${planType}`);
+        console.error('❌ Missing variant ID for plan:', {
+          planType,
+          plan,
+          availablePlans: Object.keys(PLANS),
+          environmentVariables: {
+            lifetimeVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_LIFETIME || 'MISSING',
+            monthlyVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_MONTHLY || 'MISSING'
+          }
+        });
+        throw new Error(`No variant ID found for plan: ${planType}. Please check environment variable VITE_LEMONSQUEEZY_VARIANT_${planType.toUpperCase()}`);
       }
 
       console.log('📋 Plan details:', {
