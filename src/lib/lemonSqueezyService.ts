@@ -162,6 +162,12 @@ export class LemonSqueezyService {
         requestBody.apiKey = import.meta.env.VITE_LEMONSQUEEZY_API_KEY;
         requestBody.productionUrl = import.meta.env.VITE_PRODUCTION_URL || 'https://app.datapulsify.com';
       }
+
+      console.log('📋 Request body being sent:', {
+        ...requestBody,
+        apiKey: requestBody.apiKey ? `${requestBody.apiKey.substring(0, 8)}...` : 'Not provided',
+        storeId: requestBody.storeId ? `${requestBody.storeId.substring(0, 4)}...` : 'Not provided'
+      });
       
       const response = await fetch(`${this.backendUrl}/create-checkout-session`, {
         method: 'POST',
@@ -171,14 +177,34 @@ export class LemonSqueezyService {
         body: JSON.stringify(requestBody),
       });
 
+      console.log('📡 Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        
         console.error('❌ Backend API Error:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorText
+          error: errorData,
+          url: `${this.backendUrl}/create-checkout-session`
         });
-        throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
+        
+        // More specific error messages based on status code
+        if (response.status === 400) {
+          throw new Error(`Configuration Error: ${errorData.error || 'Invalid request parameters'}`);
+        } else if (response.status === 401) {
+          throw new Error(`Authentication Error: ${errorData.error || 'Invalid API credentials'}`);
+        } else if (response.status === 422) {
+          throw new Error(`Validation Error: ${errorData.error || 'Invalid data sent to payment processor'}`);
+        } else {
+          throw new Error(`Backend API error: ${response.status} ${errorData.error || response.statusText}`);
+        }
       }
 
       const result = await response.json();
@@ -186,6 +212,7 @@ export class LemonSqueezyService {
       console.log('📥 Backend response:', {
         hasError: !!result.error,
         hasUrl: !!result.url,
+        hasCheckoutId: !!result.checkoutId,
         fullResponse: result
       });
 

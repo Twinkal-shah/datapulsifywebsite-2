@@ -22,6 +22,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('🔍 Request received:', {
+      method: req.method,
+      headers: Object.keys(req.headers),
+      bodyKeys: req.body ? Object.keys(req.body) : 'No body'
+    });
+
     const { 
       variantId, 
       email, 
@@ -32,27 +38,50 @@ export default async function handler(req, res) {
       storeId,
       apiKey,
       productionUrl = 'https://app.datapulsify.com'
-    } = req.body;
+    } = req.body || {};
 
     console.log('📥 API received checkout request:', {
-      variantId,
+      variantId: variantId || 'MISSING',
       email: email || 'Anonymous (will be collected by LemonSqueezy)',
-      planType,
+      planType: planType || 'MISSING',
       isAnonymous,
       hasCustomData: !!customData,
       hasStoreId: !!storeId,
-      hasApiKey: !!apiKey
+      hasApiKey: !!apiKey,
+      productionUrl
     });
 
+    // Validate required parameters
     if (!variantId) {
+      console.error('❌ Missing variantId');
       return res.status(400).json({ 
-        error: 'Missing required parameter: variantId is required' 
+        error: 'Missing required parameter: variantId is required',
+        received: { variantId, planType, hasStoreId: !!storeId, hasApiKey: !!apiKey }
+      });
+    }
+
+    if (!planType) {
+      console.error('❌ Missing planType');
+      return res.status(400).json({ 
+        error: 'Missing required parameter: planType is required' 
       });
     }
 
     if (!storeId || !apiKey) {
+      console.error('❌ Missing LemonSqueezy configuration:', {
+        hasStoreId: !!storeId,
+        hasApiKey: !!apiKey,
+        storeIdLength: storeId ? storeId.length : 0,
+        apiKeyLength: apiKey ? apiKey.length : 0
+      });
       return res.status(400).json({ 
-        error: 'Missing LemonSqueezy configuration: storeId and apiKey are required' 
+        error: 'Missing LemonSqueezy configuration: storeId and apiKey are required',
+        debug: {
+          hasStoreId: !!storeId,
+          hasApiKey: !!apiKey,
+          storeIdType: typeof storeId,
+          apiKeyType: typeof apiKey
+        }
       });
     }
 
@@ -70,6 +99,14 @@ export default async function handler(req, res) {
       checkoutData.email = email.trim();
       checkoutData.custom.user_email = email.trim();
     }
+
+    console.log('🚀 Calling LemonSqueezy API with:', {
+      storeId: storeId.substring(0, 4) + '***',
+      variantId,
+      planType,
+      hasEmail: !!(email && email.trim()),
+      isAnonymous
+    });
 
     // Use the correct LemonSqueezy API format with data wrapper
     const response = await axios.post(
@@ -120,7 +157,11 @@ export default async function handler(req, res) {
       }
     );
 
-    console.log('✅ LemonSqueezy API response received');
+    console.log('✅ LemonSqueezy API response received:', {
+      status: response.status,
+      hasData: !!response.data,
+      hasUrl: !!(response.data?.data?.attributes?.url)
+    });
 
     const checkoutUrl = response.data.data.attributes.url;
     const checkoutId = response.data.data.id;
@@ -132,15 +173,41 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('❌ Error creating checkout:', {
       message: error.message,
-      response: error?.response?.data,
-      status: error?.response?.status
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      responseData: error?.response?.data,
+      stack: error.stack?.split('\n').slice(0, 3) // First 3 lines of stack
     });
+    
+    // More specific error handling
+    if (error?.response?.status === 401) {
+      return res.status(500).json({ 
+        error: 'Invalid LemonSqueezy API key - please check your configuration',
+        code: 'INVALID_API_KEY'
+      });
+    }
+    
+    if (error?.response?.status === 422) {
+      return res.status(500).json({ 
+        error: 'Invalid request data sent to LemonSqueezy',
+        details: error?.response?.data,
+        code: 'INVALID_REQUEST_DATA'
+      });
+    }
     
     const errorMessage = error?.response?.data?.errors?.[0]?.detail || 
                         error?.response?.data?.error || 
                         error.message || 
                         'Failed to create checkout session';
     
-    res.status(500).json({ error: errorMessage });
+    res.status(500).json({ 
+      error: errorMessage,
+      code: 'CHECKOUT_CREATION_FAILED',
+      debug: {
+        hasResponse: !!error?.response,
+        status: error?.response?.status,
+        axiosError: error.code
+      }
+    });
   }
 } 
