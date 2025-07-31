@@ -120,75 +120,27 @@ const Navbar = () => {
       sessionStorage.removeItem('oauth_error_persistent');
       localStorage.removeItem('oauth_error_persistent');
       
-      // Get the current URL's port for development
-      const currentPort = window.location.port;
-      
-      // Check if we're on the marketing site and need to redirect to app subdomain first
-      const isOnMarketingSite = window.location.hostname === 'datapulsify.com';
-      const isOnLocalMarketingSite = window.location.hostname === 'localhost' && currentPort === '8081';
-      
-      if (isOnMarketingSite || isOnLocalMarketingSite) {
-        // If we're on the marketing site, redirect to app subdomain to initiate OAuth
-        // This ensures the code verifier is stored in the same domain as the callback
-        const appLoginUrl = isOnLocalMarketingSite 
-          ? `http://localhost:${currentPort}/auth/login`
-          : `https://app.datapulsify.com/auth/login`;
+      // Determine the correct app login URL based on environment
+      const isProduction = window.location.hostname.includes('datapulsify.com');
+      const appLoginUrl = isProduction 
+        ? 'https://app.datapulsify.com/auth/login'
+        : 'http://localhost:8081/auth/login';
           
-        console.log('🔄 Marketing site detected - redirecting to app subdomain for OAuth initiation:', appLoginUrl);
-        
-        toast({
-          title: "Redirecting...",
-          description: "Taking you to the secure login page...",
-          duration: 3000
-        });
-        
-        // Add a small delay to ensure the toast is visible, then redirect
-        setTimeout(() => {
-          console.log('🚀 Executing redirect to:', appLoginUrl);
-          try {
-            window.location.href = appLoginUrl;
-          } catch (redirectError) {
-            console.error('❌ Redirect failed, trying replace method:', redirectError);
-            window.location.replace(appLoginUrl);
-          }
-        }, 500);
-        
-        return;
-      }
+      console.log('🔄 Redirecting to app subdomain for OAuth initiation:', appLoginUrl);
       
-      // If we're already on the app subdomain, initiate OAuth directly
-      console.log('🏠 Already on app subdomain, initiating OAuth directly');
-      
-      // Always redirect to the OAuth callback endpoint, which will then handle the session
-      const redirectUrl = import.meta.env.DEV
-        ? `http://localhost:${currentPort}/auth/google/callback`
-        : 'https://app.datapulsify.com/auth/google/callback';
-      
-      console.log('🚀 Starting OAuth flow from app subdomain, redirect URL:', redirectUrl);
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent'
-          },
-          skipBrowserRedirect: false
-        }
+      toast({
+        title: "Redirecting...",
+        description: "Taking you to the secure login page...",
+        duration: 2000
       });
-
-      if (error) {
-        console.error('❌ OAuth error in handleLogin:', error);
-        throw error;
-      }
-
-      console.log('✅ OAuth initiated successfully from Navbar');
-
-      // The redirect will happen automatically
+      
+      // Direct redirect to app subdomain login page
+      console.log('🚀 Executing redirect to:', appLoginUrl);
+      window.location.href = appLoginUrl;
+      
     } catch (error) {
-      console.error('💥 Error during login from Navbar:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to login";
+      console.error('💥 Error during login redirect:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to redirect to login";
       
       toast({
         title: "Login Error",
@@ -196,13 +148,6 @@ const Navbar = () => {
         variant: "destructive",
         duration: 6000
       });
-      
-      // Store error for potential debugging
-      sessionStorage.setItem('oauth_error', JSON.stringify({
-        error: errorMessage,
-        timestamp: new Date().toISOString(),
-        location: 'Navbar'
-      }));
     }
   };
 
