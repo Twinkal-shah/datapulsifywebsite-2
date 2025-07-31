@@ -33,12 +33,62 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    // Check for login errors from URL parameters or sessionStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const loginError = urlParams.get('login_error');
+    
+    // Also check sessionStorage for OAuth errors
+    const storedError = sessionStorage.getItem('oauth_error');
+    
+    if (loginError) {
+      console.error('🔴 Login error from URL:', loginError);
+      toast({
+        title: "Login Failed",
+        description: decodeURIComponent(loginError),
+        variant: "destructive",
+        duration: 5000
+      });
+      
+      // Clean up URL
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    } else if (storedError) {
+      try {
+        const errorData = JSON.parse(storedError);
+        console.error('🔴 Login error from storage:', errorData);
+        
+        toast({
+          title: "Login Failed",
+          description: errorData.error || "Authentication failed. Please try again.",
+          variant: "destructive",
+          duration: 5000
+        });
+        
+        // Clear the stored error
+        sessionStorage.removeItem('oauth_error');
+      } catch (error) {
+        console.warn('Failed to parse stored error:', error);
+        sessionStorage.removeItem('oauth_error');
+      }
+    }
+  }, [toast]);
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
   const handleLogin = async () => {
     try {
+      console.log('🚀 Login button clicked', {
+        hostname: window.location.hostname,
+        pathname: window.location.pathname,
+        timestamp: new Date().toISOString()
+      });
+
+      // Clear any previous errors
+      sessionStorage.removeItem('oauth_error');
+      
       // Get the current URL's port for development
       const currentPort = window.location.port;
       
@@ -49,7 +99,14 @@ const Navbar = () => {
         // If we're on the marketing site, redirect to app subdomain to initiate OAuth
         // This ensures the code verifier is stored in the same domain as the callback
         const appLoginUrl = `https://app.datapulsify.com/auth/login`;
-        console.log('🔄 Redirecting to app subdomain for OAuth initiation:', appLoginUrl);
+        console.log('🔄 Marketing site detected - redirecting to app subdomain for OAuth initiation:', appLoginUrl);
+        
+        toast({
+          title: "Redirecting...",
+          description: "Redirecting to secure login page...",
+          duration: 2000
+        });
+        
         window.location.href = appLoginUrl;
         return;
       }
@@ -73,16 +130,30 @@ const Navbar = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ OAuth error in handleLogin:', error);
+        throw error;
+      }
+
+      console.log('✅ OAuth initiated successfully from Navbar');
 
       // The redirect will happen automatically
     } catch (error) {
-      console.error('Error during login:', error);
+      console.error('💥 Error during login from Navbar:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to login";
+      
       toast({
         title: "Login Error",
-        description: error instanceof Error ? error.message : "Failed to login",
+        description: errorMessage,
         variant: "destructive"
       });
+      
+      // Store error for potential debugging
+      sessionStorage.setItem('oauth_error', JSON.stringify({
+        error: errorMessage,
+        timestamp: new Date().toISOString(),
+        location: 'Navbar'
+      }));
     }
   };
 
