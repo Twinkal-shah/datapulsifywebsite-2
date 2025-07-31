@@ -96,7 +96,11 @@ export class LemonSqueezyService {
     customData?: Record<string, any>
   ): Promise<CheckoutData> {
     try {
-      console.log('🛒 Creating checkout session for:', { planType, userEmail });
+      console.log('🛒 Creating checkout session for:', { 
+        planType, 
+        userEmail: userEmail || 'Anonymous (will be collected by LemonSqueezy)', 
+        isAnonymous: !userEmail 
+      });
       
       const plan = PLANS[planType];
       if (!plan) {
@@ -127,7 +131,8 @@ export class LemonSqueezyService {
         storeId: this.storeId,
         variantId: plan.variantId,
         planType,
-        userEmail
+        userEmail: userEmail || 'Anonymous',
+        isAnonymous: !userEmail
       });
 
       // Use backend API instead of direct LemonSqueezy API call
@@ -142,11 +147,13 @@ export class LemonSqueezyService {
         storeId?: string;
         apiKey?: string;
         productionUrl?: string;
+        isAnonymous?: boolean;
       } = {
         variantId: plan.variantId,
-        email: userEmail,
+        email: userEmail, // Can be empty string for anonymous purchases
         planType: planType,
         customData: customData,
+        isAnonymous: !userEmail, // Flag to indicate anonymous purchase
       };
 
       // Only pass LemonSqueezy configuration in production (Vercel API)

@@ -117,8 +117,15 @@ const ThankYou = () => {
     return () => clearTimeout(timer);
   }, [user, paymentStatus, subscriptionStatus]);
 
+  // Handle anonymous purchases - don't redirect if user is not logged in
+  const isAnonymousPurchase = !user && !authLoading;
+
+  // Get plan type from URL params for anonymous purchases
+  const searchParams = new URLSearchParams(location.search);
+  const planTypeFromUrl = searchParams.get('plan') || 'lifetime';
+
   // Show loading state while fetching data
-  if (authLoading || subscriptionLoading || detailsLoading) {
+  if (authLoading || (user && (subscriptionLoading || detailsLoading))) {
     return (
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 to-black">
         <Navbar />
@@ -133,20 +140,24 @@ const ThankYou = () => {
     );
   }
 
-  // Redirect to home if no user is logged in
-  if (!user) {
-    navigate('/');
-    return null;
-  }
+  // Don't redirect anonymous users - show thank you page for anonymous purchases
+  // if (!user) {
+  //   navigate('/');
+  //   return null;
+  // }
 
-  // Get display values
-  const planType = purchaseDetails?.subscription_type || subscriptionType || 'Free Plan';
+  // Get display values - handle both authenticated and anonymous purchases
+  const planType = isAnonymousPurchase 
+    ? planTypeFromUrl 
+    : (purchaseDetails?.subscription_type || subscriptionType || 'Free Plan');
   const planName = PLAN_NAMES[planType] || planType;
-  const amount = purchaseDetails?.amount 
-    ? `$${purchaseDetails.amount.toFixed(2)}${planType === 'monthly_pro' ? '/month' : ''}`
-    : PRICING_MAP[planType] || 'N/A';
-  const status = purchaseDetails?.payment_status || paymentStatus;
-  const subStatus = purchaseDetails?.subscription_status || subscriptionStatus;
+  const amount = isAnonymousPurchase
+    ? PRICING_MAP[planType] || 'N/A'
+    : (purchaseDetails?.amount 
+        ? `$${purchaseDetails.amount.toFixed(2)}${planType === 'monthly_pro' ? '/month' : ''}`
+        : PRICING_MAP[planType] || 'N/A');
+  const status = isAnonymousPurchase ? 'paid' : (purchaseDetails?.payment_status || paymentStatus);
+  const subStatus = isAnonymousPurchase ? 'active' : (purchaseDetails?.subscription_status || subscriptionStatus);
   
   // Determine expiration
   let expiration = 'Active';
@@ -239,13 +250,52 @@ const ThankYou = () => {
                 )}
               </div>
               
+              {/* Anonymous user account creation prompt */}
+              {isAnonymousPurchase && (
+                <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm border border-blue-500/30 rounded-xl p-8 mb-8">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold mb-4 text-white">Create Your Account</h2>
+                    <p className="text-gray-300 mb-6">
+                      To access your premium features and manage your subscription, please create an account with the same email address you used for this purchase.
+                    </p>
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                      <Link 
+                        to="/auth/login" 
+                        className="btn-primary py-3 px-8 text-center"
+                      >
+                        Sign Up / Sign In with Google
+                      </Link>
+                      <a 
+                        href="mailto:support@datapulsify.com?subject=Account Setup Help"
+                        className="btn-secondary py-3 px-8 text-center"
+                      >
+                        Need Help?
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex flex-col md:flex-row justify-center gap-4 mb-12">
-                <Link to="/dashboard" className="btn-primary py-3 px-8">
-                  Go to Dashboard
-                </Link>
-                <Link to="/support" className="btn-secondary py-3 px-8">
-                  Need Help?
-                </Link>
+                {user ? (
+                  <>
+                    <Link to="/dashboard" className="btn-primary py-3 px-8">
+                      Go to Dashboard
+                    </Link>
+                    <Link to="/support" className="btn-secondary py-3 px-8">
+                      Need Help?
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/auth/login" className="btn-primary py-3 px-8">
+                      Sign In to Access Dashboard
+                    </Link>
+                    <Link to="/" className="btn-secondary py-3 px-8">
+                      Back to Home
+                    </Link>
+                  </>
+                )}
               </div>
               
               <div className="grid md:grid-cols-2 gap-6">

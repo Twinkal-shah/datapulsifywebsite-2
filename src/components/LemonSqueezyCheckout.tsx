@@ -28,7 +28,8 @@ export const LemonSqueezyCheckout: React.FC<LemonSqueezyCheckoutProps> = ({
     console.log('🚀 handleCheckout called with:', { 
       planType, 
       user: user?.email,
-      userExists: !!user 
+      userExists: !!user,
+      allowAnonymous: true
     });
     
     // Debug environment variables
@@ -40,17 +41,14 @@ export const LemonSqueezyCheckout: React.FC<LemonSqueezyCheckoutProps> = ({
       productId: import.meta.env.VITE_LEMONSQUEEZY_PRODUCT_ID
     });
     
-    if (!user) {
-      const errorMsg = 'Please sign in to continue with your purchase';
-      console.error('❌ User not authenticated');
-      setError(errorMsg);
-      toast({
-        title: "Authentication Required",
-        description: errorMsg,
-        variant: "destructive",
-      });
-      return;
-    }
+    // Allow anonymous purchases - use user email if available, otherwise let LemonSqueezy collect it
+    const customerEmail = user?.email || '';
+    
+    console.log('📧 Customer email for checkout:', {
+      hasUser: !!user,
+      email: customerEmail || 'Will be collected by LemonSqueezy',
+      isAnonymous: !user
+    });
 
     setIsLoading(true);
     setLoadingPlan(planType);
@@ -58,7 +56,7 @@ export const LemonSqueezyCheckout: React.FC<LemonSqueezyCheckoutProps> = ({
 
     try {
       console.log('📞 About to call createCheckoutSession...');
-      const checkoutData = await lemonSqueezyService.createCheckoutSession(planType, user.email);
+      const checkoutData = await lemonSqueezyService.createCheckoutSession(planType, customerEmail);
       console.log('✅ Checkout data received:', checkoutData);
       
       if (!checkoutData.checkoutUrl) {
