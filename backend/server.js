@@ -41,36 +41,54 @@ app.post('/create-checkout-session', async (req, res) => {
     const response = await axios.post(
       'https://api.lemonsqueezy.com/v1/checkouts',
       {
-        checkout: {
-          store_id: finalStoreId,
-          variant_id: variantId,
-          checkout_data: {
-            email,
-            custom: {
-              user_email: email,
-              plan_type: planType,
-              ...customData
+        data: {
+          type: 'checkouts',
+          attributes: {
+            product_options: {
+              name: planType === 'lifetime' ? 'DataPulsify Lifetime Deal' : 'DataPulsify Monthly Pro',
+              description: `DataPulsify ${planType === 'lifetime' ? 'Lifetime Deal' : 'Monthly Pro'} - Access to all premium features`,
+              redirect_url: `${finalProductionUrl}/thank-you?plan=${planType}`,
+              receipt_button_text: 'Go to Dashboard',
+              receipt_link_url: `${finalProductionUrl}/dashboard`,
+            },
+            checkout_options: {
+              embed: false,
+              media: true,
+              logo: true,
+            },
+            checkout_data: {
+              email: email,
+              custom: {
+                user_email: email,
+                plan_type: planType,
+                ...customData
+              }
+            },
+            expires_at: null,
+            preview: false,
+            test_mode: false
+          },
+          relationships: {
+            store: {
+              data: {
+                type: 'stores',
+                id: finalStoreId.toString()
+              }
+            },
+            variant: {
+              data: {
+                type: 'variants',
+                id: variantId.toString()
+              }
             }
-          },
-          product_options: {
-            name: planType === 'lifetime' ? 'DataPulsify Lifetime Deal' : 'DataPulsify Monthly Pro',
-            description: `DataPulsify ${planType === 'lifetime' ? 'Lifetime Deal' : 'Monthly Pro'} - Access to all premium features`,
-            redirect_url: `${finalProductionUrl}/thank-you?plan=${planType}`,
-            receipt_button_text: 'Go to Dashboard',
-            receipt_link_url: `${finalProductionUrl}/dashboard`,
-          },
-          checkout_options: {
-            embed: false,
-            media: true,
-            logo: true,
-          },
-        },
+          }
+        }
       },
       {
         headers: {
           Authorization: `Bearer ${finalApiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          'Content-Type': 'application/vnd.api+json',
+          Accept: 'application/vnd.api+json',
         },
       }
     );
