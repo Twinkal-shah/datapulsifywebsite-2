@@ -46,12 +46,18 @@ export class LemonSqueezyService {
   private constructor() {
     this.productId = import.meta.env.VITE_LEMONSQUEEZY_PRODUCT_ID;
     this.storeId = import.meta.env.VITE_LEMONSQUEEZY_STORE_ID;
-    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://app.datapulsify.com/api';
+    
+    // Use local backend in development, Vercel API in production
+    const isDev = import.meta.env.DEV;
+    this.backendUrl = isDev 
+      ? 'http://localhost:5001' 
+      : (import.meta.env.VITE_BACKEND_URL || 'https://app.datapulsify.com/api');
     
     console.log('🏪 LemonSqueezy Service initialized with:', {
       productId: this.productId,
       storeId: this.storeId,
       backendUrl: this.backendUrl,
+      isDev: isDev,
       apiKeyPresent: !!import.meta.env.VITE_LEMONSQUEEZY_API_KEY,
       lifetimeVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_LIFETIME,
       monthlyVariant: import.meta.env.VITE_LEMONSQUEEZY_VARIANT_MONTHLY
@@ -109,17 +115,35 @@ export class LemonSqueezyService {
       // Use backend API instead of direct LemonSqueezy API call
       console.log('📤 Sending checkout request to backend...');
       
+      const isDev = import.meta.env.DEV;
+      const requestBody: {
+        variantId: string;
+        email: string;
+        planType: 'lifetime' | 'monthly';
+        customData?: Record<string, any>;
+        storeId?: string;
+        apiKey?: string;
+        productionUrl?: string;
+      } = {
+        variantId: plan.variantId,
+        email: userEmail,
+        planType: planType,
+        customData: customData,
+      };
+
+      // Only pass LemonSqueezy configuration in production (Vercel API)
+      if (!isDev) {
+        requestBody.storeId = this.storeId;
+        requestBody.apiKey = import.meta.env.VITE_LEMONSQUEEZY_API_KEY;
+        requestBody.productionUrl = import.meta.env.VITE_PRODUCTION_URL || 'https://app.datapulsify.com';
+      }
+      
       const response = await fetch(`${this.backendUrl}/create-checkout-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          variantId: plan.variantId,
-          email: userEmail,
-          planType: planType,
-          customData: customData
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

@@ -10,13 +10,15 @@ app.use(express.json());
 
 app.post('/create-checkout-session', async (req, res) => {
   try {
-    const { variantId, email, planType, customData } = req.body;
+    const { variantId, email, planType, customData, storeId, apiKey, productionUrl } = req.body;
 
     console.log('📥 Backend received checkout request:', {
       variantId,
       email,
       planType,
-      hasCustomData: !!customData
+      hasCustomData: !!customData,
+      hasStoreId: !!storeId,
+      hasApiKey: !!apiKey
     });
 
     if (!variantId || !email) {
@@ -25,11 +27,22 @@ app.post('/create-checkout-session', async (req, res) => {
       });
     }
 
+    // Use provided configuration or fall back to environment variables
+    const finalStoreId = storeId || process.env.LEMONSQUEEZY_STORE_ID;
+    const finalApiKey = apiKey || process.env.LEMONSQUEEZY_API_KEY;
+    const finalProductionUrl = productionUrl || process.env.VITE_PRODUCTION_URL || 'https://app.datapulsify.com';
+
+    if (!finalStoreId || !finalApiKey) {
+      return res.status(400).json({ 
+        error: 'Missing LemonSqueezy configuration: storeId and apiKey are required' 
+      });
+    }
+
     const response = await axios.post(
       'https://api.lemonsqueezy.com/v1/checkouts',
       {
         checkout: {
-          store_id: process.env.LEMONSQUEEZY_STORE_ID,
+          store_id: finalStoreId,
           variant_id: variantId,
           checkout_data: {
             email,
@@ -42,9 +55,9 @@ app.post('/create-checkout-session', async (req, res) => {
           product_options: {
             name: planType === 'lifetime' ? 'DataPulsify Lifetime Deal' : 'DataPulsify Monthly Pro',
             description: `DataPulsify ${planType === 'lifetime' ? 'Lifetime Deal' : 'Monthly Pro'} - Access to all premium features`,
-            redirect_url: `${process.env.VITE_PRODUCTION_URL || 'https://app.datapulsify.com'}/thank-you?plan=${planType}`,
+            redirect_url: `${finalProductionUrl}/thank-you?plan=${planType}`,
             receipt_button_text: 'Go to Dashboard',
-            receipt_link_url: `${process.env.VITE_PRODUCTION_URL || 'https://app.datapulsify.com'}/dashboard`,
+            receipt_link_url: `${finalProductionUrl}/dashboard`,
           },
           checkout_options: {
             embed: false,
@@ -55,7 +68,7 @@ app.post('/create-checkout-session', async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.LEMONSQUEEZY_API_KEY}`,
+          Authorization: `Bearer ${finalApiKey}`,
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },

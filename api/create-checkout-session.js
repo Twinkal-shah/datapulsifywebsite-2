@@ -22,13 +22,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { variantId, email, planType, customData } = req.body;
+    const { 
+      variantId, 
+      email, 
+      planType, 
+      customData,
+      // LemonSqueezy configuration from frontend
+      storeId,
+      apiKey,
+      productionUrl = 'https://app.datapulsify.com'
+    } = req.body;
 
     console.log('📥 API received checkout request:', {
       variantId,
       email,
       planType,
-      hasCustomData: !!customData
+      hasCustomData: !!customData,
+      hasStoreId: !!storeId,
+      hasApiKey: !!apiKey
     });
 
     if (!variantId || !email) {
@@ -37,11 +48,17 @@ export default async function handler(req, res) {
       });
     }
 
+    if (!storeId || !apiKey) {
+      return res.status(400).json({ 
+        error: 'Missing LemonSqueezy configuration: storeId and apiKey are required' 
+      });
+    }
+
     const response = await axios.post(
       'https://api.lemonsqueezy.com/v1/checkouts',
       {
         checkout: {
-          store_id: process.env.LEMONSQUEEZY_STORE_ID,
+          store_id: storeId,
           variant_id: variantId,
           checkout_data: {
             email,
@@ -54,9 +71,9 @@ export default async function handler(req, res) {
           product_options: {
             name: planType === 'lifetime' ? 'DataPulsify Lifetime Deal' : 'DataPulsify Monthly Pro',
             description: `DataPulsify ${planType === 'lifetime' ? 'Lifetime Deal' : 'Monthly Pro'} - Access to all premium features`,
-            redirect_url: `${process.env.VITE_PRODUCTION_URL || 'https://app.datapulsify.com'}/thank-you?plan=${planType}`,
+            redirect_url: `${productionUrl}/thank-you?plan=${planType}`,
             receipt_button_text: 'Go to Dashboard',
-            receipt_link_url: `${process.env.VITE_PRODUCTION_URL || 'https://app.datapulsify.com'}/dashboard`,
+            receipt_link_url: `${productionUrl}/dashboard`,
           },
           checkout_options: {
             embed: false,
@@ -67,7 +84,7 @@ export default async function handler(req, res) {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.LEMONSQUEEZY_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
