@@ -117,28 +117,47 @@ const Navbar = () => {
 
       // Clear any previous errors
       sessionStorage.removeItem('oauth_error');
+      sessionStorage.removeItem('oauth_error_persistent');
+      localStorage.removeItem('oauth_error_persistent');
       
       // Get the current URL's port for development
       const currentPort = window.location.port;
       
       // Check if we're on the marketing site and need to redirect to app subdomain first
       const isOnMarketingSite = window.location.hostname === 'datapulsify.com';
+      const isOnLocalMarketingSite = window.location.hostname === 'localhost' && currentPort === '8081';
       
-      if (isOnMarketingSite) {
+      if (isOnMarketingSite || isOnLocalMarketingSite) {
         // If we're on the marketing site, redirect to app subdomain to initiate OAuth
         // This ensures the code verifier is stored in the same domain as the callback
-        const appLoginUrl = `https://app.datapulsify.com/auth/login`;
+        const appLoginUrl = isOnLocalMarketingSite 
+          ? `http://localhost:${currentPort}/auth/login`
+          : `https://app.datapulsify.com/auth/login`;
+          
         console.log('🔄 Marketing site detected - redirecting to app subdomain for OAuth initiation:', appLoginUrl);
         
         toast({
           title: "Redirecting...",
-          description: "Redirecting to secure login page...",
-          duration: 2000
+          description: "Taking you to the secure login page...",
+          duration: 3000
         });
         
-        window.location.href = appLoginUrl;
+        // Add a small delay to ensure the toast is visible, then redirect
+        setTimeout(() => {
+          console.log('🚀 Executing redirect to:', appLoginUrl);
+          try {
+            window.location.href = appLoginUrl;
+          } catch (redirectError) {
+            console.error('❌ Redirect failed, trying replace method:', redirectError);
+            window.location.replace(appLoginUrl);
+          }
+        }, 500);
+        
         return;
       }
+      
+      // If we're already on the app subdomain, initiate OAuth directly
+      console.log('🏠 Already on app subdomain, initiating OAuth directly');
       
       // Always redirect to the OAuth callback endpoint, which will then handle the session
       const redirectUrl = import.meta.env.DEV
@@ -174,7 +193,8 @@ const Navbar = () => {
       toast({
         title: "Login Error",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 6000
       });
       
       // Store error for potential debugging

@@ -18,8 +18,43 @@ import FirstDataExport from "@/pages/support/FirstDataExport";
 import Documentation from "@/pages/Documentation";
 import Pricing from "@/pages/Pricing";
 import { GoogleCallback } from '@/pages/GoogleCallback';
-import { lazy } from 'react';
+import { lazy, useEffect } from 'react';
 import { LazyComponentWrapper } from '@/components/LazyComponentWrapper';
+
+// Marketing site login redirect component
+const MarketingLogin = () => {
+  useEffect(() => {
+    console.log('🔄 MarketingLogin: Redirecting to app subdomain...');
+    
+    // Force redirect to app subdomain
+    const appLoginUrl = 'https://app.datapulsify.com/auth/login';
+    console.log('🚀 Redirecting to:', appLoginUrl);
+    
+    // Use replace to avoid back button issues
+    window.location.replace(appLoginUrl);
+  }, []);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            Redirecting to Login
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Taking you to the secure login page...
+          </p>
+          <div className="mt-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          </div>
+          <p className="mt-4 text-xs text-gray-400">
+            If you're not redirected automatically, <a href="https://app.datapulsify.com/auth/login" className="text-indigo-600 hover:text-indigo-500">click here</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Enhanced lazy loading with retry on tab visibility
 const createLazyComponent = (importFn: () => Promise<any>) => {
@@ -58,7 +93,8 @@ export const MarketingRoutes = () => {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/upgrade" element={<Pricing />} />
       
-      {/* Authentication callback - available on both subdomains */}
+      {/* Authentication routes */}
+      <Route path="/auth/login" element={<MarketingLogin />} />
       <Route path="/auth/google/callback" element={<GoogleCallback />} />
       
       {/* Shared reports - available on both subdomains */}
