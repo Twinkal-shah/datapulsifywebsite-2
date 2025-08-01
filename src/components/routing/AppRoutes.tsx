@@ -23,6 +23,7 @@ const AppLogin = () => {
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [oauthUrl, setOauthUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const initiateOAuth = async () => {
@@ -101,6 +102,12 @@ const AppLogin = () => {
           errorCode: error?.status
         });
 
+        // Store the OAuth URL for debugging
+        if (data?.url) {
+          setOauthUrl(data.url);
+          console.log('🔗 Full OAuth URL:', data.url);
+        }
+
         // Check if code verifier was stored (important for PKCE flow)
         setTimeout(() => {
           const codeVerifierKeys = Object.keys(localStorage).filter(key => 
@@ -147,8 +154,41 @@ const AppLogin = () => {
 
         setIsRedirecting(true);
 
+        // Log the exact redirect attempt
+        console.log('🌐 About to redirect to Google OAuth URL');
+        
+        // Add a listener to detect if the redirect fails
+        const beforeUnloadHandler = () => {
+          console.log('🔄 Page is unloading - redirect should be happening');
+        };
+        
+        window.addEventListener('beforeunload', beforeUnloadHandler);
+        
+        // Try to detect if redirect fails by checking if we're still here after a delay
+        const redirectTimeout = setTimeout(() => {
+          window.removeEventListener('beforeunload', beforeUnloadHandler);
+          
+          if (window.location.href.includes('/auth/login')) {
+            console.error('❌ Redirect failed - still on login page after 3 seconds');
+            console.log('🔍 Checking for redirect failure reasons:', {
+              currentUrl: window.location.href,
+              oauthUrl: data.url,
+              userAgent: navigator.userAgent.substring(0, 100),
+              cookies: document.cookie ? 'Present' : 'None',
+              localStorage: Object.keys(localStorage).length,
+              sessionStorage: Object.keys(sessionStorage).length
+            });
+            
+            setError('Redirect to Google failed. This may be due to:\n• Browser blocking the redirect\n• Popup blocker enabled\n• Invalid OAuth configuration\n• Network connectivity issues\n\nPlease check the browser console for more details.');
+            setIsRedirecting(false);
+          }
+        }, 3000);
+
         // Give a moment for the redirect to happen, but don't auto-redirect on error
         setTimeout(() => {
+          clearTimeout(redirectTimeout);
+          window.removeEventListener('beforeunload', beforeUnloadHandler);
+          
           if (!isRedirecting && window.location.href.includes('/auth/login')) {
             console.warn('⚠️ Still on login page after redirect attempt');
             setError('Redirect to Google failed. This may be due to popup blockers or browser security settings.');
@@ -174,6 +214,13 @@ const AppLogin = () => {
     initiateOAuth();
   }, []);
 
+  const copyOAuthUrl = () => {
+    if (oauthUrl) {
+      navigator.clipboard.writeText(oauthUrl);
+      alert('OAuth URL copied to clipboard! You can paste it in a new tab to test manually.');
+    }
+  };
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -187,13 +234,27 @@ const AppLogin = () => {
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
               Google Login Error
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-gray-600 whitespace-pre-line">
               {error}
             </p>
             {debugInfo && (
               <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
                 <strong>Debug info:</strong>
                 <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+              </div>
+            )}
+            {oauthUrl && (
+              <div className="mt-4 p-3 bg-blue-50 rounded text-xs">
+                <strong>OAuth URL generated:</strong>
+                <div className="mt-1 break-all text-blue-800">
+                  {oauthUrl.substring(0, 100)}...
+                </div>
+                <button 
+                  onClick={copyOAuthUrl}
+                  className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                >
+                  Copy Full URL for Manual Testing
+                </button>
               </div>
             )}
             <div className="mt-6 space-y-3">
