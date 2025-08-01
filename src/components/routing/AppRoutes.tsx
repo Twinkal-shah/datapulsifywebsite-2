@@ -82,17 +82,40 @@ const AppLogin = () => {
           throw new Error('Browser storage is not available. Please check your browser settings and try again.');
         }
 
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google' as const,
-          options: {
-            redirectTo: 'https://app.datapulsify.com/auth/google/callback',
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'consent'
-            },
-            skipBrowserRedirect: false
-          }
-        });
+        // Try two different approaches to OAuth
+        let oauthResult;
+        
+        try {
+          console.log('🔄 Attempting OAuth with automatic redirect...');
+          oauthResult = await supabase.auth.signInWithOAuth({
+            provider: 'google' as const,
+            options: {
+              redirectTo: 'https://app.datapulsify.com/auth/google/callback',
+              queryParams: {
+                access_type: 'offline',
+                prompt: 'consent'
+              },
+              skipBrowserRedirect: false // Let Supabase handle the redirect
+            }
+          });
+        } catch (autoRedirectError) {
+          console.warn('⚠️ Automatic redirect failed, trying manual approach...', autoRedirectError);
+          
+          // Fallback to manual redirect approach
+          oauthResult = await supabase.auth.signInWithOAuth({
+            provider: 'google' as const,
+            options: {
+              redirectTo: 'https://app.datapulsify.com/auth/google/callback',
+              queryParams: {
+                access_type: 'offline',
+                prompt: 'consent'
+              },
+              skipBrowserRedirect: true // We'll handle the redirect manually
+            }
+          });
+        }
+
+        const { data, error } = oauthResult;
 
         console.log('📤 OAuth response:', {
           hasData: !!data,
@@ -106,6 +129,18 @@ const AppLogin = () => {
         if (data?.url) {
           setOauthUrl(data.url);
           console.log('🔗 Full OAuth URL:', data.url);
+          
+          // Test if the URL is accessible
+          try {
+            console.log('🧪 Testing OAuth URL accessibility...');
+            const testResponse = await fetch(data.url, { 
+              method: 'HEAD',
+              mode: 'no-cors' // This prevents CORS issues for the test
+            });
+            console.log('✅ OAuth URL is accessible');
+          } catch (testError) {
+            console.warn('⚠️ OAuth URL test failed (this might be normal due to CORS):', testError);
+          }
         }
 
         // Check if code verifier was stored (important for PKCE flow)
@@ -147,15 +182,20 @@ const AppLogin = () => {
           throw new Error('No authentication URL received. This usually indicates a configuration issue with Supabase or Google OAuth. Please check your environment variables.');
         }
 
+        // If skipBrowserRedirect is false, Supabase should automatically redirect
+        // If we reach this point, it means the redirect didn't happen
+        console.log('⚠️ OAuth URL received but no automatic redirect occurred');
+        console.log('🔍 This might indicate a browser security issue or Supabase configuration problem');
+        
         setStatus('Redirecting to Google...');
-        console.log('✅ OAuth URL received, redirecting...', {
+        console.log('✅ OAuth URL received, manual redirect needed...', {
           url: data.url.substring(0, 100) + '...'
         });
 
         setIsRedirecting(true);
 
-        // Log the exact redirect attempt
-        console.log('🌐 About to redirect to Google OAuth URL');
+        // Since automatic redirect failed, try manual redirect
+        console.log('🚀 Attempting manual redirect as fallback...');
         
         // Add a listener to detect if the redirect fails
         const beforeUnloadHandler = () => {
@@ -164,34 +204,64 @@ const AppLogin = () => {
         
         window.addEventListener('beforeunload', beforeUnloadHandler);
         
-        // Try to detect if redirect fails by checking if we're still here after a delay
-        const redirectTimeout = setTimeout(() => {
+        // Wait a moment to see if Supabase will redirect automatically
+        setTimeout(() => {
+          if (window.location.href.includes('/auth/login')) {
+            console.log('🔄 No automatic redirect detected, attempting manual redirect...');
+            
+            // Method 1: Direct window.location.href redirect (most reliable)
+            console.log('🚀 Attempting direct redirect...');
+            try {
+              window.location.href = data.url;
+            } catch (redirectError) {
+              console.error('❌ Direct redirect failed:', redirectError);
+              
+              // Method 2: window.location.replace fallback
+              try {
+                console.log('🔄 Trying window.location.replace...');
+                window.location.replace(data.url);
+              } catch (replaceError) {
+                console.error('❌ Replace redirect failed:', replaceError);
+                
+                // Method 3: Create a temporary link and click it
+                try {
+                  console.log('🔄 Trying programmatic link click...');
+                  const link = document.createElement('a');
+                  link.href = data.url;
+                  link.target = '_self';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                } catch (linkError) {
+                  console.error('❌ Link click redirect failed:', linkError);
+                  setError('All redirect methods failed. Please copy the OAuth URL and paste it manually in your browser.');
+                  setIsRedirecting(false);
+                }
+              }
+            }
+          }
+        }, 500); // Give Supabase 500ms to redirect automatically
+        
+        // Final timeout check - if we're still here after 5 seconds, something is wrong
+        setTimeout(() => {
           window.removeEventListener('beforeunload', beforeUnloadHandler);
           
           if (window.location.href.includes('/auth/login')) {
-            console.error('❌ Redirect failed - still on login page after 3 seconds');
-            console.log('🔍 Checking for redirect failure reasons:', {
+            console.error('❌ All redirect attempts failed - still on login page after 5 seconds');
+            console.log('🔍 Final diagnostic check:', {
               currentUrl: window.location.href,
               oauthUrl: data.url,
               userAgent: navigator.userAgent.substring(0, 100),
               cookies: document.cookie ? 'Present' : 'None',
               localStorage: Object.keys(localStorage).length,
-              sessionStorage: Object.keys(sessionStorage).length
+              sessionStorage: Object.keys(sessionStorage).length,
+              isRedirecting
             });
             
-            setError('Redirect to Google failed. This may be due to:\n• Browser blocking the redirect\n• Popup blocker enabled\n• Invalid OAuth configuration\n• Network connectivity issues\n\nPlease check the browser console for more details.');
-            setIsRedirecting(false);
-          }
-        }, 3000);
-
-        // Give a moment for the redirect to happen, but don't auto-redirect on error
-        setTimeout(() => {
-          clearTimeout(redirectTimeout);
-          window.removeEventListener('beforeunload', beforeUnloadHandler);
-          
-          if (!isRedirecting && window.location.href.includes('/auth/login')) {
-            console.warn('⚠️ Still on login page after redirect attempt');
-            setError('Redirect to Google failed. This may be due to popup blockers or browser security settings.');
+            if (!error) { // Only set error if we haven't already set one
+              setError('Redirect to Google failed after multiple attempts. This may be due to:\n• Browser security settings blocking redirects\n• Popup blocker enabled\n• Network connectivity issues\n• Invalid OAuth configuration\n\nPlease try copying the OAuth URL manually or check browser console for details.');
+              setIsRedirecting(false);
+            }
           }
         }, 5000);
 
