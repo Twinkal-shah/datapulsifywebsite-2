@@ -95,12 +95,25 @@ export class GoogleAuthService {
       'gsc_auth_pending', 'gsc_callback_processing'
     ];
     
+    // Clear OAuth flow state
     authKeys.forEach(key => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
     
-    console.log('🧹 Cleared all GSC auth state');
+    // Also clear the actual GSC tokens and property data
+    const gscDataKeys = [
+      'gsc_token', 
+      'gsc_refresh_token', 
+      'gsc_property'
+    ];
+    
+    gscDataKeys.forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+    
+    console.log('🧹 Cleared all GSC auth state and token data');
   }
 
   // Enhanced error handling with user guidance
@@ -347,7 +360,6 @@ export class GoogleAuthService {
 
   async validateToken(token: string): Promise<boolean> {
     try {
-      // Test the token by making a simple API call to GSC
       const response = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -356,7 +368,42 @@ export class GoogleAuthService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error validating token:', error);
+      console.error('Token validation error:', error);
+      return false;
+    }
+  }
+
+  // Check if GSC is properly connected (has valid token and can fetch data)
+  async isGSCConnected(): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('gsc_token');
+      if (!token) {
+        console.log('🔍 No GSC token found');
+        return false;
+      }
+
+      // Validate the token by making a test API call
+      const isValid = await this.validateToken(token);
+      if (!isValid) {
+        console.log('⚠️ GSC token is invalid, attempting refresh...');
+        
+        // Try to refresh the token
+        const refreshedToken = await this.validateAndRefreshToken();
+        if (refreshedToken) {
+          console.log('✅ GSC token refreshed successfully');
+          return true;
+        } else {
+          console.log('❌ GSC token refresh failed');
+          // Clear invalid tokens
+          this.clearAuthState();
+          return false;
+        }
+      }
+
+      console.log('✅ GSC is properly connected');
+      return true;
+    } catch (error) {
+      console.error('Error checking GSC connection:', error);
       return false;
     }
   }

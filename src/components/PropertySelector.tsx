@@ -61,45 +61,66 @@ export function PropertySelector() {
       try {
         setIsLoading(true);
         
+        const token = getGSCToken();
+        if (!token) {
+          console.log('🔍 No GSC token found in PropertySelector');
+          setGscProperties([]);
+          setCurrentProperty('');
+          setIsLoading(false);
+          return;
+        }
+
         // Get current property from localStorage
         const savedProperty = localStorage.getItem('gsc_property');
         if (savedProperty) {
           setCurrentProperty(savedProperty);
         }
 
-        // Check if user is connected to GSC
-        const token = getGSCToken();
-        if (!token) {
-          setGscProperties([]);
-          setIsLoading(false);
-          return;
-        }
-
-        // Fetch available GSC properties
+        // Fetch GSC properties
         const properties = await googleAuthService.fetchGSCProperties();
         setGscProperties(properties);
         
-        // If no current property is set but we have properties, set the first one
-        if (!savedProperty && properties.length > 0) {
-          const firstProperty = properties[0].siteUrl;
-          setCurrentProperty(firstProperty);
-          localStorage.setItem('gsc_property', firstProperty);
-          
-          // Dispatch property change event
-          window.dispatchEvent(new CustomEvent(PROPERTY_CHANGE_EVENT, {
-            detail: { property: firstProperty, isInitial: true }
-          }));
+        // If we have a saved property but it's not in the fetched list, clear it
+        if (savedProperty && !properties.some(p => p.siteUrl === savedProperty)) {
+          console.warn('⚠️ Saved property not found in fetched properties, clearing it');
+          localStorage.removeItem('gsc_property');
+          setCurrentProperty('');
         }
+
+        // If no property is selected but we have properties, don't auto-select
+        // Let the user choose explicitly
         
       } catch (error) {
         console.error('Error loading GSC properties:', error);
         setGscProperties([]);
+        setCurrentProperty('');
+        
+        // If it's an auth error, clear the tokens
+        if (error.message?.includes('token') || error.message?.includes('401')) {
+          localStorage.removeItem('gsc_token');
+          localStorage.removeItem('gsc_refresh_token');
+          localStorage.removeItem('gsc_property');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadPropertyData();
+    
+    // Listen for GSC disconnect events
+    const handleGSCDisconnect = () => {
+      console.log('🔔 PropertySelector: Received GSC disconnect event');
+      setGscProperties([]);
+      setCurrentProperty('');
+    };
+    
+    window.addEventListener('gsc-disconnected', handleGSCDisconnect);
+    
+    // Cleanup event listener
+    return () => {
+      window.removeEventListener('gsc-disconnected', handleGSCDisconnect);
+    };
   }, [getGSCToken]);
 
   const handlePropertySelect = async (propertyUrl: string) => {

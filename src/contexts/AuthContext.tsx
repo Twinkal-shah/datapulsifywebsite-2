@@ -511,6 +511,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const disconnectGSC = async () => {
     try {
+      console.log('🔄 Starting GSC disconnect process...');
+      
+      // Clear all GSC auth state and tokens
       googleAuthService.clearAuthState();
       
       // Update user state
@@ -522,6 +525,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
+        console.log('✅ Updated user state - GSC disconnected');
       }
 
       // Try to update Supabase (gracefully handle if columns don't exist)
@@ -538,6 +542,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (error) {
             // Log the error but don't throw it - GSC disconnect should still work
             console.warn('Could not update GSC connection status in database:', error.message || error);
+          } else {
+            console.log('✅ Updated database - GSC connection status cleared');
           }
         } catch (dbError) {
           // Database operation failed, but GSC is still disconnected locally
@@ -545,13 +551,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
-      // Force reload if on dashboard
+      // Dispatch a custom event to notify other components about the disconnect
+      window.dispatchEvent(new CustomEvent('gsc-disconnected', {
+        detail: { timestamp: Date.now() }
+      }));
+      
+      console.log('✅ GSC disconnect completed successfully');
+
+      // Force reload if on dashboard to refresh the UI
       if (window.location.pathname === '/dashboard') {
+        console.log('🔄 Reloading dashboard to reflect GSC disconnect...');
         window.location.reload();
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('Error disconnecting GSC:', errorMessage, error);
+      console.error('❌ Error disconnecting GSC:', errorMessage, error);
       throw new Error(`Failed to disconnect GSC: ${errorMessage}`);
     }
   };

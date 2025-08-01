@@ -73,6 +73,8 @@ export default function Settings() {
     business_type: '',
     business_size: ''
   });
+  const [isGSCConnected, setIsGSCConnected] = useState(false);
+  const [gscConnectionLoading, setGscConnectionLoading] = useState(false);
 
   // Filter and sort GSC properties alphabetically
   const formatPropertyUrl = (url: string) => {
@@ -333,10 +335,19 @@ export default function Settings() {
     const fetchSettings = async () => {
       try {
         setLoading(true);
+        setGscConnectionLoading(true);
 
-        // Check if we have a token
-        const token = localStorage.getItem('gsc_token');
-        if (!token) {
+        // Use the reliable GSC connection check
+        const googleAuth = new GoogleAuthService();
+        const isConnected = await googleAuth.isGSCConnected();
+        
+        setIsGSCConnected(isConnected);
+        
+        if (!isConnected) {
+          console.log('🔍 GSC not connected, clearing related data');
+          setGscProperties([]);
+          setSelectedProperty('');
+          setGscConnectionLoading(false);
           setLoading(false);
           return;
         }
@@ -349,21 +360,6 @@ export default function Settings() {
 
         // Fetch actual GSC properties
         console.log('🔍 Fetching GSC properties in Settings...');
-        const googleAuth = new GoogleAuthService();
-        
-        // First validate the token
-        const isTokenValid = await googleAuth.validateToken(token);
-        if (!isTokenValid) {
-          console.warn('⚠️ Token validation failed, attempting refresh...');
-          const refreshedToken = await googleAuth.validateAndRefreshToken();
-          if (!refreshedToken) {
-            console.error('❌ Token refresh failed, clearing auth');
-            localStorage.removeItem('gsc_token');
-            localStorage.removeItem('gsc_refresh_token');
-            setLoading(false);
-            return;
-          }
-        }
         
         const properties = await googleAuth.fetchGSCProperties();
         console.log('📊 Properties fetched in Settings:', properties);
@@ -387,7 +383,6 @@ export default function Settings() {
           setCategoryPatterns(JSON.parse(savedPatterns));
         }
 
-        setLoading(false);
       } catch (error) {
         console.error('Error fetching GSC properties:', error);
         toast({
@@ -395,23 +390,56 @@ export default function Settings() {
           description: 'Failed to load GSC properties. Please try again.',
           variant: 'destructive'
         });
+        // Clear properties on error
+        setGscProperties([]);
+        setSelectedProperty('');
+        setIsGSCConnected(false);
+      } finally {
+        setGscConnectionLoading(false);
         setLoading(false);
       }
     };
 
     fetchSettings();
-  }, [user?.email]);
+    
+    // Listen for GSC disconnect events
+    const handleGSCDisconnect = () => {
+      console.log('🔔 Received GSC disconnect event, refreshing Settings state...');
+      setGscProperties([]);
+      setSelectedProperty('');
+      setIsGSCConnected(false);
+      toast({
+        title: 'Google Search Console Disconnected',
+        description: 'Your GSC connection has been removed successfully.',
+        variant: 'default'
+      });
+    };
+    
+    window.addEventListener('gsc-disconnected', handleGSCDisconnect);
+    
+    // Cleanup event listener
+    return () => {
+      window.removeEventListener('gsc-disconnected', handleGSCDisconnect);
+    };
+  }, [user, navigate, location.search, toast]);
 
   // Define refresh function for tab visibility
   const refreshSettingsData = async () => {
     try {
       await fetchUserInstallation();
-      // Also refresh other settings data if needed
-      const token = localStorage.getItem('gsc_token');
-      if (token) {
-        const googleAuth = new GoogleAuthService();
+      
+      // Check GSC connection status
+      const googleAuth = new GoogleAuthService();
+      const isConnected = await googleAuth.isGSCConnected();
+      setIsGSCConnected(isConnected);
+      
+      // Also refresh properties if connected
+      if (isConnected) {
         const properties = await googleAuth.fetchGSCProperties();
         setGscProperties(properties.map(p => p.siteUrl));
+      } else {
+        setGscProperties([]);
+        setSelectedProperty('');
       }
     } catch (error) {
       console.log('Error refreshing settings data:', error);
@@ -681,57 +709,17 @@ export default function Settings() {
       
       await googleAuth.initiateGSCAuth();
       
+      // After successful auth initiation, we'll let the callback handle the rest
+      // The connection status will be updated when the user returns to Settings
+      
     } catch (error) {
       console.error('❌ Error connecting to GSC:', error);
-      
-      // Clear any auth state on error
-      const googleAuth = new GoogleAuthService();
-      googleAuth.clearAuthState();
-      
-      // Enhanced error handling with specific guidance
-      let title = 'Connection Error';
-      let description = 'Failed to connect to Google Search Console';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('Client ID not configured')) {
-          title = 'Configuration Error';
-          description = 'Google OAuth is not properly configured. Please contact support.';
-        } else if (error.message.includes('network')) {
-          title = 'Network Error';
-          description = 'Please check your internet connection and try again.';
-        } else {
-          description = error.message;
-        }
-      }
-      
       toast({
-        title,
-        description,
-        variant: 'destructive',
-        action: (
-          <button
-            onClick={() => {
-              // Clear all auth state and allow retry
-              const googleAuth = new GoogleAuthService();
-              googleAuth.clearAuthState();
-              
-              // Also clear any session flags
-              sessionStorage.removeItem('gsc_auth_in_progress');
-              sessionStorage.removeItem('gsc_oauth_timestamp');
-              
-              toast({
-                title: 'State Cleared',
-                description: 'You can now try connecting again.',
-                variant: 'default'
-              });
-            }}
-            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-          >
-            Clear & Retry
-          </button>
-        )
+        title: 'Connection Failed',
+        description: error.message || 'Failed to connect to Google Search Console. Please try again.',
+        variant: 'destructive'
       });
-      
+    } finally {
       setLoading(false);
     }
   };
@@ -827,7 +815,7 @@ export default function Settings() {
     }
   };
 
-  const isConnected = !!localStorage.getItem('gsc_token');
+                const isConnected = isGSCConnected;
 
   // Branded keyword rules functions
   const addBrandedRule = () => {
