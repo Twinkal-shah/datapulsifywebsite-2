@@ -21,25 +21,53 @@ const Index = () => {
     const loginAttemptFrom = sessionStorage.getItem('login_attempt_from');
     const loginAttemptTimestamp = sessionStorage.getItem('login_attempt_timestamp');
     
-    if (error === 'login_failed' && loginAttemptFrom) {
-      console.log('🔍 Detected login failure redirect:', {
+    // Check for quick redirects (less than 5 seconds) which indicate config issues
+    const timeSinceAttempt = loginAttemptTimestamp ? Date.now() - parseInt(loginAttemptTimestamp) : null;
+    const isQuickRedirect = timeSinceAttempt && timeSinceAttempt < 5000; // Less than 5 seconds
+    
+    if (error === 'login_failed' || (loginAttemptFrom && isQuickRedirect)) {
+      console.log('🔍 Detected login issue:', {
         error,
         attemptFrom: loginAttemptFrom,
         attemptTimestamp: loginAttemptTimestamp,
-        timeSinceAttempt: loginAttemptTimestamp ? Date.now() - parseInt(loginAttemptTimestamp) : 'unknown'
+        timeSinceAttempt,
+        isQuickRedirect
       });
       
+      let title = "Login Issue Detected";
+      let description = "We're having trouble connecting to Google. Please check the browser console for details and try again.";
+      
+      if (isQuickRedirect && !error) {
+        title = "Quick Redirect Detected";
+        description = "You were redirected back very quickly, which usually indicates a configuration issue. Press Ctrl+Shift+D to run diagnostics, or check the browser console for more details.";
+      }
+      
       toast({
-        title: "Login Issue Detected",
-        description: "We're having trouble connecting to Google. Please check the browser console for details and try again. If the issue persists, please contact support.",
+        title,
+        description,
         variant: "destructive",
-        duration: 10000
+        duration: 12000 // Longer duration for better visibility
       });
       
       // Clean up the URL and session storage
-      window.history.replaceState({}, document.title, window.location.pathname);
+      if (error) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       sessionStorage.removeItem('login_attempt_from');
       sessionStorage.removeItem('login_attempt_timestamp');
+    }
+    
+    // Also check for successful authentication from app subdomain
+    const authSuccess = sessionStorage.getItem('auth_success');
+    if (authSuccess === 'true') {
+      console.log('✅ Detected successful authentication');
+      toast({
+        title: "Welcome back!",
+        description: "You've been successfully logged in.",
+        variant: "default",
+        duration: 3000
+      });
+      sessionStorage.removeItem('auth_success');
     }
   }, []);
 

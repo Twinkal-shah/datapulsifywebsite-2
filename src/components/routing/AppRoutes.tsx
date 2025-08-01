@@ -22,6 +22,7 @@ const AppLogin = () => {
   const [status, setStatus] = useState('Initiating login...');
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
     const initiateOAuth = async () => {
@@ -45,6 +46,14 @@ const AppLogin = () => {
         console.log('🔍 Environment debug:', envDebug);
         setDebugInfo(envDebug);
 
+        // Validate required environment variables
+        if (!import.meta.env.VITE_SUPABASE_URL) {
+          throw new Error('VITE_SUPABASE_URL is not configured');
+        }
+        if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
+          throw new Error('VITE_SUPABASE_ANON_KEY is not configured');
+        }
+
         // Check if Supabase is properly initialized
         const { data: session, error: sessionError } = await supabase.auth.getSession();
         console.log('📊 Current session status:', {
@@ -58,6 +67,19 @@ const AppLogin = () => {
         }
 
         setStatus('Redirecting to Google for authentication...');
+
+        // Try the OAuth initiation with enhanced error handling
+        console.log('📤 Attempting OAuth initiation...');
+        
+        // Check if localStorage is available and working
+        try {
+          localStorage.setItem('test_storage', 'test');
+          localStorage.removeItem('test_storage');
+          console.log('✅ localStorage is working');
+        } catch (storageError) {
+          console.error('❌ localStorage error:', storageError);
+          throw new Error('Browser storage is not available. Please check your browser settings and try again.');
+        }
 
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google' as const,
@@ -79,14 +101,43 @@ const AppLogin = () => {
           errorCode: error?.status
         });
 
+        // Check if code verifier was stored (important for PKCE flow)
+        setTimeout(() => {
+          const codeVerifierKeys = Object.keys(localStorage).filter(key => 
+            key.includes('auth-token-code-verifier')
+          );
+          console.log('🔍 PKCE code verifier check:', {
+            found: codeVerifierKeys.length > 0,
+            keys: codeVerifierKeys
+          });
+          
+          if (codeVerifierKeys.length === 0) {
+            console.warn('⚠️ No PKCE code verifier found in localStorage - this may cause callback issues');
+          }
+        }, 100);
+
         if (error) {
           console.error('❌ OAuth initiation error:', error);
-          throw new Error(`Authentication failed: ${error.message}`);
+          
+          // Provide more specific error messages based on error type
+          let userFriendlyMessage = `OAuth initiation failed: ${error.message}`;
+          
+          if (error.message.includes('Invalid login credentials')) {
+            userFriendlyMessage = 'Google OAuth configuration error. Please check that your Google Client ID is correctly configured.';
+          } else if (error.message.includes('redirect_uri_mismatch')) {
+            userFriendlyMessage = 'Redirect URI mismatch. Please ensure https://app.datapulsify.com/auth/google/callback is added to your Google OAuth configuration.';
+          } else if (error.message.includes('access_denied')) {
+            userFriendlyMessage = 'Access was denied. Please try again and grant the necessary permissions.';
+          } else if (error.message.includes('invalid_client')) {
+            userFriendlyMessage = 'Invalid Google Client configuration. Please check your Google OAuth client settings.';
+          }
+          
+          throw new Error(userFriendlyMessage);
         }
 
         if (!data?.url) {
           console.error('❌ No OAuth URL returned from Supabase');
-          throw new Error('No authentication URL received. Please check your configuration.');
+          throw new Error('No authentication URL received. This usually indicates a configuration issue with Supabase or Google OAuth. Please check your environment variables.');
         }
 
         setStatus('Redirecting to Google...');
@@ -94,11 +145,13 @@ const AppLogin = () => {
           url: data.url.substring(0, 100) + '...'
         });
 
-        // Give a moment for the redirect to happen
+        setIsRedirecting(true);
+
+        // Give a moment for the redirect to happen, but don't auto-redirect on error
         setTimeout(() => {
-          if (window.location.href.includes('/auth/login')) {
+          if (!isRedirecting && window.location.href.includes('/auth/login')) {
             console.warn('⚠️ Still on login page after redirect attempt');
-            throw new Error('Redirect to Google failed. Please try again.');
+            setError('Redirect to Google failed. This may be due to popup blockers or browser security settings.');
           }
         }, 5000);
 
@@ -111,12 +164,10 @@ const AppLogin = () => {
         });
         
         setError(errorMessage);
+        setIsRedirecting(false);
         
-        // Show error for longer before redirecting
-        setTimeout(() => {
-          console.log('🔄 Redirecting back to marketing site after error...');
-          window.location.href = 'https://datapulsify.com?error=login_failed';
-        }, 8000); // Increased from 3 seconds to 8 seconds
+        // Don't auto-redirect on error - let user see the error and choose
+        console.log('🛑 Not auto-redirecting due to error. User can manually return to homepage.');
       }
     };
 
@@ -134,7 +185,7 @@ const AppLogin = () => {
               </svg>
             </div>
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Login Error
+              Google Login Error
             </h2>
             <p className="mt-2 text-sm text-gray-600">
               {error}
@@ -145,15 +196,23 @@ const AppLogin = () => {
                 <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
               </div>
             )}
+            <div className="mt-6 space-y-3">
+              <button 
+                onClick={() => window.location.reload()}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Try Again
+              </button>
+              <button 
+                onClick={() => window.location.href = 'https://datapulsify.com'}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Return to Homepage
+              </button>
+            </div>
             <p className="mt-4 text-xs text-gray-500">
-              Redirecting back to homepage in 8 seconds...
+              Press Ctrl+Shift+D on the homepage to run diagnostics
             </p>
-            <button 
-              onClick={() => window.location.href = 'https://datapulsify.com'}
-              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Go Back Now
-            </button>
           </div>
         </div>
       </div>
@@ -180,8 +239,14 @@ const AppLogin = () => {
             </div>
           )}
           <p className="mt-4 text-xs text-gray-500">
-            If this takes too long, please check the browser console for errors.
+            If this takes more than 10 seconds, there may be a configuration issue.
           </p>
+          <button 
+            onClick={() => window.location.href = 'https://datapulsify.com'}
+            className="mt-2 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+          >
+            Cancel and Return Home
+          </button>
         </div>
       </div>
     </div>

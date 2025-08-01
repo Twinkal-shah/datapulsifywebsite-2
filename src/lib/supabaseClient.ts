@@ -4,21 +4,40 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-console.log('Initializing Supabase client with URL:', supabaseUrl ? 'URL exists' : 'URL missing');
+console.log('🔧 Initializing Supabase client...', {
+  hasUrl: !!supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'missing',
+  keyPreview: supabaseAnonKey ? supabaseAnonKey.substring(0, 10) + '...' : 'missing'
+});
 
 // Validate env vars
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase configuration error:',
-    !supabaseUrl ? 'VITE_SUPABASE_URL is missing' : '',
-    !supabaseAnonKey ? 'VITE_SUPABASE_ANON_KEY is missing' : ''
-  );
-  throw new Error('Supabase configuration is incomplete. Check your environment variables.');
+  const missingVars = [];
+  if (!supabaseUrl) missingVars.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missingVars.push('VITE_SUPABASE_ANON_KEY');
+  
+  console.error('❌ Supabase configuration error - missing variables:', missingVars);
+  throw new Error(`Supabase configuration is incomplete. Missing: ${missingVars.join(', ')}. Check your environment variables.`);
+}
+
+// Validate URL format
+if (!supabaseUrl.startsWith('https://') || !supabaseUrl.includes('.supabase.co')) {
+  console.error('❌ Invalid Supabase URL format:', supabaseUrl);
+  throw new Error('Invalid Supabase URL format. Expected: https://your-project.supabase.co');
 }
 
 // Determine the environment and configure accordingly
 const isDev = import.meta.env.DEV;
 const isProduction = window.location.hostname.includes('datapulsify.com');
 const currentPort = window.location.port || '5173';
+
+console.log('🌍 Environment configuration:', {
+  isDev,
+  isProduction,
+  hostname: window.location.hostname,
+  port: currentPort
+});
 
 // Set redirect URL - always redirect to app subdomain for OAuth callbacks
 let redirectUrl: string;
@@ -29,9 +48,7 @@ if (isDev) {
   redirectUrl = import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'https://app.datapulsify.com/auth/google/callback';
 }
 
-console.log('Auth redirect URL:', redirectUrl);
-console.log('Environment:', isDev ? 'development' : 'production');
-console.log('Is Production:', isProduction);
+console.log('🔄 Auth redirect URL:', redirectUrl);
 
 // Create Supabase client with environment-aware configuration
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
