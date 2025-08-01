@@ -1,216 +1,218 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { clearAuthState } from '@/lib/supabaseClient';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-interface DiagnosticInfo {
-  environment: {
-    supabaseUrl: boolean;
-    supabaseKey: boolean;
-    googleClientId: boolean;
-    googleClientSecret: boolean;
-    googleRedirectUri: boolean;
-    isDev: boolean;
-    mode: string;
-  };
-  supabase: {
-    canConnect: boolean;
-    error: string | null;
-  };
-  oauth: {
-    canInitiate: boolean;
-    error: string | null;
-  };
+interface LoginDiagnosticsProps {
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export const LoginDiagnostics: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const [diagnostics, setDiagnostics] = useState<DiagnosticInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+export const LoginDiagnostics: React.FC<LoginDiagnosticsProps> = ({ isOpen, onClose }) => {
+  const [diagnostics, setDiagnostics] = useState<any>(null);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
-    const runDiagnostics = async () => {
-      const results: DiagnosticInfo = {
-        environment: {
-          supabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
-          supabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-          googleClientId: !!import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          googleClientSecret: !!import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-          googleRedirectUri: !!import.meta.env.VITE_GOOGLE_REDIRECT_URI,
-          isDev: import.meta.env.DEV,
-          mode: import.meta.env.MODE || 'unknown'
-        },
-        supabase: {
-          canConnect: false,
-          error: null
-        },
-        oauth: {
-          canInitiate: false,
-          error: null
-        }
-      };
+    if (isOpen) {
+      runDiagnostics();
+    }
+  }, [isOpen]);
 
-      // Test Supabase connection
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          results.supabase.error = error.message;
-        } else {
-          results.supabase.canConnect = true;
-        }
-      } catch (error) {
-        results.supabase.error = error instanceof Error ? error.message : 'Unknown error';
+  const runDiagnostics = async () => {
+    const results = {
+      envVars: {
+        supabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+        supabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+        googleClientId: !!import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        googleClientSecret: !!import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
+        googleRedirectUri: !!import.meta.env.VITE_GOOGLE_REDIRECT_URI,
+      },
+      supabaseConnection: { status: 'testing', error: null },
+      oauthTest: { status: 'testing', error: null },
+      authState: {
+        localStorage: Object.keys(localStorage).filter(key => key.includes('auth')),
+        cookies: document.cookie ? 'present' : 'none'
       }
-
-      // Test OAuth initiation (dry run)
-      try {
-        // Don't actually initiate OAuth, just test the configuration
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: 'https://app.datapulsify.com/auth/google/callback',
-            skipBrowserRedirect: true // This prevents actual redirect
-          }
-        });
-        
-        if (error) {
-          results.oauth.error = error.message;
-        } else if (data?.url) {
-          results.oauth.canInitiate = true;
-        } else {
-          results.oauth.error = 'No OAuth URL returned';
-        }
-      } catch (error) {
-        results.oauth.error = error instanceof Error ? error.message : 'Unknown error';
-      }
-
-      setDiagnostics(results);
-      setLoading(false);
     };
 
-    runDiagnostics();
-  }, []);
+    // Test Supabase connection
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        results.supabaseConnection = { status: 'error', error: error.message };
+      } else {
+        results.supabaseConnection = { status: 'success', error: null };
+      }
+    } catch (err) {
+      results.supabaseConnection = { status: 'error', error: String(err) };
+    }
 
-  if (loading) {
+    // Test OAuth initiation (dry run)
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'https://app.datapulsify.com/auth/google/callback',
+          skipBrowserRedirect: true // Don't actually redirect
+        }
+      });
+      
+      if (error) {
+        results.oauthTest = { status: 'error', error: error.message };
+      } else if (data.url) {
+        results.oauthTest = { status: 'success', error: null };
+      } else {
+        results.oauthTest = { status: 'error', error: 'No OAuth URL generated' };
+      }
+    } catch (err) {
+      results.oauthTest = { status: 'error', error: String(err) };
+    }
+
+    setDiagnostics(results);
+  };
+
+  const handleClearAuthState = async () => {
+    setIsClearing(true);
+    try {
+      await clearAuthState();
+      // Re-run diagnostics after clearing
+      setTimeout(() => {
+        runDiagnostics();
+        setIsClearing(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Error clearing auth state:', error);
+      setIsClearing(false);
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'success': return '✅';
+      case 'error': return '❌';
+      case 'testing': return '🔄';
+      default: return '⚪';
+    }
+  };
+
+  if (!diagnostics) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-          <h3 className="text-lg font-semibold mb-4">Running Login Diagnostics...</h3>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        </div>
-      </div>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Login Diagnostics</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3">Running diagnostics...</span>
+          </div>
+        </DialogContent>
+      </Dialog>
     );
   }
 
-  if (!diagnostics) return null;
-
-  const getStatusIcon = (status: boolean) => status ? '✅' : '❌';
-  const getStatusColor = (status: boolean) => status ? 'text-green-600' : 'text-red-600';
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Login Diagnostics</h3>
-          <button 
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl"
-          >
-            ×
-          </button>
-        </div>
-
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Login Diagnostics</DialogTitle>
+        </DialogHeader>
+        
         <div className="space-y-6">
           {/* Environment Variables */}
           <div>
-            <h4 className="font-medium mb-2">Environment Variables</h4>
-            <div className="bg-gray-50 p-3 rounded text-sm space-y-1">
-              <div className={getStatusColor(diagnostics.environment.supabaseUrl)}>
-                {getStatusIcon(diagnostics.environment.supabaseUrl)} VITE_SUPABASE_URL
-              </div>
-              <div className={getStatusColor(diagnostics.environment.supabaseKey)}>
-                {getStatusIcon(diagnostics.environment.supabaseKey)} VITE_SUPABASE_ANON_KEY
-              </div>
-              <div className={getStatusColor(diagnostics.environment.googleClientId)}>
-                {getStatusIcon(diagnostics.environment.googleClientId)} VITE_GOOGLE_CLIENT_ID
-              </div>
-              <div className={getStatusColor(diagnostics.environment.googleClientSecret)}>
-                {getStatusIcon(diagnostics.environment.googleClientSecret)} VITE_GOOGLE_CLIENT_SECRET
-              </div>
-              <div className={getStatusColor(diagnostics.environment.googleRedirectUri)}>
-                {getStatusIcon(diagnostics.environment.googleRedirectUri)} VITE_GOOGLE_REDIRECT_URI
-              </div>
-              <div className="text-gray-600">
-                🌍 Environment: {diagnostics.environment.isDev ? 'Development' : 'Production'} ({diagnostics.environment.mode})
-              </div>
+            <h3 className="font-semibold mb-3">Environment Variables</h3>
+            <div className="space-y-2 text-sm">
+              {Object.entries(diagnostics.envVars).map(([key, value]) => (
+                <div key={key} className="flex items-center">
+                  <span className="mr-2">{value ? '✅' : '❌'}</span>
+                  <span className="font-mono">{key}</span>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Supabase Connection */}
           <div>
-            <h4 className="font-medium mb-2">Supabase Connection</h4>
-            <div className="bg-gray-50 p-3 rounded text-sm">
-              <div className={getStatusColor(diagnostics.supabase.canConnect)}>
-                {getStatusIcon(diagnostics.supabase.canConnect)} Connection Status
-              </div>
-              {diagnostics.supabase.error && (
-                <div className="text-red-600 mt-1">
-                  Error: {diagnostics.supabase.error}
-                </div>
+            <h3 className="font-semibold mb-3">Supabase Connection</h3>
+            <div className="flex items-center text-sm">
+              <span className="mr-2">{getStatusIcon(diagnostics.supabaseConnection.status)}</span>
+              <span>Connection Status</span>
+              {diagnostics.supabaseConnection.error && (
+                <span className="ml-2 text-red-600">({diagnostics.supabaseConnection.error})</span>
               )}
             </div>
           </div>
 
-          {/* OAuth Configuration */}
+          {/* OAuth Test */}
           <div>
-            <h4 className="font-medium mb-2">OAuth Configuration</h4>
-            <div className="bg-gray-50 p-3 rounded text-sm">
-              <div className={getStatusColor(diagnostics.oauth.canInitiate)}>
-                {getStatusIcon(diagnostics.oauth.canInitiate)} OAuth Initiation
-              </div>
-              {diagnostics.oauth.error && (
-                <div className="text-red-600 mt-1">
-                  Error: {diagnostics.oauth.error}
-                </div>
+            <h3 className="font-semibold mb-3">OAuth Initiation</h3>
+            <div className="flex items-center text-sm">
+              <span className="mr-2">{getStatusIcon(diagnostics.oauthTest.status)}</span>
+              <span>OAuth URL Generation</span>
+              {diagnostics.oauthTest.error && (
+                <span className="ml-2 text-red-600">({diagnostics.oauthTest.error})</span>
               )}
             </div>
+          </div>
+
+          {/* Auth State */}
+          <div>
+            <h3 className="font-semibold mb-3">Current Auth State</h3>
+            <div className="text-sm space-y-2">
+              <div>
+                <strong>localStorage keys:</strong> {diagnostics.authState.localStorage.length > 0 ? diagnostics.authState.localStorage.join(', ') : 'none'}
+              </div>
+              <div>
+                <strong>Cookies:</strong> {diagnostics.authState.cookies}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex space-x-3 pt-4 border-t">
+            <button
+              onClick={handleClearAuthState}
+              disabled={isClearing}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isClearing ? 'Clearing...' : 'Clear Auth State & Retry'}
+            </button>
+            
+            <button
+              onClick={runDiagnostics}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Re-run Diagnostics
+            </button>
+            
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Close
+            </button>
           </div>
 
           {/* Recommendations */}
-          <div>
-            <h4 className="font-medium mb-2">Recommendations</h4>
-            <div className="bg-blue-50 p-3 rounded text-sm space-y-2">
-              {!diagnostics.environment.supabaseUrl && (
-                <div>• Set VITE_SUPABASE_URL in your environment variables</div>
-              )}
-              {!diagnostics.environment.supabaseKey && (
-                <div>• Set VITE_SUPABASE_ANON_KEY in your environment variables</div>
-              )}
-              {!diagnostics.environment.googleClientId && (
-                <div>• Set VITE_GOOGLE_CLIENT_ID in your environment variables</div>
-              )}
-              {!diagnostics.supabase.canConnect && (
-                <div>• Check Supabase configuration and network connectivity</div>
-              )}
-              {!diagnostics.oauth.canInitiate && (
-                <div>• Verify Google OAuth configuration in Google Cloud Console</div>
-              )}
-              {diagnostics.environment.supabaseUrl && 
-               diagnostics.environment.supabaseKey && 
-               diagnostics.supabase.canConnect && 
-               diagnostics.oauth.canInitiate && (
-                <div className="text-green-600">✅ All systems appear to be working correctly!</div>
-              )}
-            </div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+            <h4 className="font-semibold text-yellow-800 mb-2">Recommendations:</h4>
+            <ul className="text-sm text-yellow-700 space-y-1">
+              {!diagnostics.envVars.supabaseUrl && <li>• Check VITE_SUPABASE_URL environment variable</li>}
+              {!diagnostics.envVars.supabaseKey && <li>• Check VITE_SUPABASE_ANON_KEY environment variable</li>}
+              {!diagnostics.envVars.googleClientId && <li>• Check VITE_GOOGLE_CLIENT_ID environment variable</li>}
+              {diagnostics.supabaseConnection.status === 'error' && <li>• Verify Supabase project configuration</li>}
+              {diagnostics.oauthTest.status === 'error' && <li>• Check Google OAuth client configuration</li>}
+              {diagnostics.authState.localStorage.length > 0 && <li>• Try clearing auth state if login is stuck</li>}
+            </ul>
           </div>
         </div>
-
-        <div className="mt-6 flex justify-end">
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }; 

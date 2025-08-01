@@ -313,7 +313,10 @@ const Navbar = () => {
       
       {/* Login Diagnostics Modal */}
       {showDiagnostics && (
-        <LoginDiagnostics onClose={() => setShowDiagnostics(false)} />
+        <LoginDiagnostics 
+          isOpen={showDiagnostics} 
+          onClose={() => setShowDiagnostics(false)} 
+        />
       )}
     </nav>
   );

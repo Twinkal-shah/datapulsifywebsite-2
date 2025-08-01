@@ -61,93 +61,13 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     // Configure cookies for cross-subdomain access in production
     ...(isProduction && {
       cookieOptions: {
-        name: 'sb-yevkfoxoefssdgsodtzd-auth-token',
         domain: '.datapulsify.com',
         path: '/',
         sameSite: 'lax',
         secure: true,
         httpOnly: false // Allow JavaScript access for cross-domain sync
       }
-    }),
-    storage: {
-      getItem: (key) => {
-        try {
-          // First try localStorage
-          let item = localStorage.getItem(key);
-          
-          // If not found in localStorage and we're in production, try cookies
-          if (!item && isProduction) {
-            const cookieName = key.includes('auth-token') ? key : `sb-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
-            const cookies = document.cookie.split(';');
-            const cookie = cookies.find(c => c.trim().startsWith(`${cookieName}=`));
-            if (cookie) {
-              item = decodeURIComponent(cookie.split('=')[1]);
-              // Sync back to localStorage for faster access
-              if (item) {
-                localStorage.setItem(key, item);
-              }
-            }
-          }
-          
-          console.log('Getting auth item:', key, item ? 'exists' : 'missing', {
-            localStorage: !!localStorage.getItem(key),
-            cookieExists: isProduction ? !!document.cookie.split(';').find(c => c.trim().includes(key)) : false
-          });
-          return item;
-        } catch (error) {
-          console.error('Error getting auth item:', error);
-          return null;
-        }
-      },
-      setItem: (key, value) => {
-        try {
-          console.log('Setting auth item:', key);
-          
-          // Always set in localStorage for current domain
-          localStorage.setItem(key, value);
-          sessionStorage.setItem(key, value);
-          
-          // In production, also set as cookie for cross-subdomain access
-          if (isProduction) {
-            const cookieName = key.includes('auth-token') ? key : `sb-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
-            const expires = new Date();
-            expires.setDate(expires.getDate() + 7); // 7 days
-            
-            document.cookie = `${cookieName}=${encodeURIComponent(value)}; domain=.datapulsify.com; path=/; expires=${expires.toUTCString()}; secure; samesite=lax`;
-            
-            console.log('Set cookie:', {
-              key: cookieName,
-              value: value ? 'exists' : 'missing',
-              domain: '.datapulsify.com'
-            });
-          }
-        } catch (error) {
-          console.error('Error setting auth item:', error);
-        }
-      },
-      removeItem: (key) => {
-        try {
-          console.log('Removing auth item:', key);
-          
-          // Remove from localStorage and sessionStorage
-          localStorage.removeItem(key);
-          sessionStorage.removeItem(key);
-          
-          // In production, also remove cookie
-          if (isProduction) {
-            const cookieName = key.includes('auth-token') ? key : `sb-${key.replace(/[^a-zA-Z0-9]/g, '-')}`;
-            document.cookie = `${cookieName}=; domain=.datapulsify.com; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
-            
-            console.log('Removed cookie:', {
-              key: cookieName,
-              domain: '.datapulsify.com'
-            });
-          }
-        } catch (error) {
-          console.error('Error removing auth item:', error);
-        }
-      }
-    }
+    })
   },
   global: {
     headers: {
@@ -195,7 +115,39 @@ const scheduleTokenRefresh = (expiresAt: number) => {
 
 // Log Supabase auth state changes (for debugging)
 supabase.auth.onAuthStateChange((event, session) => {
-  console.log('Supabase Auth State Change:', event, session ? 'Session exists' : 'No session');
+  console.log('🔄 Supabase Auth State Change:', event, session ? 'Session exists' : 'No session');
+  
+  if (session) {
+    console.log('✅ Session details:', {
+      user: session.user.email,
+      expiresAt: session.expires_at,
+      refreshToken: session.refresh_token ? 'exists' : 'missing',
+      accessToken: session.access_token ? 'exists' : 'missing'
+    });
+  } else {
+    console.log('❌ No session available');
+    
+    // Check what's in localStorage
+    const authKeys = Object.keys(localStorage).filter(key => key.includes('auth'));
+    console.log('🔍 Auth keys in localStorage:', authKeys);
+    
+    // Check for session recovery options
+    console.log('🔍 Checking for cross-subdomain authentication...');
+    setTimeout(async () => {
+      try {
+        const { data: { session: recoveredSession }, error } = await supabase.auth.getSession();
+        if (recoveredSession) {
+          console.log('✅ Session recovered:', recoveredSession.user.email);
+        } else if (error) {
+          console.log('❌ Session recovery failed:', error.message);
+        } else {
+          console.log('⚠️ No session recovery options available');
+        }
+      } catch (err) {
+        console.log('❌ Session recovery error:', err);
+      }
+    }, 100);
+  }
   
   // Log detailed session information in development
   if (isDev && session) {
@@ -268,5 +220,45 @@ export const refreshSessionIfNeeded = async (): Promise<boolean> => {
   } catch (error) {
     console.error('Error checking session expiry:', error);
     return false;
+  }
+};
+
+// Helper function to clear all auth state and start fresh
+export const clearAuthState = async (): Promise<void> => {
+  console.log('🧹 Clearing all auth state...');
+  
+  try {
+    // Sign out from Supabase
+    await supabase.auth.signOut();
+    
+    // Clear localStorage
+    const authKeys = Object.keys(localStorage).filter(key => 
+      key.includes('auth') || key.includes('supabase') || key.includes('sb-')
+    );
+    authKeys.forEach(key => {
+      console.log('Removing localStorage key:', key);
+      localStorage.removeItem(key);
+    });
+    
+    // Clear sessionStorage
+    sessionStorage.clear();
+    
+    // Clear cookies (in production)
+    if (isProduction) {
+      // Clear all supabase-related cookies
+      const cookies = document.cookie.split(';');
+      cookies.forEach(cookie => {
+        const cookieName = cookie.split('=')[0].trim();
+        if (cookieName.includes('sb-') || cookieName.includes('auth')) {
+          console.log('Removing cookie:', cookieName);
+          document.cookie = `${cookieName}=; domain=.datapulsify.com; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax`;
+          document.cookie = `${cookieName}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        }
+      });
+    }
+    
+    console.log('✅ Auth state cleared');
+  } catch (error) {
+    console.error('Error clearing auth state:', error);
   }
 };
