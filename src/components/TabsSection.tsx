@@ -4,6 +4,73 @@ import { VIDEO_URLS } from '@/config/videoConfig';
 
 const TabsSection = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
+  const [videoLoading, setVideoLoading] = useState<Record<string, boolean>>({});
+
+  const handleVideoError = (videoKey: string, event: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    // Prevent infinite error loops
+    if (videoErrors[videoKey]) {
+      console.warn(`Video ${videoKey} failed to load even with fallback`);
+      return;
+    }
+
+    console.warn(`Video ${videoKey} failed to load, trying fallback...`);
+    setVideoErrors(prev => ({ ...prev, [videoKey]: true }));
+    setVideoLoading(prev => ({ ...prev, [videoKey]: false }));
+
+    const video = event.currentTarget;
+    
+    // Set fallback URLs based on video type
+    if (videoKey === 'dashboard') {
+      video.src = '/videos/dashboard-final-video.mp4'; // Try local file as fallback
+    } else if (videoKey === 'sheet') {
+      video.src = '/videos/web-dp-add-on.mp4'; // Try local file as fallback
+    }
+  };
+
+  const handleVideoLoadStart = (videoKey: string) => {
+    setVideoLoading(prev => ({ ...prev, [videoKey]: true }));
+  };
+
+  const handleVideoCanPlay = (videoKey: string) => {
+    setVideoLoading(prev => ({ ...prev, [videoKey]: false }));
+  };
+
+  const renderVideo = (videoKey: string, src: string, altText: string) => {
+    if (videoErrors[videoKey]) {
+      return (
+        <div className="w-full h-64 bg-gray-800 flex items-center justify-center text-gray-400">
+          <div className="text-center">
+            <p className="mb-2">Video temporarily unavailable</p>
+            <p className="text-sm">{altText}</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative">
+        {videoLoading[videoKey] && (
+          <div className="absolute inset-0 bg-gray-800 flex items-center justify-center z-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          </div>
+        )}
+        <video 
+          src={src}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-auto"
+          onLoadStart={() => handleVideoLoadStart(videoKey)}
+          onCanPlay={() => handleVideoCanPlay(videoKey)}
+          onError={(e) => handleVideoError(videoKey, e)}
+        >
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    );
+  };
 
   return (
     <section className="bg-black py-12 md:py-16">
@@ -39,44 +106,16 @@ const TabsSection = () => {
           <div className="w-full">
             {activeTab === 'dashboard' && (
               <div className="animate-fade-in">
-                <div className="rounded-xl shadow-2xl overflow-hidden ">
-                  <video 
-                    src={VIDEO_URLS.dashboardFinal}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-auto"
-                    onError={(e) => {
-                      console.error('Video failed to load:', e);
-                      // Fallback to local path
-                      e.currentTarget.src = 'https://res.cloudinary.com/dqqv3zxzp/video/upload/v1751002560/dashboard-final-video_qh5jwx.mov';
-                    }}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                <div className="rounded-xl shadow-2xl overflow-hidden">
+                  {renderVideo('dashboard', VIDEO_URLS.dashboardFinal, 'Dashboard preview coming soon')}
                 </div>
               </div>
             )}
 
             {activeTab === 'sheet' && (
               <div className="animate-fade-in">
-                <div className="rounded-xl shadow-2xl overflow-hidden ">
-                  <video 
-                    src={VIDEO_URLS.dpAddonWorking}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-auto"
-                    onError={(e) => {
-                      console.error('Video failed to load:', e);
-                      // Fallback to local path
-                      e.currentTarget.src = 'https://res.cloudinary.com/dqqv3zxzp/video/upload/v1751003944/web-dp-add-on_rmolpq.mp4';
-                    }}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                <div className="rounded-xl shadow-2xl overflow-hidden">
+                  {renderVideo('sheet', VIDEO_URLS.dpAddonWorking, 'Google Sheets integration preview coming soon')}
                 </div>
               </div>
             )}

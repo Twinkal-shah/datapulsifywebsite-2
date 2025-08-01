@@ -4,7 +4,7 @@ const isDevelopment = import.meta.env.DEV;
 // External hosting URLs - Updated with Cloudinary URLs
 const EXTERNAL_VIDEO_URLS = {
   'dashboard-final-video.mp4': 'https://res.cloudinary.com/dqqv3zxzp/video/upload/v1751002560/dashboard-final-video_qh5jwx.mov',
-  'dp-addon-working.mp4': 'https://res.cloudinary.com/dqqv3zxzp/video/upload/v1751003944/web-dp-add-on_rmolpq.mp4',
+  'web-dp-add-on.mp4': 'https://res.cloudinary.com/dqqv3zxzp/video/upload/v1751003944/web-dp-add-on_rmolpq.mp4', // Fixed filename
   'dashboard-hero-section.gif': '/videos/dashboard-hero-section.gif', // Keep local for smaller files
   'quick-win-screenshot.gif': '/videos/quick-win-screenshot.gif',
   'track-weekly-keyword-rankings.gif': '/videos/track-weekly-keyword-rankings.gif',
@@ -25,7 +25,7 @@ export const getVideoUrl = (filename: string): string => {
 // Export specific video URLs for easy access
 export const VIDEO_URLS = {
   dashboardFinal: getVideoUrl('dashboard-final-video.mp4'),
-  dpAddonWorking: getVideoUrl('dp-addon-working.mp4'),
+  dpAddonWorking: getVideoUrl('web-dp-add-on.mp4'), // Fixed to use correct filename
   dashboardHero: getVideoUrl('dashboard-hero-section.gif'),
   quickWin: getVideoUrl('quick-win-screenshot.gif'),
   weeklyRankings: getVideoUrl('track-weekly-keyword-rankings.gif'),
