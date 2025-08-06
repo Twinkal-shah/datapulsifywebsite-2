@@ -62,39 +62,39 @@ const REPORT_CONFIGS = [
     icon: <TrendingDown className="h-5 w-5 text-red-400" />,
     category: 'Optimization',
     estimatedTime: '3-4 min'
-  },
-  {
-    id: 'emerging_keywords' as ReportType,
-    title: 'Emerging Keywords Insight',
-    description: 'Keywords that started getting impressions in last 3 months',
-    icon: <Search className="h-5 w-5 text-blue-400" />,
-    category: 'Discovery',
-    estimatedTime: '2-3 min'
-  },
-  {
-    id: 'bofu_pages' as ReportType,
-    title: 'BoFu Pages with Traffic Drop',
-    description: 'Bottom-funnel pages experiencing significant traffic decline',
-    icon: <Target className="h-5 w-5 text-orange-400" />,
-    category: 'Conversion',
-    estimatedTime: '3-5 min'
-  },
-  {
-    id: 'ranking_volatility' as ReportType,
-    title: 'Ranking Position Volatility',
-    description: 'Pages with unstable ranking positions requiring attention',
-    icon: <BarChart3 className="h-5 w-5 text-purple-400" />,
-    category: 'Stability',
-    estimatedTime: '4-5 min'
-  },
-  {
-    id: 'quick_wins' as ReportType,
-    title: 'Quick Wins Report',
-    description: 'Low-effort, high-impact optimization opportunities',
-    icon: <Zap className="h-5 w-5 text-green-400" />,
-    category: 'Optimization',
-    estimatedTime: '1-2 min'
   }
+  // {
+  //   id: 'emerging_keywords' as ReportType,
+  //   title: 'Emerging Keywords Insight',
+  //   description: 'Keywords that started getting impressions in last 3 months',
+  //   icon: <Search className="h-5 w-5 text-blue-400" />,
+  //   category: 'Discovery',
+  //   estimatedTime: '2-3 min'
+  // },
+  // {
+  //   id: 'bofu_pages' as ReportType,
+  //   title: 'BoFu Pages with Traffic Drop',
+  //   description: 'Bottom-funnel pages experiencing significant traffic decline',
+  //   icon: <Target className="h-5 w-5 text-orange-400" />,
+  //   category: 'Conversion',
+  //   estimatedTime: '3-5 min'
+  // },
+  // {
+  //   id: 'ranking_volatility' as ReportType,
+  //   title: 'Ranking Position Volatility',
+  //   description: 'Pages with unstable ranking positions requiring attention',
+  //   icon: <BarChart3 className="h-5 w-5 text-purple-400" />,
+  //   category: 'Stability',
+  //   estimatedTime: '4-5 min'
+  // },
+  // {
+  //   id: 'quick_wins' as ReportType,
+  //   title: 'Quick Wins Report',
+  //   description: 'Low-effort, high-impact optimization opportunities',
+  //   icon: <Zap className="h-5 w-5 text-green-400" />,
+  //   category: 'Optimization',
+  //   estimatedTime: '1-2 min'
+  // }
 ];
 
 export default function CustomAIDashboard() {
